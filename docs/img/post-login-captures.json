@@ -185,5 +185,158 @@
    "residual_rayben": 0,
    "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님)"
   }
+ },
+ {
+  "file": "vercel-post-11-clone-create@2x.png",
+  "title": "Deploy 버튼 1단계 — 저장소 복사본 만들기(Create)",
+  "url": "https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2F<가입ID>%2Feformsign-guestbook&project-name=eformsign-guestbook&repository-name=eformsign-guestbook&env=KIOSK_CONFIG&envDescription=…",
+  "action_box": {
+   "x": 28.3,
+   "y": 58.9,
+   "w": 43.3,
+   "h": 4
+  },
+  "note": "「Create」 버튼. 저장소 이름은 Deploy 버튼 주소의 repository-name 값으로 미리 채워진다. 라벨이 「Private Repository Name」인 점에 주의 — 이 단계는 원본 저장소를 그대로 쓰는 게 아니라 고객 GitHub 계정에 비공개 복사본을 새로 만든다. 같은 이름 저장소가 이미 있으면 이름을 바꿔야 한다.",
+  "redaction": {
+   "replaced_nodes": null,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님). 촬영 직전 innerText 기준 rayben/FORCS 검출 0건."
+  }
+ },
+ {
+  "file": "vercel-post-12-env-empty@2x.png",
+  "title": "Deploy 버튼 2단계 — 설정값 입력 칸(비어 있는 상태)",
+  "url": "https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2F<가입ID>%2Feformsign-guestbook&project-name=eformsign-guestbook&repository-name=eformsign-guestbook&env=KIOSK_CONFIG&envDescription=…",
+  "action_box": {
+   "x": 49.9,
+   "y": 60.3,
+   "w": 21.3,
+   "h": 6.7
+  },
+  "note": "KIOSK_CONFIG 의 Value 칸. Name 칸은 KIOSK_CONFIG 로 미리 채워져 회색(수정 불가)으로 보인다. 칸 아래에 Deploy 버튼 주소의 envDescription 문구가 그대로 뜬다.",
+  "redaction": {
+   "replaced_nodes": null,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님). 촬영 직전 innerText 기준 rayben/FORCS 검출 0건."
+  }
+ },
+ {
+  "file": "vercel-post-13-env-filled@2x.png",
+  "title": "Deploy 버튼 2단계 — 설정값을 붙여 넣은 뒤",
+  "url": "https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2F<가입ID>%2Feformsign-guestbook&project-name=eformsign-guestbook&repository-name=eformsign-guestbook&env=KIOSK_CONFIG&envDescription=…",
+  "action_box": {
+   "x": 27.8,
+   "y": 73.2,
+   "w": 43.3,
+   "h": 4
+  },
+  "note": "「Deploy」 버튼. 붙여 넣은 값은 한 줄이 길어 칸 안에서 잘려 보이는 게 정상이다. 값은 Vercel 환경변수로만 들어가고 저장소 파일에는 남지 않는다.",
+  "redaction": {
+   "replaced_nodes": null,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님). 촬영 직전 innerText 기준 rayben/FORCS 검출 0건."
+  }
+ },
+ {
+  "file": "vercel-post-21-overview@2x.png",
+  "title": "배포완료 후 프로젝트 Overview",
+  "url": "https://vercel.com/raybens-projects/eformsign-guestbook-test",
+  "action_box": {
+   "x": 50,
+   "y": 27.2,
+   "w": 18.2,
+   "h": 1.9
+  },
+  "note": "Domains 항목의 eformsign-guestbook-test.vercel.app 링크 — 고객이 태블릿에 입력할 배포 주소. 우상단 Visit 버튼 박스는 x88 y10.1 w3.5 h3.8.",
+  "redaction": {
+   "replaced_nodes": 4,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원, FORCS-CB→가입ID (촬영 전 DOM 치환, 블러 아님). 촬영 직전 innerText 기준 rayben/FORCS-CB 검출 0건."
+  }
+ },
+ {
+  "file": "vercel-post-22-deployments@2x.png",
+  "title": "Deployments 탭 — 최신 배포 Ready 행",
+  "url": "https://vercel.com/raybens-projects/eformsign-guestbook-test/deployments",
+  "action_box": {
+   "x": 19.5,
+   "y": 19.8,
+   "w": 77,
+   "h": 3.5
+  },
+  "note": "Initial commit / Ready 8s / Production 행. 스켈레톤 고착 없이 즉시 렌더됨(별도 강제 클릭 불필요).",
+  "redaction": {
+   "replaced_nodes": 4,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원, FORCS-CB→가입ID. 촬영 직전 innerText 기준 rayben/FORCS-CB 검출 0건."
+  }
+ },
+ {
+  "file": "vercel-post-23-deployment-detail@2x.png",
+  "title": "최신 배포 상세 — Deployment Details(고객이 배포 뒤 보는 완료 화면 대용)",
+  "url": "https://vercel.com/raybens-projects/eformsign-guestbook-test/<deployment-id>",
+  "action_box": {
+   "x": 50,
+   "y": 38.8,
+   "w": 18,
+   "h": 1.6
+  },
+  "note": "Domains 목록의 eformsign-guestbook-test.vercel.app. Status=Ready Latest, Environment=Production Current 로 배포 성공을 확인.",
+  "redaction": {
+   "replaced_nodes": 4,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원, FORCS-CB→가입ID. 촬영 직전 innerText 기준 rayben/FORCS-CB 검출 0건."
+  }
+ },
+ {
+  "file": "vercel-post-24-env-vars@2x.png",
+  "title": "Settings > Environment Variables",
+  "url": "https://vercel.com/raybens-projects/eformsign-guestbook-test/settings/environment-variables",
+  "action_box": {
+   "x": 93.9,
+   "y": 34.8,
+   "w": 2.2,
+   "h": 3.6
+  },
+  "note": "KIOSK_CONFIG 1행. Value 는 점(dots)으로 마스킹되어 값 노출 없음. action_box는 행 끝 「...」 버튼(Edit 진입점) 위치 — 클릭하지 않고 위치만 확인.",
+  "redaction": {
+   "replaced_nodes": 4,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원, FORCS-CB→가입ID. 촬영 직전 innerText 기준 rayben/FORCS-CB 검출 0건."
+  }
+ },
+ {
+  "file": "vercel-post-25-domains@2x.png",
+  "title": "Settings > Domains",
+  "url": "https://vercel.com/raybens-projects/eformsign-guestbook-test/settings/domains",
+  "action_box": {
+   "x": 19.3,
+   "y": 19.5,
+   "w": 14.5,
+   "h": 2.5
+  },
+  "note": "기본 도메인 eformsign-guestbook-test.vercel.app / Production / Valid Configuration.",
+  "redaction": {
+   "replaced_nodes": 4,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원, FORCS-CB→가입ID. 촬영 직전 innerText 기준 rayben/FORCS-CB 검출 0건."
+  }
+ },
+ {
+  "file": "vercel-post-26-deployment-menu@2x.png",
+  "title": "Deployments 행 「…」 메뉴를 연 상태",
+  "url": "https://vercel.com/raybens-projects/eformsign-guestbook-test/deployments",
+  "action_box": {
+   "x": 82.9,
+   "y": 34.9,
+   "w": 4.2,
+   "h": 2.2
+  },
+  "note": "열린 메뉴 항목 = Instant Rollback(비활성)/Promote(비활성)/Redeploy/Inspect Deployment/View Source/Copy URL/Assign Domain/Visit. action_box=Redeploy 항목 위치(클릭하지 않음 — 설정 변경 뒤 재배포할 때 쓰는 버튼이라는 안내용).",
+  "redaction": {
+   "replaced_nodes": 16,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원, FORCS-CB→가입ID. 촬영 직전 innerText 기준 rayben/FORCS-CB 검출 0건."
+  }
  }
 ]

@@ -1,8 +1,18 @@
 // 무응답 리셋 5케이스 실기 검증 — 헤드리스 CDP
 import fs from 'node:fs';
+import { resolveCoords } from './form-coords.mjs';
 const PORT = process.env.CDP_PORT || '9233';
 const BASE = process.env.KIOSK_BASE || 'http://localhost:8099';
 const OUT = 'D:/pjt/eformsign/kiosk-product/evidence/final';
+/** 🔴 작성 프레임 안을 터치하는 좌표. 서식 항목이 바뀌면 입력칸 위치도 바뀐다.
+ *  프레임은 다른 도메인이라 위치를 자동으로 찾을 수 없다(실측 부정 결과 — form-coords.mjs 머리말).
+ *  해석 규칙은 verify-kiosk.mjs 와 같은 `form-coords.mjs` 를 쓴다.
+ *    · 서식별 프로필:  KIOSK_QUERY="company=..&template=<formId>"  → form-profiles/<formId>.json 자동 적용
+ *    · 직접 지정:      KIOSK_TAP_X=500 KIOSK_TAP_Y=518 node probe-idle-reset.mjs
+ *  아무 입력칸이어도 된다 — 이 프로브가 보는 것은 "프레임 안으로 포커스가 들어갔는가" 뿐이다. */
+const { coords: COORDS, sources: COORD_SRC } = resolveCoords({ argv: process.argv, env: process.env });
+const [TAP_X, TAP_Y] = COORDS.name;
+console.log('COORDS name=' + JSON.stringify(COORDS.name) + ' via ' + COORD_SRC.join(','));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -41,7 +51,7 @@ await send('Emulation.setDeviceMetricsOverride', { width: 768, height: 1024, dev
 
 // ── CASE 1: 프레임 안에 포커스를 두고 40초 대기 → abandon 한도(180s) 전이므로 리셋 없음 (idle=15)
 await nav(`${BASE}/?idle=15&abandon=180&debug=1`);
-await click(500, 518);                       // 방문자 성명 입력 영역
+await click(TAP_X, TAP_Y);                       // 작성 프레임 안 입력칸
 await sleep(800);
 for (const ch of '홍길동') await send('Input.insertText', { text: ch });
 await sleep(500);
@@ -81,7 +91,7 @@ report.case3 = { start: c3start, warn: c3warn, cancelled: c3cancel, after: c3aft
 // ── CASE 4 (2026-09-16 신설): 프레임 안에 포커스를 **유지한 채** 이탈 → abandon 리셋이 와야 한다
 //    이전 판은 포커스가 프레임 안이면 매 초 타이머를 되감아 리셋이 영원히 오지 않았다.
 await nav(`${BASE}/?idle=15&abandon=20&countdown=5&debug=1`);
-await click(500, 518);                       // 방문자 성명 입력 영역 = 포커스가 프레임 안으로
+await click(TAP_X, TAP_Y);                       // 작성 프레임 안 입력칸 = 포커스가 프레임 안으로
 await sleep(800);
 for (const ch of '이탈테스트') await send('Input.insertText', { text: ch });
 await sleep(800);
@@ -97,7 +107,7 @@ report.case4 = { start: c4start, warn: c4warn, after: c4after,
 // ── CASE 5 (2026-09-16 신설): 카운트다운 덮개를 터치 → 취소되고 타이머가 다시 시작해야 한다
 //    (포커스가 프레임 안에 있어도 덮개가 화면 전체를 덮으므로 부모가 터치를 받는다)
 await nav(`${BASE}/?idle=15&abandon=20&countdown=5&debug=1`);
-await click(500, 518);
+await click(TAP_X, TAP_Y);
 await sleep(800);
 for (const ch of '이탈테스트') await send('Input.insertText', { text: ch });
 const c5start = JSON.parse(await st());

@@ -11,6 +11,9 @@
  *   EFORMSIGN_MEMBER_ID=...          (선택) 멤버 토큰으로 조회할 때
  *   KIOSK_FORM_ID=...                (선택) 이 템플릿의 문서만 집계
  *   KIOSK_REPORT_DAYS=30             (선택) 조회 기간(일). 기본 30
+ *   KIOSK_REPORT_FIELD_VALUES=on     (선택) 서식 항목 **값**까지 리포트에 싣는다.
+ *                                    기본은 끔 — 개인정보가 담긴 항목 값은 기본으로 싣지 않는다.
+ *                                    항목 열 구성은 어느 쪽이든 서식에서 자동으로 온다.
  *
  * 전달(있는 것만 쓴다. 둘 다 없으면 응답 JSON 으로만 돌려준다)
  *   REPORT_WEBHOOK_URL=https://...   JSON POST
@@ -21,7 +24,7 @@
  *   - 수동 호출: `REPORT_SECRET` 을 정하고 `/api/report?secret=<값>` 으로 부른다.
  *   - 둘 다 없으면 401. (공개 URL 로 문서 통계가 새지 않게 하기 위해서)
  */
-import { fetchCompletedDocumentRows, summarize } from './lib/eformsign-report.mjs';
+import { fetchCompletedDocumentRows, summarize, cellOf } from './lib/eformsign-report.mjs';
 
 const json = (res, status, body) => {
   res.statusCode = status;
@@ -50,12 +53,14 @@ export default async function handler(req, res) {
     const endDate = new Date();
     const startDate = new Date(endDate.getTime() - (days - 1) * 86400000);
 
-    const { rows, scannedCount, pages } = await fetchCompletedDocumentRows({
+    const { rows, columns, scannedCount, pages, truncated } = await fetchCompletedDocumentRows({
       apiKey: env.EFORMSIGN_API_KEY,
       privateKey: env.EFORMSIGN_PRIVATE_KEY,
       memberId: env.EFORMSIGN_MEMBER_ID || undefined,
       tokenUrl: env.EFORMSIGN_TOKEN_URL || undefined,
       templateIds: env.KIOSK_FORM_ID ? [env.KIOSK_FORM_ID] : undefined,
+      // 기본은 끔 — 개인정보가 담긴 항목 값은 명시로 켤 때만 싣는다.
+      fieldValues: /^(1|true|yes|on)$/i.test(String(env.KIOSK_REPORT_FIELD_VALUES || '').trim()),
       startDate, endDate,
     });
 
@@ -65,6 +70,8 @@ export default async function handler(req, res) {
       period: { days, start: startDate.toISOString().slice(0, 10), end: endDate.toISOString().slice(0, 10) },
       scanned: scannedCount,
       pages,
+      truncated,
+      columns,
       summary: summarize(rows),
       rows,
     };
@@ -100,11 +107,14 @@ export default async function handler(req, res) {
   }
 }
 
+const MAX_TEXT_ROWS = 100;   // 메일 본문이 한없이 길어지지 않게 한다.
+
 function renderText(report) {
   const s = report.summary;
   const lines = [
     `기간: ${report.period.start} ~ ${report.period.end} (${report.period.days}일)`,
     `완료 문서: ${s.total}건 (스캔 ${report.scanned}건)`,
+    ...(report.truncated ? ['⚠ 조회 상한에 걸려 뒤쪽 문서가 빠졌습니다. 조회 기간을 줄여 주세요.'] : []),
     '',
     '일자별',
     ...Object.entries(s.byDate).sort().map(([d, n]) => `  ${d}  ${n}건`),
@@ -112,5 +122,14 @@ function renderText(report) {
     '월별',
     ...Object.entries(s.byMonth).sort().map(([m, n]) => `  ${m}  ${n}건`),
   ];
+
+  // 🔴 열 구성은 서식에서 온다 — 항목이 0개인 서식이면 고정 열만 나온다.
+  const cols = report.columns || [];
+  if (cols.length && report.rows.length) {
+    const shown = report.rows.slice(0, MAX_TEXT_ROWS);
+    lines.push('', '문서별', '  ' + cols.map((c) => c.label).join(' | '));
+    for (const r of shown) lines.push('  ' + cols.map((c) => cellOf(r, c)).join(' | '));
+    if (report.rows.length > shown.length) lines.push(`  … 그 밖 ${report.rows.length - shown.length}건`);
+  }
   return lines.join('\n');
 }

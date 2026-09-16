@@ -2,8 +2,18 @@
  * 키오스크 래퍼 실기 검증 — (A) 즉시 복귀 / (B) 감사 화면 후 복귀 를 연속 2회 돌린다.
  * node verify-kiosk.mjs --port 9226 --mode immediate|thanks --rounds 2 --name 홍길동
  * 좌표는 768x1024 태블릿 뷰포트 기준.
+ *
+ * 🔴 서식 항목이 바뀌면 좌표가 어긋난다(2026-09-16).
+ *    작성 프레임은 다른 도메인의 iframe 이고 그 안의 OZ 뷰어는 입력칸을 DOM 으로 노출하지
+ *    않는다 — 즉 **입력칸 위치를 자동으로 찾아낼 방법이 없다**(실측 부정 결과).
+ *    그래서 좌표를 코드에서 빼내 옵션으로 만든다. 서식을 고친 고객은 다음 중 하나를 쓴다.
+ *      · 값 입력을 건너뛴다:            --notype        ← 항목 변경과 무관하게 항상 동작
+ *      · 좌표를 직접 준다:              --name-x 480 --name-y 464 --org-x 520 --org-y 518
+ *      · 좌표 묶음을 파일로 준다:        --coords <json>   (키: consent, continue, name, org, send, popup1, popup2)
+ *    좌표 잡는 법은 README 「서식을 고친 뒤」 절.
  */
 import fs from 'node:fs';
+import { resolveCoords } from './form-coords.mjs';
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > -1 ? process.argv[i + 1] : d; };
 const PORT = arg('port', '9226');
 const MODE = arg('mode', 'immediate');
@@ -22,6 +32,9 @@ const EXTRA = (() => {
   return parts.length ? '&' + parts.join('&') : '';
 })();
 const EV = arg('ev', 'D:/pjt/eformsign/kiosk-product/evidence');
+
+/** 클릭 좌표 — 해석 규칙은 form-coords.mjs 한 곳에 둔다(프로브들과 공용). */
+const { coords: COORDS, sources: COORD_SRC } = resolveCoords({ argv: process.argv, env: process.env });
 const TAG = MODE === 'immediate' ? 'A' : 'B';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -69,6 +82,7 @@ await send('Page.enable', {});
 await send('Page.navigate', { url: `${BASE}/?idle=0&mode=${MODE}&sec=4${EXTRA}` });
 await sleep(3000);
 
+console.log('COORDS ' + JSON.stringify(COORDS) + ' via ' + COORD_SRC.join(','));
 const results = [];
 for (let round = 1; round <= ROUNDS; round++) {
   const visitor = arg('name', '방문객') + round;
@@ -81,27 +95,27 @@ for (let round = 1; round <= ROUNDS; round++) {
   await shot(`${TAG}-r${round}-1-blank-form`);
 
   // 이전 회차의 입력값이 남아 있지 않은지: 성명 칸을 캡처로 남긴다(위 스크린샷)
-  await click(38, 196);            // 전자문서 사용 동의 체크
-  await click(708, 175, 9000);     // 계속
+  await click(...COORDS.consent);            // 전자문서 사용 동의 체크
+  await click(COORDS.continue[0], COORDS.continue[1], 9000);   // 계속
   await shot(`${TAG}-r${round}-2-editable`);
 
   if (!process.argv.includes('--notype')) {
-    await click(480, 464, 1500);   // 성명 입력칸 (현행 좌표, 2026-09-15 재확인)
+    await click(COORDS.name[0], COORDS.name[1], 1500);   // 첫 번째 텍스트 입력칸
     await type(visitor);
     await sleep(800);
-    await click(520, 518, 1200);   // 소속 입력칸
+    await click(COORDS.org[0], COORDS.org[1], 1200);     // 두 번째 텍스트 입력칸
     await type('검증팀');
     await sleep(1200);
   }
   await shot(`${TAG}-r${round}-3-filled`);
 
   const before = await evalJs('window.__kioskState.submits');
-  await click(686, 973, 6000);     // 전송
+  await click(COORDS.send[0], COORDS.send[1], 6000);     // 전송
   await shot(`${TAG}-r${round}-4-send-clicked`);
 
   // 확인 팝업(문서 전송)의 전송 버튼. reCAPTCHA 유무로 팝업 높이가 달라지므로 두 위치를 모두 누른다.
-  await click(606, 639, 3000);
-  if (!(await evalJs(`window.__kioskState.submits > ${before}`))) await click(606, 716, 4000);
+  await click(COORDS.popup1[0], COORDS.popup1[1], 3000);
+  if (!(await evalJs(`window.__kioskState.submits > ${before}`))) await click(COORDS.popup2[0], COORDS.popup2[1], 4000);
 
   await waitFor(`window.__kioskState.submits > ${before}`, 60000, '제출 감지');
   const docs = await evalJs('JSON.stringify(window.__kioskState.docs)');

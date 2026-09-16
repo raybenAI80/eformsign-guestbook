@@ -4,7 +4,10 @@
  *
  *   node tools/check-plain-language.mjs setup.html
  *
- * 검사 대상 : HTML 의 **표시 텍스트 노드**만.
+ * 검사 1 (금칙어)   : HTML 의 **표시 텍스트 노드**만.
+ * 검사 2 (조사 띄어쓰기): 숫자·로마자 뒤에 띄어 쓴 조사(「0 이면」·「Create 를」)를 FAIL 로 잡는다.
+ *                     표시 텍스트 노드 + <script> 안의 한글 문자열까지 본다(주석은 뺀다).
+ *                     규칙 = 숫자/로마자 + 조사는 붙여 쓰고 그 덩어리를 <span class="nb"> 로 묶는다.
  * 검사 제외 : <script> · <style> 안, 괄호 안의 원어, data-term-ok 속성이 붙은 요소와 그 자식
  *            (Vercel 화면에 실제로 보이는 영문 버튼 이름을 그대로 인용할 때 쓴다).
  * 종료 코드 : 검출 0 이면 0, 하나라도 있으면 1.
@@ -30,6 +33,35 @@ const BANNED = [
   [/\bCLI\b/g, 'CLI', '명령 창'],
   [/터미널/g, '터미널', '명령 창'],
 ];
+
+/** 조사 목록 — 긴 것부터 (앞의 대안이 먼저 맞는다) */
+const JOSA = ['이라고','라고','이면','라면','에서','까지','부터','으로','은','는','이','가','을','를','에','로','와','과','도','만','의'];
+/**
+ * 문서 전체(줄바꿈 포함)에서 쓰는 검사 — <code>/<b>/<span> 같은 인라인 태그가
+ * 용어와 조사 사이에 끼어 있어도, 태그를 지우고 이어붙이면 같은 문구다.
+ * 구분자를 \s+ 로 잡아 개행·들여쓰기로 갈라진 경우도 잡는다.
+ * (붙어 있으면, 즉 구분자가 전혀 없으면 이미 올바른 표기이므로 매치되지 않는다.)
+ */
+const JOSA_RE_WHOLE = new RegExp('([0-9A-Za-z%~][0-9A-Za-z%~.+_-]*)(\\s+)(' + JOSA.join('|') + ')(?![\\uac00-\\ud7a3])', 'g');
+
+/**
+ * 주석 줄을 빈 줄로 만든다 — 주석은 화면에 안 보이므로 조사 검사 대상이 아니다.
+ * 줄 단위 상태기계로 본다(정규식 한 방으로 뭉텅이 제거하면 본문까지 함께 사라진다 — 실측 확인).
+ */
+function blankCommentLines(src) {
+  let inBlock = false;   // CSS/JS 블록 주석
+  let inHtml = false;    // HTML 주석
+  return src.split('\n').map((ln) => {
+    const t = ln.trim();
+    let drop = false;
+    if (inBlock) { drop = true; if (t.includes('*' + '/')) inBlock = false; return ''; }
+    if (inHtml) { drop = true; if (t.includes('-->')) inHtml = false; return ''; }
+    if (t.startsWith('<!--')) { if (!t.includes('-->')) inHtml = true; return ''; }
+    if (t.startsWith('/*')) { if (!t.includes('*' + '/')) inBlock = true; return ''; }
+    if (t.startsWith('*') || t.startsWith('//')) return '';
+    return drop ? '' : ln;
+  }).join('\n');
+}
 
 const VOID = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
 
@@ -114,6 +146,27 @@ function main() {
       process.exit(2);
     }
     const html = fs.readFileSync(file, 'utf8');
+
+    // ── 검사 2: 숫자·로마자(코드 용어 포함) 뒤에 띄어 쓴 조사 ──
+    // 태그를 지우고 문서 전체를 이어붙여 스캔한다 — <code>KIOSK_CONFIG</code> 라고
+    // 처럼 인라인 태그가 용어와 조사 사이에 끼어도, 줄이 바뀌어도 놓치지 않는다.
+    const blanked = blankCommentLines(html);
+    const stripped = decodeEntities(blanked.replace(/<[^>]*>/g, ''));
+    JOSA_RE_WHOLE.lastIndex = 0;
+    let jm;
+    while ((jm = JOSA_RE_WHOLE.exec(stripped))) {
+      hits++;
+      const lineNo = stripped.slice(0, jm.index).split('\n').length;
+      const term = jm[1];
+      const josa = jm[3];
+      const ctxStart = Math.max(0, jm.index - 30);
+      const ctxEnd = Math.min(stripped.length, jm.index + jm[0].length + 20);
+      const snippet = stripped.slice(ctxStart, ctxEnd).replace(/\s+/g, ' ').trim();
+      console.log(`${rel}:${lineNo}  조사 띄어쓰기 「${term} ${josa}」 → 「${term}${josa}」 로 붙여 쓰고 <span class="nb"> 로 묶으세요`);
+      console.log(`    … ${snippet}`);
+    }
+
+    // ── 검사 1: 금칙어 ──
     for (const [line, raw] of textNodes(html)) {
       const text = stripParens(decodeEntities(raw));
       for (const [re, name, better] of BANNED) {
@@ -128,10 +181,10 @@ function main() {
     }
   }
   if (hits === 0) {
-    console.log(`쉬운 말 게이트 통과 — 금칙어 0건 (${targets.join(', ')})`);
+    console.log(`쉬운 말 게이트 통과 — 금칙어 0건 · 조사 띄어쓰기 0건 (${targets.join(', ')})`);
     process.exit(0);
   }
-  console.log(`\n금칙어 ${hits}건 검출 — 화면 문안을 고치세요.`);
+  console.log(`\n금칙어·조사 띄어쓰기 합계 ${hits}건 검출 — 화면 문안을 고치세요.`);
   process.exit(1);
 }
 

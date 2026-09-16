@@ -42,6 +42,7 @@ const ENV_MAP = [
   ['KIOSK_IDLE_SECONDS',      'idleResetSeconds',   'number'],
   ['KIOSK_ABANDON_SECONDS',   'abandonResetSeconds','number'],
   ['KIOSK_COUNTDOWN_SECONDS', 'countdownSeconds',   'number'],
+  ['KIOSK_LOAD_WATCH_SECONDS','loadWatchSeconds',   'number'],
   ['KIOSK_SHOW_HEADER',       'showHeader',         'boolean'],
   ['KIOSK_HIDE_REQUEST_POPUP','hideRequestPopup',   'boolean'],
   ['KIOSK_DEBUG',             'debug',              'boolean'],
@@ -51,13 +52,15 @@ const DEFAULTS = {
   productName: '이폼사인 방명록',
   companyId: '', templateId: '', countryCode: 'kr', langCode: 'ko',
   companyName: '', logoUrl: '',
-  title: '방문자 기록부',
-  subtitle: '방문 정보를 입력하고 서명한 뒤 전송을 눌러 주세요.',
-  visitorName: '방문자',
+  title: '문서 작성',
+  subtitle: '내용을 작성한 뒤 전송을 눌러 주세요.',
+  visitorName: '작성자',
   mode: 'thanks', thanksSeconds: 5,
   thanksMessage: '작성해 주셔서 감사합니다.',
   thanksSubMessage: '잠시 후 처음 화면으로 돌아갑니다.',
   idleResetSeconds: 120, abandonResetSeconds: 180, countdownSeconds: 5,
+  // 서식 로드 감시 시간(초). 이 시간 안에 작성 화면이 안 뜨면 담당자 확인 안내를 띄운다.
+  loadWatchSeconds: 25,
   showHeader: true, hideRequestPopup: true, debug: false,
 };
 

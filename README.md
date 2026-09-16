@@ -170,13 +170,13 @@ python -m http.server 8099 --bind 127.0.0.1
 | `countryCode` / `langCode` | 국가·언어 코드 | `kr` / `ko` |
 | `companyName` | 헤더에 로고가 없을 때 표시할 회사 이름 | (비어 있음) |
 | `logoUrl` | 헤더 로고. `assets/logo.png` · `data:` · 절대 주소 모두 가능 | (비어 있음) |
-| `title` / `subtitle` | 화면 제목·안내 문구 | `방문자 기록부` / 안내 문장 |
-| `visitorName` | 작성자 표시 이름 | `방문자` |
+| `title` / `subtitle` | 화면 제목·안내 문구. 서식 이름을 넣으세요 | `문서 작성` / `내용을 작성한 뒤 전송을 눌러 주세요.` |
+| `visitorName` | 작성자 표시 이름 | `작성자` |
 | `mode` | `immediate` 또는 `thanks` | `thanks` |
 | `thanksSeconds` | 감사 화면을 보여 주는 시간(초) | `5` |
 | `idleResetSeconds` | 빈 화면 방치 되돌리기(초). `0` 이면 끔 | `120` |
 | `abandonResetSeconds` | 작성 시작 뒤 되돌리기(초). **마지막으로 관측된 활동**부터 셉니다(제약 6) | `180` |
-| `countdownSeconds` | 복귀 카운트다운(초) | `5` |
+| `countdownSeconds` | 복귀 카운트다운(초). 눈이 잘 보이지 않거나 글을 읽는 데 시간이 걸리는 방문자가 오는 곳이라면 <span class="nb">20초</span> 이상으로 넉넉히 두세요(`docs/accessibility.md`) | `5` |
 | `showHeader` | 이폼사인 기본 헤더(전송 버튼 포함) | `true` |
 | `hideRequestPopup` | 전송 확인 팝업 숨김 시도(현재 효과 없음, 제약 5) | `true` |
 | `debug` | 진단 로그 패널. **현장에서는 꺼 두세요**(패널이 터치를 가로챕니다) | `false` |
@@ -272,13 +272,17 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 | `EFORMSIGN_MEMBER_ID` | (선택) 멤버 토큰으로 조회할 때 |
 | `KIOSK_REPORT_DAYS` | (선택) 조회 기간(일). 기본 `30` |
 | `REPORT_SECRET` | 수동 호출용 열쇠. `/api/report?secret=<값>` |
+| `KIOSK_REPORT_FIELD_VALUES` | (선택) `on` 이면 서식 항목 **값**까지 싣습니다. 기본은 끔 |
 | `REPORT_WEBHOOK_URL` | 있으면 결과를 JSON 으로 POST |
 | `RESEND_API_KEY` · `REPORT_TO_EMAIL` · `REPORT_FROM_EMAIL` | 있으면 Resend 로 메일 발송 |
 
 3. 하루 한 번 자동 실행하려면 `vercel.report.json` 의 `crons` 블록을 `vercel.json` 최상위에
    붙여 넣고 다시 배포합니다. 🔴 **Vercel 무료 플랜의 크론은 하루 1회까지만** 허용됩니다.
 
-리포트에는 **개인 식별 정보를 담지 않습니다** — 문서명·템플릿명·완료일·처리시간(분)만 모읍니다.
+리포트 표의 열은 **서식 항목에서 그때그때 만듭니다** — 어떤 서식을 붙여도 항목이 열로 따라옵니다.
+🔴 다만 **개인정보가 담긴 항목 값은 기본으로 싣지 않습니다.** 기본 리포트에 담기는 것은
+문서명·서식명·완료일·처리시간(분)과 **어떤 항목이 있었는지**까지입니다.
+값까지 필요하면 `KIOSK_REPORT_FIELD_VALUES=on` 을 넣어 켭니다.
 
 ---
 
@@ -305,6 +309,37 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 - 방문자의 개인정보를 받으므로 템플릿에 **수집·이용 동의 항목**을 반드시 두세요.
 - 공용 단말이므로 직전 방문자의 입력이 남지 않는 것이 중요합니다. 이 페이지는 세션마다
   작성 프레임을 통째로 새로 만듭니다.
+
+### 서식을 바꾸거나 다른 서식으로 교체할 때
+
+이 화면은 **어떤 서식이든** 띄웁니다. 항목을 바꾸든 서식을 통째로 갈아끼우든 할 일은
+[docs/after-form-change.md](docs/after-form-change.md) 에 있습니다. 요약하면 **다시 발행 →
+「URL로 문서 생성 허용」 재확인 → 문서 관리 목록에 보일 항목·문서 제목 규칙 다시 고르기 →
+태블릿 새로고침 → 한 건 작성** 이고, 서식 자체를 갈아끼울 때만 설정의 서식 ID 를 바꿉니다.
+
+화면(`index.html`)과 `config.js` 는 **고칠 것이 없습니다** — 항목 이름·개수·서명 유무·날짜 유무를
+전혀 참조하지 않기 때문입니다. 2026-09-16에 구성이 전혀 다른 서식 세 가지(방문자 기록부 /
+항목을 고친 판 / 서명·날짜가 아예 없는 만족도 설문)로 같은 코드를 돌려 확인했습니다.
+리포트 옵션도 그대로 둡니다 — **표의 열을 서식 항목에서 그때그때 만들기** 때문에 새 항목은
+다음 리포트부터 저절로 열로 나옵니다.
+
+가정이 어디에 얼마나 남아 있는지 전수 점검한 표는
+[docs/form-agnostic-audit.md](docs/form-agnostic-audit.md) 에 있습니다.
+
+🔴 **검증 도구만은 영향을 받습니다.** `tools/verify-kiosk.mjs` 와 `tools/probe-*.mjs` 는 작성
+프레임 안을 **좌표로** 누릅니다. 작성 프레임은 다른 도메인이고 그 안의 뷰어가 입력칸을 DOM 으로
+내주지 않아 **위치를 자동으로 찾을 방법이 없습니다**(실측 확인). 서식을 고쳤으면 아래 중 하나를 쓰세요.
+
+| 방법 | 쓸 때 |
+|---|---|
+| `--notype` | 값 입력을 건너뜁니다. 항목이 어떻게 바뀌든 항상 동작합니다 — **기본으로 권합니다** |
+| `--name-x 490 --name-y 496 --org-x 520 --org-y 558` | 입력칸 두 개의 좌표만 새로 줍니다 |
+| `--coords coords.json` | `consent`/`continue`/`name`/`org`/`send`/`popup1`/`popup2` 를 한 파일로 줍니다 |
+| `KIOSK_TAP_X` / `KIOSK_TAP_Y` | `probe-idle-reset.mjs` 가 프레임 안을 터치할 좌표 |
+
+좌표 잡는 법: 헤드리스 크롬을 768×1024 로 띄우고 `node tools/verify-kiosk.mjs … --notype` 을 한 번
+돌리면 `evidence/A-r1-2-editable.png` 가 남습니다. 그 그림에서 누르고 싶은 칸의 가운데 픽셀 좌표를
+읽어 위 옵션에 넣습니다. 실행할 때 `COORDS {...}` 한 줄이 먼저 찍히므로 무엇이 적용됐는지 확인할 수 있습니다.
 
 ---
 
@@ -353,11 +388,17 @@ node tools/verify-kiosk.mjs --port 9233 --mode thanks --rounds 2 --notype
 CDP_PORT=9233 node tools/probe-idle-reset.mjs
 CDP_PORT=9233 node tools/probe-restart-button.mjs
 
+# 「작성 중 이탈」 상태 6종 매트릭스 (글자·체크·서명·동의만·전송 팝업·화면 이동)
+# 케이스마다 흐림+카운트다운 → 되돌리기 → 다음 방문자 화면이 완전히 빈 서식인지 확인
+CDP_PORT=9233 node tools/probe-abandon-matrix.mjs       # KIOSK_CASES=ab3,ab6 로 일부만
+
 # 한국어 줄바꿈 게이트
 node C:/Users/FORCS/.agent-harness/tools/korean-linebreak/cli.mjs \
   --file index.html --widths 1440,1100,375 --fail-on fail
 ```
 
 🔴 좌표 기반 검증에 `?debug=1` 을 쓰지 마세요 — 로그 패널이 프레임 클릭을 가로챕니다.
+🔴 위 좌표는 레퍼런스 방명록 서식 기준입니다. 서식 항목을 바꿨다면 「서식 항목을 바꿨을 때」 절의
+   `--notype` 또는 좌표 옵션을 쓰세요.
 🔴 저장소 파일에 **우리 회사 ID·템플릿 ID 를 남기지 마세요.** 검증할 때는 주소 뒤에
 `?company=<id>&template=<id>` 로 넣습니다.

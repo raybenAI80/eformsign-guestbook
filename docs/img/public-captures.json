@@ -1,0 +1,25 @@
+[
+ {
+  "file": "github-00-home@2x.png",
+  "title": "GitHub 공개 홈 (로그아웃 상태)",
+  "url": "https://github.com/",
+  "action_box": {
+   "x": 92.4,
+   "y": 2.2,
+   "w": 5.4,
+   "h": 3.6
+  },
+  "note": "우상단 「Sign up」 버튼(/signup?ref_cta=Sign+up&ref_loc=header+logged+out&ref_page=%2F&source=header-home). github.com/signup 은 이 네트워크에서 HTTP 403(봇 차단)이라 가입 폼 자체는 캡처할 수 없다 — 공개 홈으로 대체한다.",
+  "capture": {
+   "viewport": "1440x900",
+   "deviceScaleFactor": 2,
+   "headless": true,
+   "port": "9233",
+   "at": "2026-09-16T01:19:06.346Z"
+  },
+  "redaction": {
+   "loggedIn": false,
+   "residual_rayben": 0
+  }
+ }
+]

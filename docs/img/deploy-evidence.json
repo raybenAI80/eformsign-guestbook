@@ -1,0 +1,16 @@
+{
+ "repo": "https://github.com/raybenAI80/eformsign-guestbook",
+ "repo_commit": "392c13ab051e6623d4fbb043c54f9220fc1943f8",
+ "cloned_repo": "raybenAI80/eformsign-guestbook-test (Vercel Deploy 버튼이 만든 비공개 복사본)",
+ "project": "eformsign-guestbook-test",
+ "url": "https://eformsign-guestbook-test.vercel.app",
+ "deployedAt": "2026-09-16T01:04:56.988Z",
+ "commit": "392c13ab051e6623d4fbb043c54f9220fc1943f8",
+ "verified": {
+  "title": "이폼사인 방명록",
+  "header_company": "주식회사 포시에스",
+  "writer_frame": "https://www.eformsign.com/eform/document/external_user_view_service.html?company_id=<회사 ID>&form_id=<서식 ID>",
+  "repeat_authoring_document_id": "2d156f12fbc842ab938ba37529c9bf3f",
+  "note": "자체 도메인이 아닌 Vercel 기본 도메인(*.vercel.app)에서 작성·전송·다음 방문자 초기화까지 확인."
+ }
+}

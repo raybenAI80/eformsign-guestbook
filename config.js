@@ -22,11 +22,11 @@ window.KIOSK_CONFIG = {
   companyName: '',          // 예: '주식회사 포시에스'
   logoUrl: '',              // 'assets/logo.png' · 'data:image/png;base64,...' · 'https://…/logo.png'
 
-  title: '방문자 기록부',
-  subtitle: '방문 정보를 입력하고 서명한 뒤 전송을 눌러 주세요.',
+  title: '문서 작성',
+  subtitle: '내용을 작성한 뒤 전송을 눌러 주세요.',
 
   // 외부 작성자(로그인하지 않은 방문자)로 열 때 쓰는 표시 이름
-  visitorName: '방문자',
+  visitorName: '작성자',
 
   // ── 동작 ────────────────────────────────────────────────────────────
   // 'immediate' = 제출 즉시 새 작성 화면 / 'thanks' = 감사 화면 N초 후 새 작성 화면
@@ -45,6 +45,10 @@ window.KIOSK_CONFIG = {
   idleResetSeconds: 120,
   abandonResetSeconds: 180,
   countdownSeconds: 5,
+
+  // 작성 화면이 이 시간(초) 안에 뜨지 않으면 담당자 확인 안내를 띄운다. 0 이면 끔.
+  // 정상 로드는 실측 3~9초였다. 회선이 느린 현장이면 조금 늘린다(고급 설정 — 설정 마법사에는 없다).
+  loadWatchSeconds: 25,
 
   // ── 임베딩 옵션 ─────────────────────────────────────────────────────
   // showHeader:false 로 두면 이폼사인 기본 헤더의 '전송' 버튼까지 사라진다 → 기본 true 권장.
