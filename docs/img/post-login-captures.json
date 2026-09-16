@@ -1,0 +1,189 @@
+[
+ {
+  "file": "github-post-01-dashboard@2x.png",
+  "title": "GitHub 로그인 후 대시보드",
+  "url": "https://github.com/",
+  "action_box": {
+   "x": 17.2,
+   "y": 9.8,
+   "w": 4.4,
+   "h": 3.1
+  },
+  "note": "좌측 Top repositories 옆 New 버튼. 배포 마법사에서는 이 버튼을 누를 필요가 없다 — Deploy 버튼이 저장소 생성을 대신한다는 설명용 화면.",
+  "redaction": {
+   "replaced_nodes": 34,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님)"
+  }
+ },
+ {
+  "file": "github-post-02-new-repo@2x.png",
+  "title": "GitHub 새 저장소 만들기 폼 (수동 경로 — 고객은 쓰지 않음)",
+  "url": "https://github.com/new",
+  "action_box": {
+   "x": 64.5,
+   "y": 87.8,
+   "w": 9.4,
+   "h": 3.6
+  },
+  "note": "하단 Create repository 버튼. 이 화면 전체가 「Deploy 버튼이 자동으로 해 주는 일」이다. 저장소 이름 입력란은 x34.8 y27.3 w39.0 h3.3.",
+  "redaction": {
+   "replaced_nodes": 7,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님)"
+  }
+ },
+ {
+  "file": "vercel-post-01-dashboard@2x.png",
+  "title": "Vercel 로그인 후 대시보드 (Overview)",
+  "url": "https://vercel.com/raybens-projects",
+  "action_box": {
+   "x": 89.3,
+   "y": 8.9,
+   "w": 8,
+   "h": 4
+  },
+  "note": "우상단 Add New… 버튼. 좌측 사이드바에 플랜(Hobby)과 사용량이 보인다.",
+  "redaction": {
+   "replaced_nodes": 45,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원, FORCS-CB→가입ID, 내부 프로젝트 카드 전부 제거(빈 상태 안내), Recent Previews(ESG) 블록 제거 (촬영 전 DOM 치환, 블러 아님)"
+  }
+ },
+ {
+  "file": "vercel-post-02-new-project@2x.png",
+  "title": "Vercel 새 프로젝트 — Import Git Repository",
+  "url": "https://vercel.com/new",
+  "action_box": {
+   "x": 41.4,
+   "y": 54.7,
+   "w": 4.7,
+   "h": 3.6
+  },
+  "note": "첫 저장소 행의 Import 버튼. Import Git Repository 섹션 전체는 x1.7 y37.2 w95.6 h67.7(뷰포트 밖까지 이어짐).",
+  "redaction": {
+   "replaced_nodes": 6,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님)"
+  }
+ },
+ {
+  "file": "vercel-post-03-deploy-clone@2x.png",
+  "title": "Deploy 버튼이 여는 복제 화면 (Clone from GitHub)",
+  "url": "https://vercel.com/new/clone?repository-url=...&project-name=kiosk-example&env=KIOSK_COMPANY_ID,KIOSK_FORM_ID,KIOSK_COMPANY_NAME,KIOSK_MODE",
+  "action_box": {
+   "x": 28.3,
+   "y": 58.9,
+   "w": 43.3,
+   "h": 4
+  },
+  "note": "Create 버튼. 저장소 이름 입력란(Private Repository Name)은 x28.3 y39.3 w20.3 h4.0. 🔴 이 1단계에는 환경변수 입력 영역이 없다 — env 파라미터로 넘긴 KIOSK_* 입력란은 Create 이후 다음 단계에 나타난다. GitHub 권한 요청 화면은 뜨지 않았다(이미 설치됨).",
+  "redaction": {
+   "replaced_nodes": 11,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님)"
+  }
+ },
+ {
+  "file": "vercel-post-04-project-overview@2x.png",
+  "title": "배포된 프로젝트 Overview — 배포 주소 확인",
+  "url": "https://vercel.com/raybens-projects/eformsign-kiosk-guestbook",
+  "action_box": {
+   "x": 50,
+   "y": 20.2,
+   "w": 30.2,
+   "h": 1.8
+  },
+  "note": "Domains 항목의 eformsign-kiosk-guestbook.vercel.app 링크 — 고객이 태블릿에 입력할 주소. 우상단 Visit 버튼으로도 열 수 있다.",
+  "redaction": {
+   "replaced_nodes": 33,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님)"
+  }
+ },
+ {
+  "file": "vercel-post-05-env-vars@2x.png",
+  "title": "프로젝트 Settings > Environment Variables",
+  "url": "https://vercel.com/raybens-projects/eformsign-kiosk-guestbook/settings/environment-variables",
+  "action_box": {
+   "x": 83.9,
+   "y": 8.9,
+   "w": 13.4,
+   "h": 3.6
+  },
+  "note": "Add Environment Variable 버튼. 이 프로젝트는 환경변수를 쓰지 않아 목록이 비어 있다(값 노출 없음). 상품판은 설정 마법사가 채운 값이 여기에 들어간다.",
+  "redaction": {
+   "replaced_nodes": 21,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님)"
+  }
+ },
+ {
+  "file": "vercel-post-06-deployments@2x.png",
+  "title": "프로젝트 Deployments 탭",
+  "url": "https://vercel.com/raybens-projects/eformsign-kiosk-guestbook/deployments",
+  "action_box": {
+   "x": 94.7,
+   "y": 20.1,
+   "w": 1.7,
+   "h": 2.7
+  },
+  "note": "최신 배포 행 오른쪽 끝의 「…」(Deployment Actions) 버튼.",
+  "redaction": {
+   "replaced_nodes": 2,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님)"
+  }
+ },
+ {
+  "file": "vercel-post-06b-deployment-menu@2x.png",
+  "title": "Deployments — 「…」 메뉴를 연 상태",
+  "url": "https://vercel.com/raybens-projects/eformsign-kiosk-guestbook/deployments",
+  "action_box": {
+   "x": 81.9,
+   "y": 23.8,
+   "w": 14.4,
+   "h": 34.8
+  },
+  "note": "열린 메뉴 영역. 항목 = Instant Rollback / Promote / Redeploy / Inspect Deployment / View Source / Copy URL / Assign Domain / Visit. 설정을 바꾼 뒤 다시 배포할 때 쓰는 Redeploy 가 여기 있다(이번 캡처에서는 클릭하지 않음).",
+  "redaction": {
+   "replaced_nodes": 2,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님)"
+  }
+ },
+ {
+  "file": "vercel-post-07-domains@2x.png",
+  "title": "프로젝트 Settings > Domains",
+  "url": "https://vercel.com/raybens-projects/eformsign-kiosk-guestbook/settings/domains",
+  "action_box": {
+   "x": 84.9,
+   "y": 8.9,
+   "w": 7.9,
+   "h": 4
+  },
+  "note": "Add Existing 버튼(회사 도메인을 붙일 때). 기본 vercel.app 주소만 쓸 거면 이 화면은 건드릴 필요 없다.",
+  "redaction": {
+   "replaced_nodes": 20,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님)"
+  }
+ },
+ {
+  "file": "vercel-post-08-plan@2x.png",
+  "title": "팀 Settings > Billing — 현재 플랜",
+  "url": "https://vercel.com/raybens-projects/~/settings/billing",
+  "action_box": {
+   "x": 26.6,
+   "y": 8.9,
+   "w": 63.5,
+   "h": 8
+  },
+  "note": "Hobby Plan / Active 카드. 결제수단은 등록돼 있지 않아 카드 정보 노출 없음. Hobby 는 비상업 용도 제한이 있으므로 고객 안내 시 Pro 필요 여부를 짚어야 한다.",
+  "redaction": {
+   "replaced_nodes": 23,
+   "residual_rayben": 0,
+   "rules": "raybenAI80/rayben→가입ID, 이메일→내이메일@example.com, 아바타 이미지→회색 원 (촬영 전 DOM 치환, 블러 아님)"
+  }
+ }
+]

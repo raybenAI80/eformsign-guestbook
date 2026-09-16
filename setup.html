@@ -1,0 +1,1606 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이폼사인 방명록 설정 마법사</title>
+<style>
+  /* ── 한국어 줄바꿈 (korean-typography.css 드롭인, W3C klreq §7.1) ──────────
+     정본: C:\Users\FORCS\.agent-harness\tools\korean-linebreak\css\korean-typography.css
+     🔴 overflow-wrap: anywhere 금지 — min-content 에 어절 내부 분리 기회를 반영해
+        flex/grid 자식이 어절 폭 아래로 수축하고 keep-all 이 무력화된다. */
+  html { word-break: keep-all; overflow-wrap: break-word; line-break: strict; }
+  body, p, li, dd, dt, td, th, h1, h2, h3, h4, h5, h6,
+  figcaption, blockquote, label, button, a, span, div {
+    word-break: keep-all; overflow-wrap: break-word;
+  }
+  p, li, dd, blockquote, .desc, .note, figcaption { text-wrap: pretty; }
+  h1, h2, h3, h4, h5, h6, .title, .lead, .callout { text-wrap: balance; }
+  .nb { white-space: nowrap; }
+
+  :root {
+    --brand: #0E73C3;
+    --ink: #1a1a1a;
+    --ink-weak: #5c6570;
+    --line: #e3e7eb;
+    --bg: #f6f8fa;
+    --ok: #1a7f52;
+    --warn: #9a6400;
+    --err: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    font-size: 15px; line-height: 1.65;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  header.top { margin-bottom: 20px; }
+  header.top h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -.02em; }
+  header.top p { margin: 0; color: var(--ink-weak); }
+
+  section.step {
+    background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px 22px; margin-bottom: 16px;
+  }
+  section.step h2 {
+    margin: 0 0 4px; font-size: 18px; display: flex; align-items: center; gap: 10px;
+  }
+  section.step h2 .no {
+    flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--brand); color: #fff; font-size: 14px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  section.step > p.desc { margin: 0 0 14px; color: var(--ink-weak); font-size: 14px; }
+
+  label.field { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 14px; }
+  input[type=text], input[type=url], input[type=number], select, textarea {
+    width: 100%; padding: 10px 12px; font: inherit; color: inherit;
+    border: 1px solid var(--line); border-radius: 8px; background: #fff;
+  }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 16px; }
+  .hint { font-size: 13px; color: var(--ink-weak); margin: 4px 0 0; }
+
+  /* 한 화면에 강조 버튼은 하나. 나머지는 작고 회색이다. */
+  .btn {
+    appearance: none; border: 0; border-radius: 8px; background: var(--brand); color: #fff;
+    font: inherit; font-weight: 600; padding: 10px 18px; cursor: pointer;
+    text-decoration: none; display: inline-block;
+  }
+  .btn.big { font-size: 17px; padding: 14px 26px; width: 100%; max-width: 420px; text-align: center; }
+  .btn.secondary {
+    background: #fff; color: var(--ink-weak); border: 1px solid var(--line);
+    font-weight: 500; font-size: 13px; padding: 7px 13px;
+  }
+  .btn.secondary:hover { border-color: var(--ink-weak); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+
+  .msg { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 14px; }
+  .msg[hidden] { display: none !important; }
+  .msg.ok { background: #eaf6f0; color: var(--ok); border: 1px solid #c9e6d8; }
+  .msg.warn { background: #fdf6e6; color: var(--warn); border: 1px solid #f0e0b8; }
+  .msg.err { background: #fdeeed; color: var(--err); border: 1px solid #f3cfcc; }
+
+  dl.kv { margin: 12px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 14px; }
+  dl.kv dt { color: var(--ink-weak); }
+  dl.kv dd { margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace; word-break: break-all; }
+
+  iframe#checkFrame { width: 100%; height: 520px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+
+  pre.code {
+    background: #12171c; color: #dce6ee; border-radius: 8px; padding: 14px 16px;
+    font: 12px/1.6 ui-monospace, Menlo, Consolas, monospace;
+    overflow: auto; max-height: 360px; white-space: pre; word-break: normal;
+  }
+  pre.value {
+    background: #12171c; color: #9ad9a8; border-radius: 8px; padding: 12px 14px;
+    font: 12px/1.55 ui-monospace, Menlo, Consolas, monospace;
+    overflow: auto; max-height: 150px; white-space: pre-wrap; word-break: break-all;
+  }
+  .logoPreview {
+    margin-top: 10px; padding: 10px; border: 1px dashed var(--line); border-radius: 8px;
+    background: #fff; display: inline-block;
+  }
+  .logoPreview img { display: block; max-height: 80px; width: auto; }
+  .logoPreview[hidden] { display: none !important; }
+
+  /* ── 6단계 설치 마법사 ── */
+  section.step[hidden] { display: none !important; }
+  .progress { margin-left: auto; font-size: 13px; color: var(--ink-weak); font-weight: 400; }
+
+  .sub { border: 1px solid var(--line); border-radius: 10px; margin-top: 10px; background: #fff; }
+  .sub .subHead {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-weight: 600; font-size: 15px;
+  }
+  .sub .subNo {
+    flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 700;
+    background: #eef2f6; color: var(--ink-weak);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .sub.open { border-color: var(--brand); box-shadow: 0 1px 0 rgba(14,115,195,.08); }
+  .sub.open .subNo { background: var(--brand); color: #fff; }
+  .sub.done .subNo { background: var(--ok); color: #fff; }
+  .sub.done .subHead { color: var(--ink-weak); }
+  .sub .subBody { display: none; padding: 0 14px 14px; }
+  .sub.open .subBody { display: block; }
+  .sub .subBody p { margin: 0 0 10px; font-size: 14px; }
+
+  /* 실제 화면 그림 + 눌러야 할 자리 빨간 박스 */
+  figure.shot { margin: 12px 0; }
+  .shotBox {
+    position: relative; border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden; background: #fff;
+  }
+  .shotBox img { display: block; width: 100%; height: auto; }
+  .shotBox .hit {
+    position: absolute; border: 3px solid #e0342c; border-radius: 6px;
+    box-shadow: 0 0 0 9999px rgba(255,255,255,.28);
+  }
+  .shotBox .hit::after {
+    content: '여기'; position: absolute; left: 0; top: -26px;
+    background: #e0342c; color: #fff; font-size: 12px; font-weight: 700;
+    padding: 1px 8px; border-radius: 4px; white-space: nowrap;
+  }
+  .shotBox.pending {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 140px; color: var(--ink-weak); font-size: 14px;
+    background: repeating-linear-gradient(45deg, #fafbfc, #fafbfc 10px, #f2f4f7 10px, #f2f4f7 20px);
+  }
+  figure.shot figcaption { margin-top: 6px; font-size: 13px; color: var(--ink-weak); }
+
+  /* 「안 돼요」 흐름 */
+  .troubleWrap { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); }
+  .troubleBtn {
+    appearance: none; background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--ink-weak); font: inherit; font-size: 13px; padding: 7px 13px; cursor: pointer;
+  }
+  .troublePanel { margin-top: 10px; background: #fbfcfd; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .troublePanel[hidden] { display: none !important; }
+  .troublePanel .qs { font-weight: 600; font-size: 14px; margin: 0 0 8px; }
+  .troublePanel label { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; margin: 6px 0; cursor: pointer; }
+  .troublePanel label input { margin-top: 5px; flex: 0 0 auto; }
+  .answer { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: #eef5fc; border: 1px solid #cfe2f5; font-size: 14px; }
+  .answer[hidden] { display: none !important; }
+
+  table.sumTable { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+  table.sumTable th, table.sumTable td {
+    border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top;
+  }
+  table.sumTable th { background: #f4f7fa; font-weight: 600; width: 40%; }
+  .tableScroll { overflow-x: auto; }
+
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 10px; }
+  .tabs button {
+    appearance: none; border: 1px solid var(--line); background: #fff; color: var(--ink-weak);
+    border-radius: 999px; padding: 5px 14px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .tabs button[aria-selected=true] { border-color: var(--brand); color: var(--brand); font-weight: 600; }
+
+  .secretRow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+  .secretRow input {
+    flex: 1 1 260px; font-family: ui-monospace, Menlo, Consolas, monospace; letter-spacing: .04em;
+  }
+  #qrBox { margin-top: 10px; display: inline-block; padding: 10px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
+  #qrBox[hidden] { display: none !important; }
+  .checkline { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; font-size: 14px; }
+
+  details.itDetails { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+  details.itDetails summary { cursor: pointer; font-size: 14px; color: var(--ink-weak); }
+  details.itDetails[open] summary { margin-bottom: 10px; }
+
+  a { color: var(--brand); }
+  footer.note { margin-top: 24px; color: var(--ink-weak); font-size: 13px; }
+
+  @media (max-width: 480px) {
+    .wrap { padding: 20px 16px 60px; }
+    .btn.big { max-width: none; }
+    table.sumTable th { width: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1 id="pageTitle">이폼사인 방명록 설정 마법사</h1>
+    <p>서식 주소를 붙여 넣으면 나머지는 이 화면이 만들어 드립니다.
+       입력한 내용은 이 브라우저 안에만 남고 어디로도 보내지 않습니다.</p>
+  </header>
+
+  <!-- ① 외부 작성 URL -->
+  <section class="step">
+    <h2><span class="no">1</span>서식 주소 붙여넣기</h2>
+    <p class="desc">이폼사인 서식 설정에서 <b>「URL로 문서 생성 허용」</b>을 켠 뒤 받은 작성 주소를
+       그대로 붙여 넣으세요. 회사 ID 와 서식 ID 를 자동으로 읽어 냅니다. <b>API 키는 필요 없습니다.</b></p>
+    <label class="field" for="srcUrl">서식 작성 주소</label>
+    <input type="text" id="srcUrl" spellcheck="false"
+           placeholder="https://www.eformsign.com/eform/document/external_user_view_service.html?company_id=...&amp;form_id=...">
+    <div class="row">
+      <button class="btn" id="btnParse" type="button">주소 읽기</button>
+      <button class="btn secondary" id="btnClear" type="button">입력 내용 모두 지우기</button>
+    </div>
+    <div class="msg err" id="urlErr" hidden></div>
+    <dl class="kv" id="urlOut" hidden>
+      <dt>회사 ID</dt><dd id="outCompany"></dd>
+      <dt>서식 ID</dt><dd id="outForm"></dd>
+      <dt>국가 코드</dt><dd id="outCountry"></dd>
+      <dt>언어 코드</dt><dd id="outLang"></dd>
+    </dl>
+  </section>
+
+  <!-- ② 로드 검사 -->
+  <section class="step">
+    <h2><span class="no">2</span>서식이 열리는지 확인</h2>
+    <p class="desc">아래 화면에 방문자가 볼 작성 서식이 <span class="nb">그대로 떠야 합니다.</span>
+       내용이 보이지 않거나 「보고서를 로딩하면서 예외가 발생했습니다」가 뜨면
+       서식 설정의 「URL로 문서 생성 허용」이 꺼져 있는 것입니다.</p>
+    <div class="row">
+      <button class="btn" id="btnCheck" type="button" disabled>작성 화면 띄우기</button>
+      <button class="btn secondary" id="btnYes" type="button" disabled>서식이 보입니다</button>
+      <button class="btn secondary" id="btnNo" type="button" disabled>보이지 않습니다</button>
+    </div>
+    <div class="msg ok" id="checkOk" hidden>확인했습니다. 다음 단계로 넘어가세요.</div>
+    <div class="msg err" id="checkNo" hidden>
+      이폼사인 화면에서 <b>서식 설정 &gt; 워크플로우 &gt; 시작 단계 속성 &gt; 「URL로 문서 생성 허용」</b>을 켜고
+      서식을 다시 내보낸 뒤, 이 화면을 새로 고쳐 다시 확인해 주세요.
+      이 설정이 꺼져 있으면 서식을 받아오는 요청이 거부되어 빈 화면만 보입니다.
+    </div>
+    <div id="checkHost" style="margin-top:12px"></div>
+  </section>
+
+  <!-- ③ 브랜딩 -->
+  <section class="step">
+    <h2><span class="no">3</span>회사 이름과 로고, 안내 문구</h2>
+    <p class="desc">로고를 올리면 방명록 화면 왼쪽 위에 표시됩니다. 로고가 없으면 회사 이름이 대신 나옵니다.
+       올린 그림은 높이 <span class="nb">160px</span> 이하로 줄여서 설정에 함께 담습니다.</p>
+    <div class="grid2">
+      <div>
+        <label class="field" for="fCompanyName">회사 이름</label>
+        <input type="text" id="fCompanyName" placeholder="예: 주식회사 포시에스">
+      </div>
+      <div>
+        <label class="field" for="fLogo">로고 그림 파일</label>
+        <input type="file" id="fLogo" accept="image/*">
+      </div>
+    </div>
+    <div class="logoPreview" id="logoPreview" hidden><img id="logoImg" alt="로고 미리보기"></div>
+    <div class="msg warn" id="logoWarn" hidden></div>
+
+    <!-- 로고가 커서 설정 한 줄에 담기지 않을 때의 갈림길 -->
+    <div id="logoTooBig" hidden>
+      <div class="msg warn">
+        로고 그림이 커서 이 방법으로는 넣을 수 없습니다. 아래 둘 중 하나를 고르세요.
+      </div>
+      <div class="row">
+        <button class="btn secondary" id="btnLogoLink" type="button">회사 홈페이지의 로고 그림 주소를 넣기</button>
+        <button class="btn secondary" id="btnLogoSkip" type="button">로고 없이 회사 이름으로 표시</button>
+      </div>
+      <div id="logoLinkBox" hidden>
+        <label class="field" for="fLogoUrl">로고 그림 주소</label>
+        <input type="text" id="fLogoUrl" spellcheck="false" placeholder="https://example.co.kr/logo.png">
+        <p class="hint">회사 홈페이지에 이미 올라가 있는 로고 그림을 오른쪽 버튼으로 눌러
+           「이미지 주소 복사」 한 값을 붙여 넣으세요.</p>
+      </div>
+      <div class="msg ok" id="logoSkipOk" hidden>로고 없이 회사 이름으로 표시합니다.</div>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <label class="field" for="fTitle">화면 제목</label>
+        <input type="text" id="fTitle" placeholder="방문자 기록부">
+      </div>
+      <div>
+        <label class="field" for="fSubtitle">안내 문구</label>
+        <input type="text" id="fSubtitle" placeholder="방문 정보를 입력하고 서명한 뒤 전송을 눌러 주세요.">
+      </div>
+    </div>
+    <label class="field" for="fProductName">제품 이름 (브라우저 탭에 표시)</label>
+    <input type="text" id="fProductName" placeholder="이폼사인 방명록">
+  </section>
+
+  <!-- ④ 동작 -->
+  <section class="step">
+    <h2><span class="no">4</span>제출 뒤 동작과 대기시간</h2>
+    <p class="desc">방문자가 전송을 누른 뒤 곧바로 새 서식을 열지, 감사 인사를 잠시 보여 준 뒤 열지 고릅니다.
+       대기시간은 현장에 맞춰 조정하세요.</p>
+    <div class="grid2">
+      <div>
+        <label class="field" for="fMode">제출 뒤 동작</label>
+        <select id="fMode">
+          <option value="thanks">감사 화면을 보여 준 뒤 새 서식 열기</option>
+          <option value="immediate">제출 즉시 새 서식 열기</option>
+        </select>
+      </div>
+      <div>
+        <label class="field" for="fThanks">감사 화면 시간(초)</label>
+        <input type="number" id="fThanks" min="1" max="60" value="5">
+        <p class="hint">권장 <span class="nb">4~6초</span>. 제출 뒤 동작이 「감사 화면」일 때만 쓰입니다.</p>
+      </div>
+      <div>
+        <label class="field" for="fIdle">빈 화면 방치 되돌리기(초)</label>
+        <input type="number" id="fIdle" min="0" max="3600" value="120">
+        <p class="hint">아무도 손대지 않은 화면을 처음으로 되돌리기까지의 시간.
+           로비나 전시 부스는 <span class="nb">60~90초</span>, 사무실 접수대는 <span class="nb">180초</span>를 권합니다.
+           <span class="nb">0</span> 이면 되돌리지 않습니다.</p>
+      </div>
+      <div>
+        <label class="field" for="fAbandon">작성 중 이탈 되돌리기(초)</label>
+        <input type="number" id="fAbandon" min="10" max="3600" value="180">
+        <p class="hint">작성을 시작한 방문자가 자리를 뜬 경우의 기준. 빈 화면 방치보다 길게 두세요.</p>
+      </div>
+      <div>
+        <label class="field" for="fCountdown">복귀 카운트다운(초)</label>
+        <input type="number" id="fCountdown" min="1" max="60" value="5">
+        <p class="hint">되돌리기 직전 「계속 작성하시겠습니까?」를 보여 주는 시간.
+           <span class="nb">5~10초</span>를 권합니다.</p>
+      </div>
+      <div>
+        <label class="field" for="fVisitor">작성자 표시 이름</label>
+        <input type="text" id="fVisitor" placeholder="방문자">
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑤ 요약 + 설치 시작 -->
+  <section class="step">
+    <h2><span class="no">5</span>내가 정한 설정 요약</h2>
+    <p class="desc">아래 내용이 맞으면 설치를 시작하세요. 고칠 것이 있으면 위로 올라가 바꾸면 됩니다.</p>
+    <div class="tableScroll">
+      <table class="sumTable" id="sumTable5"><tbody></tbody></table>
+    </div>
+    <div class="row">
+      <button class="btn big" id="pathVercel" type="button">설치 시작하기</button>
+    </div>
+    <p class="hint">계정을 새로 만들고 화면을 따라가면 <span class="nb">10분</span> 안에 끝납니다.
+       돈은 들지 않습니다(회사 업무로 상시 쓰면 유료 요금제가 필요합니다).</p>
+
+    <details class="itDetails" id="selfDetails">
+      <summary>회사 안 서버에 직접 올리고 싶습니다 — IT 담당자에게 전달</summary>
+      <p class="hint">회사에 이미 웹 서버가 있고 IT 담당자가 직접 올리는 경우입니다.
+         아래 파일 묶음과 안내문을 담당자에게 보내 주세요.</p>
+      <div class="row">
+        <button class="btn" id="btnZip" type="button">파일 묶음 내려받기</button>
+        <button class="btn secondary" id="btnItNote" type="button">담당자에게 보낼 안내문 복사</button>
+        <button class="btn secondary" id="pathSelf" type="button">직접 올리기 절차 보기</button>
+      </div>
+      <div class="msg ok" id="zipOk" hidden></div>
+      <div class="msg err" id="zipErr" hidden></div>
+      <pre class="code" id="itNote"></pre>
+    </details>
+  </section>
+
+  <!-- ⑥ 설치 -->
+  <section class="step" id="step6" hidden>
+    <h2><span class="no">6</span><span id="step6Title">설치</span><span class="progress" id="depProgress"></span></h2>
+    <p class="desc" id="step6Desc"></p>
+
+    <!-- 6-A. Vercel 경로 -->
+    <div id="pathVercelBody" hidden>
+
+      <div class="sub" id="subGh" data-sub="gh">
+        <div class="subHead"><span class="subNo">1</span><span>GitHub 계정 만들기</span></div>
+        <div class="subBody">
+          <p>방명록 파일을 내 이름으로 보관할 곳을 먼저 만듭니다. 이메일과 새 비밀번호만 있으면 됩니다.</p>
+          <p>🔴 <b>회사 공용이 아닌 개인 계정으로 만드세요.</b> 무료로 쓰려면 개인 계정이어야 합니다.</p>
+          <figure class="shot" data-shot="gh"></figure>
+          <div class="row">
+            <a class="btn big" href="https://github.com/signup" target="_blank" rel="noopener">GitHub 가입 화면 열기</a>
+          </div>
+          <div class="row">
+            <button class="btn secondary" type="button" data-done="gh">만들었습니다</button>
+          </div>
+          <div class="troubleWrap" data-trouble="gh"></div>
+        </div>
+      </div>
+
+      <div class="sub" id="subVercel" data-sub="vercel">
+        <div class="subHead"><span class="subNo">2</span><span>Vercel 계정 만들기</span></div>
+        <div class="subBody">
+          <p>방명록 화면을 인터넷에 띄워 주는 곳입니다.
+             방금 만든 GitHub 계정으로 이어서 가입하면 단계가 줄어듭니다.</p>
+          <p>무료 요금제는 개인용입니다. 회사 업무로 상시 쓴다면 유료(Pro)를 고르세요.
+             <span class="nb">2026-09-15</span> 기준 <span class="nb">월 20달러</span>입니다.</p>
+          <!-- 출처: docs/vercel-signup-guide.md §3 (Fair Use Guidelines · Pricing, 2026-09-15 확인) -->
+          <figure class="shot" data-shot="vercel"></figure>
+          <div class="row">
+            <a class="btn big" href="https://vercel.com/signup" target="_blank" rel="noopener">Vercel 가입 화면 열기</a>
+          </div>
+          <div class="row">
+            <button class="btn secondary" type="button" data-done="vercel">만들었습니다</button>
+          </div>
+          <div class="troubleWrap" data-trouble="vercel"></div>
+        </div>
+      </div>
+
+      <div class="sub" id="subCopy" data-sub="copy">
+        <div class="subHead"><span class="subNo">3</span><span>설정값 복사하기</span></div>
+        <div class="subBody">
+          <p>아래 값을 복사해 다음 화면의 <b>KIOSK_CONFIG</b> 칸에 <b>한 번</b> 붙여 넣으세요.
+             지금까지 정한 내용을 한 줄로 모은 값입니다.</p>
+          <pre class="value" id="cfgValue"></pre>
+          <div class="row">
+            <button class="btn big" id="btnCopyConfig" type="button">복사</button>
+          </div>
+          <div class="msg ok" id="copyOk" hidden>복사했습니다. 다음 화면에서 붙여 넣으세요.</div>
+          <div class="msg err" id="copyErr" hidden></div>
+          <div class="row">
+            <button class="btn secondary" type="button" data-done="copy">복사했습니다</button>
+          </div>
+          <div class="troubleWrap" data-trouble="copy"></div>
+        </div>
+      </div>
+
+      <div class="sub" id="subDeploy" data-sub="deploy">
+        <div class="subHead"><span class="subNo">4</span><span>설치 화면에서 붙여 넣기</span></div>
+        <div class="subBody">
+          <p>새 창이 열리면 <b data-term-ok>Create</b> 를 누르고, 다음 화면의
+             <b>KIOSK_CONFIG</b> 칸에 방금 복사한 값을 붙여 넣은 뒤
+             <b data-term-ok>Deploy</b> 를 누르세요. <span class="nb">1~2분</span> 걸립니다.</p>
+          <p>이름 칸에는 이미 값이 들어 있으니 그대로 두면 됩니다.</p>
+          <figure class="shot" data-shot="deploy"></figure>
+          <div class="row">
+            <a class="btn big" id="btnDeploy" href="#" target="_blank" rel="noopener">설치 화면 열기</a>
+          </div>
+          <div class="row">
+            <button class="btn secondary" type="button" data-done="deploy">했습니다</button>
+          </div>
+          <div class="troubleWrap" data-trouble="deploy"></div>
+        </div>
+      </div>
+
+      <div class="sub" id="subUrl" data-sub="url">
+        <div class="subHead"><span class="subNo">5</span><span>주소 확인</span></div>
+        <div class="subBody">
+          <p>설치가 끝나면 나온 주소를 아래에 붙여 넣고 화면이 뜨는지 눈으로 확인하세요.</p>
+          <figure class="shot" data-shot="url"></figure>
+          <label class="field" for="depUrl">내 방명록 주소(<span class="nb" data-term-ok>https://….vercel.app</span>)</label>
+          <input type="text" id="depUrl" spellcheck="false" placeholder="https://eformsign-guestbook.vercel.app">
+          <div class="row">
+            <button class="btn big" id="btnDepCheck" type="button">주소 열어 보기</button>
+          </div>
+          <div class="row">
+            <button class="btn secondary" id="btnDepYes" type="button">방명록 화면이 보입니다</button>
+          </div>
+          <div class="msg err" id="depErr" hidden></div>
+          <div id="depFrameHost" style="margin-top:12px"></div>
+          <div class="troubleWrap" data-trouble="url"></div>
+        </div>
+      </div>
+
+      <div class="sub" id="subReport" data-sub="report">
+        <div class="subHead"><span class="subNo">6</span><span>날마다 오는 기록 요약 (선택)</span></div>
+        <div class="subBody">
+          <p>날마다 작성된 문서 목록을 메일이나 다른 시스템으로 받는 유료 선택 기능입니다.
+             쓰지 않으면 그냥 넘어가세요.</p>
+          <div class="checkline">
+            <input type="checkbox" id="fReport">
+            <label for="fReport">이 기능을 쓰겠습니다</label>
+          </div>
+          <div id="reportBody" hidden>
+            <p style="margin-top:10px">이폼사인 API 키는 대표 관리자만 발급할 수 있습니다:
+               <b>[커넥트] &gt; [API / Webhook] &gt; [API 키 관리]</b>.
+               키는 Vercel 쪽에만 저장되며, 지금 보는 화면에는 남지 않습니다.</p>
+            <p>아래 이름들을 Vercel 프로젝트의 <b>Settings &gt; Environment Variables</b> 화면에 넣고
+               <b data-term-ok>Redeploy</b> 를 누르세요. 받는 방법은 메일과 다른 시스템 중 하나만 고르면 됩니다.</p>
+            <div class="row">
+              <button class="btn secondary" id="btnCopyReportEnv" type="button">이름 목록 복사</button>
+            </div>
+            <pre class="code" id="reportEnvList"></pre>
+            <label class="field" for="fSecret">REPORT_SECRET 제안값(<span class="nb">32자</span> 무작위)</label>
+            <div class="secretRow">
+              <input type="password" id="fSecret" readonly autocomplete="off">
+              <button class="btn secondary" id="btnSecretShow" type="button">보기</button>
+              <button class="btn secondary" id="btnSecretCopy" type="button">복사</button>
+              <button class="btn secondary" id="btnSecretNew" type="button">다시 만들기</button>
+            </div>
+            <p class="hint">이 값은 저장하지 않습니다. 화면을 새로 고치면 다른 값이 만들어지므로,
+               Vercel 에 넣기 전에 복사해 두세요.</p>
+          </div>
+          <div class="row">
+            <button class="btn big" type="button" data-done="report">다음으로</button>
+          </div>
+          <div class="troubleWrap" data-trouble="report"></div>
+        </div>
+      </div>
+
+      <div class="sub" id="subTablet" data-sub="tablet">
+        <div class="subHead"><span class="subNo">7</span><span>태블릿에 띄우기</span></div>
+        <div class="subBody">
+          <p>방명록 주소를 태블릿에서 열고, 다른 화면으로 못 빠져나가게 잠그면 끝입니다.
+             쓰는 기기를 고르세요.</p>
+          <div class="tabs" id="tabletTabs">
+            <button type="button" data-tab="android" aria-selected="true">안드로이드</button>
+            <button type="button" data-tab="ipad" aria-selected="false">아이패드</button>
+            <button type="button" data-tab="windows" aria-selected="false">윈도우</button>
+          </div>
+          <div id="tabAndroid">
+            <p>Chrome 으로 주소를 연 뒤 <b class="nb">화면 고정(앱 고정)을</b> 켭니다.
+               방명록 전용 기기라면 <i>Fully Kiosk Browser</i> 같은 앱에 시작 주소를 넣는 쪽이 더 안정적입니다.</p>
+          </div>
+          <div id="tabIpad" hidden>
+            <p>Safari 로 주소를 연 뒤 <b>설정 &gt; 손쉬운 사용 &gt; 가이드 접근</b>을 켜고,
+               측면 버튼을 세 번 눌러 가이드 접근을 시작합니다.</p>
+          </div>
+          <div id="tabWindows" hidden>
+            <p>Edge 를 전체 화면 고정 상태로 띄웁니다. 아래 한 줄을 그대로 씁니다.</p>
+            <pre class="code" id="edgeCmd"></pre>
+          </div>
+          <p class="hint">태블릿 카메라로 아래 네모 코드를 찍으면 주소를 직접 입력하지 않아도 됩니다.</p>
+          <div id="qrBox" hidden></div>
+          <div class="msg warn" id="qrWarn" hidden></div>
+          <div class="row">
+            <button class="btn big" type="button" data-done="tablet">완료</button>
+          </div>
+          <div class="troubleWrap" data-trouble="tablet"></div>
+        </div>
+      </div>
+
+      <div class="msg ok" id="depAllOk" hidden>모두 끝났습니다. 이제 방문자가 태블릿에서 바로 작성할 수 있습니다.</div>
+    </div>
+
+    <!-- 6-B. 회사 안 서버 경로 (IT 담당자용) -->
+    <div id="pathSelfBody" hidden>
+
+      <div class="sub" id="subZip" data-sub="zip">
+        <div class="subHead"><span class="subNo">1</span><span>파일 묶음 받기</span></div>
+        <div class="subBody">
+          <p>회사 웹 서버에 올릴 파일 묶음을 내려받으세요.
+             올릴 자리는 자물쇠 표시가 있는 <span class="nb">주소(https)여야 합니다.</span>
+             자물쇠가 없는 <span class="nb">주소(http)로는</span> 작성 화면이 뜨지 않습니다.
+             인증서와 서버 설정은
+             <a href="docs/own-domain-https.md" target="_blank" rel="noopener">우리 회사 주소로 여는 방법</a> 문서에 있습니다.</p>
+          <div class="row">
+            <button class="btn big" id="btnZip2" type="button">파일 묶음 내려받기</button>
+          </div>
+          <div class="row">
+            <button class="btn secondary" type="button" data-done="zip">받았습니다</button>
+          </div>
+          <div class="msg ok" id="zipOk2" hidden></div>
+          <div class="msg err" id="zipErr2" hidden></div>
+          <div class="msg warn">회사 고유 주소에서 이폼사인 작성 화면이 열리는지는 아직 Vercel 주소와
+             내 PC 에서만 확인되었습니다. 회사 주소는 처음 올릴 때 실제로 확인이 필요합니다.</div>
+          <div class="troubleWrap" data-trouble="zip"></div>
+        </div>
+      </div>
+
+      <div class="sub" id="subUpload" data-sub="upload">
+        <div class="subHead"><span class="subNo">2</span><span>파일 올리기</span></div>
+        <div class="subBody">
+          <p>압축을 풀어 나온 파일을 웹 루트에 폴더 구조 그대로 올립니다.</p>
+          <pre class="code">/index.html          방명록 화면 (필수)
+/config.js           설정 한 장 (필수)
+/assets/logo.png     로고 (로고를 쓸 때만)</pre>
+          <div class="row">
+            <button class="btn big" type="button" data-done="upload">올렸습니다</button>
+          </div>
+          <div class="troubleWrap" data-trouble="upload"></div>
+        </div>
+      </div>
+
+      <div class="sub" id="subSelfUrl" data-sub="selfurl">
+        <div class="subHead"><span class="subNo">3</span><span>주소 확인</span></div>
+        <div class="subBody">
+          <p>올린 주소를 아래에 붙여 넣고, 방명록 화면이 뜨는지 눈으로 확인하세요.</p>
+          <label class="field" for="depUrl2">올린 주소(<span class="nb" data-term-ok>https://…</span>)</label>
+          <input type="text" id="depUrl2" spellcheck="false" placeholder="https://guestbook.example.co.kr/">
+          <div class="row">
+            <button class="btn big" id="btnDepCheck2" type="button">주소 열어 보기</button>
+          </div>
+          <div class="row">
+            <button class="btn secondary" id="btnDepYes2" type="button">방명록 화면이 보입니다</button>
+          </div>
+          <div class="msg err" id="depErr2" hidden></div>
+          <div id="depFrameHost2" style="margin-top:12px"></div>
+          <div class="troubleWrap" data-trouble="selfurl"></div>
+        </div>
+      </div>
+
+      <div class="msg ok" id="depAllOk2" hidden>모두 끝났습니다.</div>
+    </div>
+  </section>
+
+  <footer class="note">
+    입력한 값은 이 브라우저에만 임시로 남습니다. 다른 사람과 함께 쓰는 컴퓨터라면 마친 뒤
+    「입력 내용 모두 지우기」를 눌러 주세요.
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // 🔴 이 제품의 원본 파일 주소. 옮기면 이 한 곳만 고친다(README 「교체 지점」 참조).
+  var TEMPLATE_REPO_URL = 'https://github.com/raybenAI80/eformsign-guestbook';
+  var PROJECT_NAME = 'eformsign-guestbook';
+  var STORE_KEY = 'kiosk-setup-v2';
+  var DEFAULT_PRODUCT_NAME = '이폼사인 방명록';
+
+  // 🔴 도움 요청 연락처. 비어 있으면 「이 화면을 캡처해 서비스 제공자에게 보내세요」로 안내한다.
+  var SUPPORT_CONTACT = '';
+
+  // 설정값 한 줄의 상한. 이보다 크면 로고를 담지 않는다(설정 칸 용량 한계).
+  var CONFIG_MAX_BYTES = 48 * 1024;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var state = {
+    companyId: '', templateId: '', countryCode: 'kr', langCode: 'ko',
+    sourceUrl: '', verified: null,
+    productName: '', companyName: '',
+    logoDataUri: '', logoAsFile: false, logoBytes: 0, logoTooBig: false,
+    logoChoice: '', logoLinkUrl: '',
+    title: '', subtitle: '', visitorName: '',
+    mode: 'thanks', thanksSeconds: 5,
+    idleResetSeconds: 120, abandonResetSeconds: 180, countdownSeconds: 5,
+    // ⑥ 설치 진행 상태 (🔴 비밀값은 여기에 넣지 않는다 — 브라우저에 남는다)
+    deployPath: '', deployDone: {}, deployedUrl: '', reportEnabled: false, tabletTab: 'android',
+    trouble: {}
+  };
+  window.__setupState = state;
+
+  // ---------- 임시 저장 ----------
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      var v = JSON.parse(raw);
+      Object.keys(state).forEach(function (k) { if (v[k] !== undefined) state[k] = v[k]; });
+    } catch (e) {}
+  }
+
+  // ---------- ① 주소 읽기 ----------
+  function parseSourceUrl(input) {
+    var raw = String(input || '').trim();
+    if (!raw) return { error: '주소를 붙여 넣어 주세요.' };
+    var u;
+    try { u = new URL(raw); } catch (e) {
+      return { error: '주소 형식이 아닙니다. 브라우저 주소창의 내용을 그대로 붙여 넣어 주세요.' };
+    }
+    if (!/(^|\.)eformsign\.com$/i.test(u.hostname)) {
+      return { error: '이폼사인 주소가 아닙니다. 읽은 주소: ' + u.hostname };
+    }
+    if (u.pathname.indexOf('external_user_view_service') === -1) {
+      return { error: '작성 주소가 아닙니다. 서식 설정에서 「URL로 문서 생성 허용」을 켠 뒤 나오는 작성 주소를 붙여 넣어 주세요.' };
+    }
+    var company = u.searchParams.get('company_id');
+    var form = u.searchParams.get('form_id');
+    if (!company || !form) {
+      var missing = [];
+      if (!company) missing.push('company_id');
+      if (!form) missing.push('form_id');
+      return { error: '주소에 ' + missing.join(' · ') + ' 값이 없습니다. 주소를 끝까지 복사했는지 확인해 주세요.' };
+    }
+    return {
+      companyId: company, templateId: form,
+      countryCode: u.searchParams.get('country_code') || 'kr',
+      langCode: u.searchParams.get('lang_code') || 'ko'
+    };
+  }
+  window.__setupParseUrl = parseSourceUrl;
+
+  function externalUrl() {
+    return 'https://www.eformsign.com/eform/document/external_user_view_service.html' +
+      '?company_id=' + encodeURIComponent(state.companyId) +
+      '&form_id=' + encodeURIComponent(state.templateId) +
+      '&lang_code=' + encodeURIComponent(state.langCode || 'ko') +
+      '&country_code=' + encodeURIComponent(state.countryCode || 'kr');
+  }
+
+  function showParsed() {
+    var ok = !!(state.companyId && state.templateId);
+    $('urlOut').hidden = !ok;
+    if (ok) {
+      $('outCompany').textContent = state.companyId;
+      $('outForm').textContent = state.templateId;
+      $('outCountry').textContent = state.countryCode;
+      $('outLang').textContent = state.langCode;
+    }
+    $('btnCheck').disabled = !ok;
+    $('btnYes').disabled = !ok;
+    $('btnNo').disabled = !ok;
+    $('checkOk').hidden = state.verified !== true;
+    $('checkNo').hidden = state.verified !== false;
+  }
+
+  $('btnParse').addEventListener('click', function () {
+    var res = parseSourceUrl($('srcUrl').value);
+    if (res.error) {
+      $('urlErr').textContent = res.error;
+      $('urlErr').hidden = false;
+      $('urlOut').hidden = true;
+      return;
+    }
+    $('urlErr').hidden = true;
+    state.sourceUrl = $('srcUrl').value.trim();
+    state.companyId = res.companyId;
+    state.templateId = res.templateId;
+    state.countryCode = res.countryCode;
+    state.langCode = res.langCode;
+    state.verified = null;
+    save(); showParsed(); refreshAll();
+  });
+
+  $('btnClear').addEventListener('click', function () {
+    try { localStorage.removeItem(STORE_KEY); } catch (e) {}
+    location.reload();
+  });
+
+  // ---------- ② 로드 검사 ----------
+  // 🔴 캐시된 DOM 참조 금지 — 확인용 틀을 매번 새로 만들기 때문에 그때그때 찾는다.
+  $('btnCheck').addEventListener('click', function () {
+    var host = $('checkHost');
+    host.innerHTML = '';
+    var f = document.createElement('iframe');
+    f.id = 'checkFrame';
+    f.title = '작성 화면 확인';
+    f.src = externalUrl();
+    host.appendChild(f);
+  });
+  $('btnYes').addEventListener('click', function () { state.verified = true; save(); showParsed(); });
+  $('btnNo').addEventListener('click', function () { state.verified = false; save(); showParsed(); });
+
+  // ---------- ③ 브랜딩 ----------
+  var LOGO_MAX_HEIGHT = 160;
+  var LOGO_INLINE_LIMIT = 40 * 1024;
+
+  function fitLogo(file, done) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, LOGO_MAX_HEIGHT / img.naturalHeight);
+        var w = Math.max(1, Math.round(img.naturalWidth * scale));
+        var h = Math.max(1, Math.round(img.naturalHeight * scale));
+        var cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        var uri = cv.toDataURL('image/png');
+        var bytes = Math.round((uri.length - uri.indexOf(',') - 1) * 3 / 4);
+        done(null, { dataUri: uri, width: w, height: h, bytes: bytes });
+      };
+      img.onerror = function () { done(new Error('그림 파일을 읽지 못했습니다.')); };
+      img.src = reader.result;
+    };
+    reader.onerror = function () { done(new Error('파일을 읽지 못했습니다.')); };
+    reader.readAsDataURL(file);
+  }
+
+  /** 로고를 설정 한 줄에 담았을 때 상한을 넘는지 본다. */
+  function logoFitsInOneLine() {
+    if (!state.logoDataUri) return true;
+    return encodeConfig(configObject(false, state.logoDataUri)).length <= CONFIG_MAX_BYTES;
+  }
+
+  function renderLogoBranch() {
+    $('logoTooBig').hidden = !state.logoTooBig;
+    $('logoLinkBox').hidden = state.logoChoice !== 'link';
+    $('logoSkipOk').hidden = state.logoChoice !== 'skip';
+    if ($('fLogoUrl').value !== state.logoLinkUrl) $('fLogoUrl').value = state.logoLinkUrl || '';
+    if (state.logoDataUri) {
+      $('logoImg').src = state.logoDataUri;
+      $('logoPreview').hidden = false;
+    }
+  }
+
+  $('fLogo').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    fitLogo(file, function (err, out) {
+      if (err) {
+        $('logoWarn').textContent = err.message;
+        $('logoWarn').hidden = false;
+        return;
+      }
+      state.logoDataUri = out.dataUri;
+      state.logoBytes = out.bytes;
+      state.logoAsFile = out.bytes > LOGO_INLINE_LIMIT;
+      state.logoTooBig = !logoFitsInOneLine();
+      state.logoChoice = '';
+      $('logoImg').src = out.dataUri;
+      $('logoPreview').hidden = false;
+      if (state.logoTooBig) {
+        $('logoWarn').hidden = true;
+      } else {
+        $('logoWarn').innerHTML = '로고를 설정에 담았습니다 (<span class="nb">' +
+          Math.round(out.bytes / 1024) + 'KB</span>).';
+        $('logoWarn').hidden = false;
+      }
+      save(); renderLogoBranch(); refreshAll();
+    });
+  });
+
+  $('btnLogoLink').addEventListener('click', function () {
+    state.logoChoice = 'link'; save(); renderLogoBranch(); refreshAll();
+  });
+  $('btnLogoSkip').addEventListener('click', function () {
+    state.logoChoice = 'skip'; state.logoLinkUrl = ''; save(); renderLogoBranch(); refreshAll();
+  });
+  $('fLogoUrl').addEventListener('change', function () {
+    state.logoLinkUrl = $('fLogoUrl').value.trim(); save(); refreshAll();
+  });
+
+  // ---------- 입력 ↔ 상태 ----------
+  var BIND = [
+    ['fCompanyName', 'companyName', 'text'],
+    ['fTitle', 'title', 'text'],
+    ['fSubtitle', 'subtitle', 'text'],
+    ['fProductName', 'productName', 'text'],
+    ['fVisitor', 'visitorName', 'text'],
+    ['fMode', 'mode', 'text'],
+    ['fThanks', 'thanksSeconds', 'num'],
+    ['fIdle', 'idleResetSeconds', 'num'],
+    ['fAbandon', 'abandonResetSeconds', 'num'],
+    ['fCountdown', 'countdownSeconds', 'num']
+  ];
+  function pullInputs() {
+    BIND.forEach(function (b) {
+      var el = $(b[0]);
+      state[b[1]] = b[2] === 'num' ? Number(el.value) : el.value;
+    });
+  }
+  function pushInputs() {
+    BIND.forEach(function (b) {
+      var el = $(b[0]);
+      var v = state[b[1]];
+      if (v !== '' && v !== undefined && v !== null) el.value = v;
+    });
+  }
+  BIND.forEach(function (b) {
+    $(b[0]).addEventListener('change', function () { pullInputs(); save(); refreshAll(); });
+  });
+
+  // ---------- 설정 객체 ----------
+  function num(v, d) { var n = Number(v); return (isFinite(n) && n >= 0) ? n : d; }
+
+  /**
+   * 설정 객체를 만든다.
+   *  forZip=true  → 로고를 파일로 함께 넣으므로 경로만 적는다.
+   *  forZip=false → 설정 한 줄 안에 담을 값. 로고가 크면 주소만 넣거나 비운다.
+   */
+  function configObject(forZip, logoOverride) {
+    var logo = '';
+    if (forZip) {
+      logo = state.logoDataUri ? (state.logoAsFile ? 'assets/logo.png' : state.logoDataUri) : (state.logoLinkUrl || '');
+    } else if (logoOverride !== undefined) {
+      logo = logoOverride;
+    } else if (state.logoTooBig) {
+      logo = state.logoChoice === 'link' ? (state.logoLinkUrl || '') : '';
+    } else {
+      logo = state.logoDataUri || state.logoLinkUrl || '';
+    }
+    return {
+      productName: state.productName || DEFAULT_PRODUCT_NAME,
+      companyId: state.companyId,
+      templateId: state.templateId,
+      countryCode: state.countryCode || 'kr',
+      langCode: state.langCode || 'ko',
+      companyName: state.companyName || '',
+      logoUrl: logo,
+      title: state.title || '방문자 기록부',
+      subtitle: state.subtitle || '방문 정보를 입력하고 서명한 뒤 전송을 눌러 주세요.',
+      visitorName: state.visitorName || '방문자',
+      mode: state.mode === 'immediate' ? 'immediate' : 'thanks',
+      thanksSeconds: num(state.thanksSeconds, 5),
+      thanksMessage: '작성해 주셔서 감사합니다.',
+      thanksSubMessage: '잠시 후 처음 화면으로 돌아갑니다.',
+      idleResetSeconds: num(state.idleResetSeconds, 120),
+      abandonResetSeconds: num(state.abandonResetSeconds, 180),
+      countdownSeconds: num(state.countdownSeconds, 5),
+      showHeader: true,
+      hideRequestPopup: true,
+      debug: false,
+      prefill: []
+    };
+  }
+  window.__setupConfigObject = configObject;
+
+  /** JSON → UTF-8 → base64url. build.mjs 의 decodeKioskConfig 와 짝이다. */
+  function encodeConfig(obj) {
+    var json = JSON.stringify(obj);
+    var bytes = new TextEncoder().encode(json);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  window.__setupEncodeConfig = encodeConfig;
+  window.__setupConfigValue = function () { return encodeConfig(configObject(false)); };
+
+  function buildConfigJs() {
+    var obj = configObject(true);
+    return [
+      '/* 설정 마법사(setup.html)가 만든 파일입니다. 값을 바꾸려면 마법사를 다시 실행하세요.',
+      ' * 만든 시각: ' + new Date().toISOString(),
+      ' */',
+      'window.KIOSK_CONFIG = ' + JSON.stringify(obj, null, 2) + ';',
+      ''
+    ].join('\n');
+  }
+  window.__setupBuildConfig = buildConfigJs;
+
+  function deployUrl() {
+    return 'https://vercel.com/new/clone' +
+      '?repository-url=' + encodeURIComponent(TEMPLATE_REPO_URL) +
+      '&project-name=' + encodeURIComponent(PROJECT_NAME) +
+      '&repository-name=' + encodeURIComponent(PROJECT_NAME) +
+      '&env=' + encodeURIComponent('KIOSK_CONFIG') +
+      '&envDescription=' + encodeURIComponent('설정 마법사에서 복사한 값을 붙여 넣으세요') +
+      '&envLink=' + encodeURIComponent(TEMPLATE_REPO_URL + '#설정값-한-줄-kiosk_config');
+  }
+  window.__setupDeployUrl = deployUrl;
+
+  // ---------- 「내가 정한 설정 요약」 ----------
+  function summaryRows() {
+    var cfg = configObject(false);
+    var logoText = cfg.logoUrl
+      ? (cfg.logoUrl.indexOf('data:') === 0 ? '올린 그림을 씁니다' : cfg.logoUrl)
+      : '로고 없음 (회사 이름으로 표시)';
+    return [
+      ['제품 이름', cfg.productName],
+      ['회사 이름', cfg.companyName || '(비어 있음)'],
+      ['로고', logoText],
+      ['화면 제목', cfg.title],
+      ['안내 문구', cfg.subtitle],
+      ['작성자 표시 이름', cfg.visitorName],
+      ['제출 뒤', cfg.mode === 'immediate' ? '곧바로 새 서식을 엽니다'
+        : '감사 화면을 ' + cfg.thanksSeconds + '초 보여 준 뒤 새 서식을 엽니다'],
+      ['빈 화면 방치 되돌리기', cfg.idleResetSeconds === 0 ? '되돌리지 않음' : cfg.idleResetSeconds + '초'],
+      ['작성 중 이탈 되돌리기', cfg.abandonResetSeconds + '초'],
+      ['복귀 카운트다운', cfg.countdownSeconds + '초'],
+      ['연결된 서식', cfg.templateId ? cfg.templateId : '(아직 읽지 않았습니다)']
+    ];
+  }
+  function renderSummary(tableId) {
+    var t = $(tableId);
+    if (!t) return;
+    var body = t.querySelector('tbody');
+    body.innerHTML = '';
+    summaryRows().forEach(function (r) {
+      var tr = document.createElement('tr');
+      var th = document.createElement('th');
+      th.textContent = r[0];
+      var td = document.createElement('td');
+      td.textContent = String(r[1]);
+      tr.appendChild(th); tr.appendChild(td);
+      body.appendChild(tr);
+    });
+  }
+
+  // ---------- 실제 화면 그림 ----------
+  // 로그인 뒤 화면 캡처는 다른 곳에서 만들어 docs/img/post-login-captures.json 으로 들어온다.
+  // 파일이 아직 없으면 「화면 준비 중」 자리표시자를 두고, 파일이 생기면 그대로 뜬다.
+  var SHOTS = {
+    gh: { src: '', key: 'github-signup',
+          where: '화면 가운데 칸에 이메일을 넣고 아래 초록색 버튼을 누르세요.' },
+    vercel: { src: 'docs/img/vercel-02-signup.png', key: 'vercel-signup',
+              box: { left: 34.5, top: 42.3, width: 31, height: 5.6 },
+              where: '가운데 목록에서 GitHub 줄을 누르세요.' },
+    deploy: { src: 'docs/img/vercel-post-03-deploy-clone@2x.png', key: 'vercel-deploy-clone',
+              where: '화면 오른쪽 아래 검은 버튼이 마지막에 누를 버튼입니다.' },
+    url: { src: 'docs/img/vercel-post-04-project-overview@2x.png', key: 'vercel-project-overview',
+           where: '화면 위쪽에 보이는 주소가 내 방명록 주소입니다.' }
+  };
+  var captures = null;
+
+  function pickCapture(key) {
+    if (!captures || !key) return null;
+    var e = null;
+    if (Array.isArray(captures)) {
+      for (var i = 0; i < captures.length; i++) {
+        var c = captures[i];
+        if (c && (c.key === key || c.id === key || c.name === key)) { e = c; break; }
+      }
+    } else if (typeof captures === 'object') {
+      e = captures[key] || null;
+      if (!e && captures.captures) {
+        var m = captures.captures;
+        if (Array.isArray(m)) {
+          for (var j = 0; j < m.length; j++) {
+            if (m[j] && (m[j].key === key || m[j].id === key)) { e = m[j]; break; }
+          }
+        } else if (m && typeof m === 'object') e = m[key] || null;
+      }
+    }
+    if (!e) return null;
+    var src = e.file || e.src || e.image || e.path || '';
+    if (src && src.indexOf('/') === -1) src = 'docs/img/' + src;
+    var b = e.action_box || e.actionBox || e.box || null;
+    var box = null;
+    if (Array.isArray(b) && b.length >= 4) box = { left: b[0], top: b[1], width: b[2], height: b[3] };
+    else if (b && typeof b === 'object') {
+      box = {
+        left: b.left !== undefined ? b.left : b.x,
+        top: b.top !== undefined ? b.top : b.y,
+        width: b.width !== undefined ? b.width : b.w,
+        height: b.height !== undefined ? b.height : b.h
+      };
+    }
+    return { src: src, box: box };
+  }
+
+  function renderShots() {
+    document.querySelectorAll('figure.shot').forEach(function (fig) {
+      var key = fig.getAttribute('data-shot');
+      var def = SHOTS[key];
+      if (!def) return;
+      var cap = pickCapture(def.key);
+      var src = (cap && cap.src) || def.src || '';
+      var box = (cap && cap.box) || def.box || null;
+      fig.innerHTML = '';
+      var holder = document.createElement('div');
+      holder.className = 'shotBox';
+      if (!src) {
+        holder.className += ' pending';
+        holder.textContent = '화면 그림 준비 중';
+      } else {
+        var img = document.createElement('img');
+        img.src = src;
+        img.alt = '실제 화면 그림';
+        holder.appendChild(img);
+        if (box && box.left !== undefined && box.top !== undefined) {
+          var hit = document.createElement('div');
+          hit.className = 'hit';
+          hit.style.left = box.left + '%';
+          hit.style.top = box.top + '%';
+          hit.style.width = (box.width || 10) + '%';
+          hit.style.height = (box.height || 5) + '%';
+          holder.appendChild(hit);
+        }
+      }
+      fig.appendChild(holder);
+      var cap2 = document.createElement('figcaption');
+      cap2.textContent = def.where;
+      fig.appendChild(cap2);
+    });
+  }
+
+  function loadCaptures() {
+    if (!window.fetch) { renderShots(); return; }
+    fetch('docs/img/post-login-captures.json', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { captures = j; renderShots(); })
+      .catch(function () { renderShots(); });
+  }
+
+  // ---------- 「안 돼요」 흐름 ----------
+  var HELP_LAST = {
+    label: '위의 어느 것도 아닙니다 — 도움 요청',
+    answer: function () {
+      return SUPPORT_CONTACT
+        ? '아래 「이 화면 정보 복사」를 누른 뒤, 그 내용을 ' + SUPPORT_CONTACT + ' 로 보내 주세요.'
+        : '아래 「이 화면 정보 복사」를 누른 뒤, 이 화면을 캡처해 서비스 제공자에게 함께 보내 주세요.';
+    }
+  };
+
+  var TROUBLE = {
+    gh: [
+      { label: '가입 화면이 영어라 어디를 눌러야 할지 모르겠습니다',
+        answer: '가운데 칸 세 개에 차례로 이메일, 새 비밀번호, 쓸 이름을 넣고 아래 초록색 버튼을 누르세요.' },
+      { label: '「이미 쓰고 있는 이메일입니다」라고 나옵니다',
+        answer: '이미 계정이 있는 것입니다. 가입 대신 로그인으로 들어가 그 계정을 쓰세요.' },
+      { label: '확인 메일이 오지 않습니다',
+        answer: '메일함의 스팸 보관함을 확인하세요. 5분이 지나도 없으면 가입 화면에서 다시 보내기를 누르세요.' }
+    ],
+    vercel: [
+      { label: '어떤 방법으로 가입할지 모르겠습니다',
+        answer: '가운데 목록에서 GitHub 줄을 누르세요. 앞 단계에서 만든 계정으로 바로 이어집니다.' },
+      { label: '권한을 허용하라는 화면이 나옵니다',
+        answer: '허용해도 됩니다. 내 계정에 파일을 넣기 위해 필요한 절차입니다.' },
+      { label: '요금제를 고르라고 합니다',
+        answer: '시험해 보는 단계라면 무료를 고르세요. 회사 업무로 상시 쓸 계획이면 유료를 고르세요.' }
+    ],
+    copy: [
+      { label: '복사 버튼을 눌러도 아무 일도 없습니다',
+        answer: '위의 검은 칸 안을 마우스로 끌어 전체를 선택한 뒤 Ctrl+C 를 누르세요.' },
+      { label: '값이 너무 길어 보입니다',
+        answer: '원래 그렇습니다. 손으로 옮겨 적지 말고 반드시 복사해서 붙여 넣으세요.' }
+    ],
+    deploy: [
+      { label: '새 창이 열리지 않습니다',
+        answer: '브라우저가 새 창을 막은 것입니다. 주소창 오른쪽 끝의 안내를 눌러 허용한 뒤 다시 누르세요.' },
+      { label: '로그인하라고 나옵니다',
+        answer: '앞 단계에서 만든 Vercel 계정으로 로그인한 뒤, 이 화면으로 돌아와 다시 누르세요.' },
+      { label: 'KIOSK_CONFIG 칸이 보이지 않습니다',
+        answer: '먼저 이름 확인 화면에서 Create 를 눌러야 다음 화면에 그 칸이 나옵니다.' },
+      { label: '「Invalid」 같은 빨간 글씨가 뜹니다',
+        answer: '붙여 넣은 값이 잘린 것입니다. 앞 단계로 돌아가 복사를 다시 하고, 칸을 비운 뒤 붙여 넣으세요.' }
+    ],
+    url: [
+      { label: '화면이 통째로 하얗습니다',
+        answer: '설정값이 들어가지 않은 것입니다. Vercel 프로젝트의 Settings 화면에서 KIOSK_CONFIG 값을 다시 넣고 Redeploy 를 누르세요.' },
+      { label: '틀은 뜨는데 서식 내용이 비어 있습니다',
+        answer: '서식의 「URL로 문서 생성 허용」이 꺼져 있습니다. 이폼사인에서 켜고 서식을 다시 내보내세요.' },
+      { label: '주소를 어디서 봐야 할지 모르겠습니다',
+        answer: '설치가 끝난 화면 위쪽에 보이는 주소입니다. 그 주소를 눌러 복사해 위 칸에 붙여 넣으세요.' }
+    ],
+    report: [
+      { label: 'API 키를 어디서 받는지 모르겠습니다',
+        answer: '이폼사인 대표 관리자 계정에서 [커넥트] > [API / Webhook] > [API 키 관리] 로 들어가 받습니다.' },
+      { label: '이 기능이 꼭 필요한지 모르겠습니다',
+        answer: '지금은 건너뛰어도 됩니다. 나중에 언제든 켤 수 있습니다.' }
+    ],
+    tablet: [
+      { label: '태블릿에서 주소를 입력하기 어렵습니다',
+        answer: '위의 네모 코드를 태블릿 카메라로 찍으면 주소가 바로 열립니다.' },
+      { label: '방문자가 다른 화면으로 빠져나갑니다',
+        answer: '기기의 화면 고정 기능을 켜야 합니다. 위에서 쓰는 기기를 골라 그 설명을 따르세요.' },
+      { label: '화면이 저절로 꺼집니다',
+        answer: '태블릿 설정에서 화면 자동 꺼짐을 「안 함」으로 바꾸고 충전기를 연결해 두세요.' }
+    ],
+    zip: [
+      { label: '내려받기가 되지 않습니다',
+        answer: '브라우저가 막은 것입니다. 주소창 아래 안내에서 허용을 누른 뒤 다시 받으세요.' },
+      { label: '올릴 서버가 있는지 모르겠습니다',
+        answer: '회사 IT 담당자에게 이 파일 묶음과 안내문을 그대로 보내 주세요.' }
+    ],
+    upload: [
+      { label: '어디에 올려야 하는지 모르겠습니다',
+        answer: '웹 서버의 최상위 폴더입니다. IT 담당자에게 안내문을 보내면 바로 압니다.' }
+    ],
+    selfurl: [
+      { label: '화면이 통째로 하얗습니다',
+        answer: 'config.js 가 함께 올라가지 않았거나 위치가 어긋난 것입니다. 파일 세 개가 모두 올라갔는지 확인하세요.' },
+      { label: '틀은 뜨는데 서식 내용이 비어 있습니다',
+        answer: '서식의 「URL로 문서 생성 허용」이 꺼져 있습니다. 이폼사인에서 켜고 서식을 다시 내보내세요.' }
+    ]
+  };
+
+  function troubleText(key, pickIndex) {
+    var list = (TROUBLE[key] || []).concat([HELP_LAST]);
+    var pick = (pickIndex !== null && pickIndex !== undefined && list[pickIndex])
+      ? list[pickIndex].label : '(고르지 않음)';
+    var cfg = configObject(false);
+    return [
+      '=== ' + (state.productName || DEFAULT_PRODUCT_NAME) + ' 설정 도움 요청 ===',
+      '시각: ' + new Date().toLocaleString('ko-KR'),
+      '단계: ' + key,
+      '증상: ' + pick,
+      '회사 ID: ' + (cfg.companyId || '(없음)'),
+      '서식 ID: ' + (cfg.templateId || '(없음)'),
+      '회사 이름: ' + (cfg.companyName || '(없음)'),
+      '제출 뒤 동작: ' + cfg.mode,
+      '대기시간: ' + cfg.idleResetSeconds + ' / ' + cfg.abandonResetSeconds + ' / ' + cfg.countdownSeconds,
+      '내 방명록 주소: ' + (state.deployedUrl || '(아직 없음)'),
+      '브라우저: ' + navigator.userAgent
+    ].join('\n');
+  }
+
+  function renderTrouble() {
+    document.querySelectorAll('[data-trouble]').forEach(function (wrap) {
+      var key = wrap.getAttribute('data-trouble');
+      if (wrap.getAttribute('data-built') === '1') { paintAnswer(wrap, key); return; }
+      wrap.setAttribute('data-built', '1');
+      var list = (TROUBLE[key] || []).concat([HELP_LAST]);
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'troubleBtn';
+      btn.textContent = '안 돼요';
+      wrap.appendChild(btn);
+
+      var panel = document.createElement('div');
+      panel.className = 'troublePanel';
+      panel.hidden = true;
+      var q = document.createElement('p');
+      q.className = 'qs';
+      q.textContent = '어떤 상황인가요? 하나만 고르세요.';
+      panel.appendChild(q);
+
+      list.forEach(function (item, idx) {
+        var lab = document.createElement('label');
+        var r = document.createElement('input');
+        r.type = 'radio';
+        r.name = 'trouble-' + key;
+        r.value = String(idx);
+        r.addEventListener('change', function () {
+          state.trouble[key] = idx;
+          save();
+          paintAnswer(wrap, key);
+        });
+        var sp = document.createElement('span');
+        sp.textContent = item.label;
+        lab.appendChild(r); lab.appendChild(sp);
+        panel.appendChild(lab);
+      });
+
+      var ans = document.createElement('div');
+      ans.className = 'answer';
+      ans.hidden = true;
+      panel.appendChild(ans);
+
+      var copyRow = document.createElement('div');
+      copyRow.className = 'row';
+      var copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'btn secondary';
+      copyBtn.textContent = '이 화면 정보 복사';
+      copyBtn.addEventListener('click', function () {
+        copyText(troubleText(key, state.trouble[key]));
+        copyBtn.textContent = '복사했습니다';
+        setTimeout(function () { copyBtn.textContent = '이 화면 정보 복사'; }, 2500);
+      });
+      copyRow.appendChild(copyBtn);
+      panel.appendChild(copyRow);
+
+      wrap.appendChild(panel);
+      btn.addEventListener('click', function () {
+        panel.hidden = !panel.hidden;
+      });
+      paintAnswer(wrap, key);
+    });
+  }
+
+  function paintAnswer(wrap, key) {
+    var idx = state.trouble[key];
+    var panel = wrap.querySelector('.troublePanel');
+    var ans = wrap.querySelector('.answer');
+    if (!panel || !ans) return;
+    if (idx === undefined || idx === null) { ans.hidden = true; return; }
+    var list = (TROUBLE[key] || []).concat([HELP_LAST]);
+    var item = list[idx];
+    if (!item) { ans.hidden = true; return; }
+    var radios = panel.querySelectorAll('input[type=radio]');
+    if (radios[idx]) radios[idx].checked = true;
+    ans.textContent = '다음 행동: ' + (typeof item.answer === 'function' ? item.answer() : item.answer);
+    ans.hidden = false;
+    panel.hidden = false;
+  }
+
+  // ---------- 파일 묶음 ----------
+  function dataUriToUint8(uri) {
+    var b64 = uri.slice(uri.indexOf(',') + 1);
+    var bin = atob(b64);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function buildZipBlob() {
+    if (typeof JSZip === 'undefined') {
+      return Promise.reject(new Error('압축 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.'));
+    }
+    var zip = new JSZip();
+    return fetch('index.html').then(function (r) {
+      if (!r.ok) throw new Error('index.html 을 읽지 못했습니다(HTTP ' + r.status + ').');
+      return r.text();
+    }).then(function (idx) {
+      zip.file('index.html', idx);
+      zip.file('config.js', buildConfigJs());
+      if (state.logoDataUri && state.logoAsFile) {
+        zip.file('assets/logo.png', dataUriToUint8(state.logoDataUri));
+      }
+      return fetch('vercel.json').then(function (r) {
+        return r.ok ? r.text() : null;
+      }).catch(function () { return null; });
+    }).then(function (vj) {
+      if (vj) zip.file('vercel.json', vj);
+      return zip.generateAsync({ type: 'blob' });
+    });
+  }
+  window.__setupBuildZip = buildZipBlob;
+
+  function downloadZip(okId, errId) {
+    $(okId).hidden = true;
+    $(errId).hidden = true;
+    buildZipBlob().then(function (blob) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = PROJECT_NAME + '.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      $(okId).innerHTML = '파일 묶음을 만들었습니다 (<span class="nb">' +
+        Math.round(blob.size / 1024) + 'KB</span>).';
+      $(okId).hidden = false;
+    }).catch(function (e) {
+      $(errId).textContent = e.message || String(e);
+      $(errId).hidden = false;
+    });
+  }
+  $('btnZip').addEventListener('click', function () { downloadZip('zipOk', 'zipErr'); });
+  $('btnZip2').addEventListener('click', function () { downloadZip('zipOk2', 'zipErr2'); });
+
+  function itNoteText() {
+    return [
+      '[' + (state.productName || DEFAULT_PRODUCT_NAME) + ' — 회사 서버에 올려 주세요]',
+      '',
+      '첨부한 파일 묶음을 풀어 웹 서버 최상위에 폴더 구조 그대로 올려 주세요.',
+      '',
+      '  /index.html        방명록 화면 (필수)',
+      '  /config.js         설정 한 장 (필수)',
+      '  /assets/logo.png   로고 (로고를 쓸 때만)',
+      '',
+      '조건',
+      '  · 자물쇠 표시가 있는 주소(https)로 열려야 합니다. 자물쇠가 없는 주소(http)에서는',
+      '    이폼사인 작성 화면이 뜨지 않습니다(브라우저가 혼합 콘텐츠로 막습니다).',
+      '  · 별도의 서버 프로그램은 필요 없습니다. 정적 파일만 올리면 됩니다.',
+      '  · 인증서와 서버 설정 안내: docs/own-domain-https.md',
+      '',
+      '올린 뒤 주소를 알려 주시면 화면이 뜨는지 확인하겠습니다.'
+    ].join('\n');
+  }
+  $('btnItNote').addEventListener('click', function () {
+    $('itNote').textContent = itNoteText();
+    copyText(itNoteText());
+  });
+
+  // ---------- ⑥ 설치 ----------
+  var SUBS = {
+    vercel: ['gh', 'vercel', 'copy', 'deploy', 'url', 'report', 'tablet'],
+    self: ['zip', 'upload', 'selfurl']
+  };
+  var SUB_EL = {
+    gh: 'subGh', vercel: 'subVercel', copy: 'subCopy', deploy: 'subDeploy', url: 'subUrl',
+    report: 'subReport', tablet: 'subTablet',
+    zip: 'subZip', upload: 'subUpload', selfurl: 'subSelfUrl'
+  };
+  var REPORT_ENV_TEXT = [
+    'KIOSK_REPORT_ENABLED=true',
+    'EFORMSIGN_API_KEY=<이폼사인에서 받은 API 키>',
+    'REPORT_SECRET=<아래 제안값>',
+    '',
+    '# 받는 방법 — 아래 둘 중 하나만 넣습니다',
+    'REPORT_WEBHOOK_URL=<요약을 받을 주소>',
+    '# 또는',
+    'RESEND_API_KEY=<Resend 키>',
+    'REPORT_TO_EMAIL=<요약을 받을 메일 주소>'
+  ].join('\n');
+
+  function subList() { return SUBS[state.deployPath] || []; }
+  function isDone(k) { return !!(state.deployDone && state.deployDone[k]); }
+  function markDone(k) {
+    if (!state.deployDone) state.deployDone = {};
+    state.deployDone[k] = true;
+    save(); renderDeploy();
+  }
+
+  function renderDeploy() {
+    var list = subList();
+    $('step6').hidden = !state.deployPath;
+    $('pathVercelBody').hidden = state.deployPath !== 'vercel';
+    $('pathSelfBody').hidden = state.deployPath !== 'self';
+    if (!state.deployPath) return;
+
+    $('step6Title').textContent = state.deployPath === 'vercel' ? '설치' : '회사 서버에 올리기';
+    $('step6Desc').textContent = '한 번에 한 가지씩만 하면 됩니다. 마친 단계를 누르면 다음이 열립니다.';
+
+    var openKey = null;
+    for (var i = 0; i < list.length; i++) {
+      if (!isDone(list[i])) { openKey = list[i]; break; }
+    }
+    var doneCount = 0;
+    list.forEach(function (k) {
+      var el = $(SUB_EL[k]);
+      if (!el) return;
+      var done = isDone(k);
+      if (done) doneCount++;
+      el.classList.toggle('done', done);
+      el.classList.toggle('open', k === openKey);
+      var head = el.querySelector('.subHead');
+      var mark = head.querySelector('.doneMark');
+      if (done && !mark) {
+        mark = document.createElement('span');
+        mark.className = 'doneMark';
+        mark.textContent = '✓';
+        mark.style.marginLeft = 'auto';
+        mark.style.color = 'var(--ok)';
+        head.appendChild(mark);
+      } else if (!done && mark) {
+        mark.remove();
+      }
+    });
+    $('depProgress').textContent = (doneCount + 1 > list.length ? list.length : doneCount + 1) +
+      ' / ' + list.length + ' 단계';
+    var allOk = doneCount === list.length;
+    if (state.deployPath === 'vercel') $('depAllOk').hidden = !allOk;
+    else $('depAllOk2').hidden = !allOk;
+  }
+
+  function pickPath(p) {
+    state.deployPath = p;
+    save(); renderDeploy(); refreshAll();
+    $('step6').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  $('pathVercel').addEventListener('click', function () { pickPath('vercel'); });
+  $('pathSelf').addEventListener('click', function () { pickPath('self'); });
+
+  document.querySelectorAll('[data-done]').forEach(function (b) {
+    b.addEventListener('click', function () { markDone(b.getAttribute('data-done')); });
+  });
+
+  // 설정값 한 줄 복사
+  $('btnCopyConfig').addEventListener('click', function () {
+    var v = $('cfgValue').textContent;
+    $('copyErr').hidden = true;
+    if (!state.companyId || !state.templateId) {
+      $('copyErr').textContent = '1단계에서 서식 주소를 먼저 읽어 주세요.';
+      $('copyErr').hidden = false;
+      return;
+    }
+    copyText(v);
+    $('copyOk').hidden = false;
+  });
+
+  // 주소 확인 (🔴 다른 곳의 화면이라 안의 내용은 읽을 수 없다 — 눈으로 확인만)
+  function checkDeployedUrl(inputId, errId, hostId) {
+    var raw = String($(inputId).value || '').trim();
+    var err = $(errId);
+    if (!raw) {
+      err.textContent = '주소를 붙여 넣어 주세요.';
+      err.hidden = false;
+      return;
+    }
+    var u;
+    try { u = new URL(raw); } catch (e) {
+      err.textContent = '주소 형식이 아닙니다. 브라우저 주소창의 내용을 그대로 붙여 넣어 주세요.';
+      err.hidden = false;
+      return;
+    }
+    if (u.protocol !== 'https:') {
+      err.textContent = '자물쇠 표시가 있는 주소(https)가 아닙니다. 작성 화면이 뜨지 않으니 자물쇠가 있는 주소로 여세요.';
+      err.hidden = false;
+      return;
+    }
+    err.hidden = true;
+    state.deployedUrl = u.href;
+    save();
+    var host = $(hostId);
+    host.innerHTML = '';
+    var f = document.createElement('iframe');
+    f.id = 'checkFrame';
+    f.title = '내 방명록 화면 확인';
+    f.src = u.href;
+    host.appendChild(f);
+    renderQr();
+  }
+
+  $('btnDepCheck').addEventListener('click', function () {
+    checkDeployedUrl('depUrl', 'depErr', 'depFrameHost');
+  });
+  $('btnDepYes').addEventListener('click', function () {
+    if (!state.deployedUrl) {
+      $('depErr').textContent = '먼저 주소를 넣고 「주소 열어 보기」를 눌러 주세요.';
+      $('depErr').hidden = false;
+      return;
+    }
+    markDone('url');
+  });
+  $('btnDepCheck2').addEventListener('click', function () {
+    checkDeployedUrl('depUrl2', 'depErr2', 'depFrameHost2');
+  });
+  $('btnDepYes2').addEventListener('click', function () {
+    if (!state.deployedUrl) {
+      $('depErr2').textContent = '먼저 주소를 넣고 「주소 열어 보기」를 눌러 주세요.';
+      $('depErr2').hidden = false;
+      return;
+    }
+    markDone('selfurl');
+  });
+
+  // 기록 요약 옵션 — 🔴 키 값은 받지 않는다. 이름 목록과 REPORT_SECRET 제안값만 보여 준다.
+  var secretValue = '';
+  function newSecret() {
+    var AB = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var buf = new Uint8Array(32);
+    (window.crypto || window.msCrypto).getRandomValues(buf);
+    var s = '';
+    for (var i = 0; i < 32; i++) s += AB.charAt(buf[i] % AB.length);
+    secretValue = s;
+    $('fSecret').value = s;
+    $('fSecret').type = 'password';
+    $('btnSecretShow').textContent = '보기';
+    return s;
+  }
+  window.__setupSecret = function () { return secretValue; };
+
+  function renderReport() {
+    $('fReport').checked = !!state.reportEnabled;
+    $('reportBody').hidden = !state.reportEnabled;
+    $('reportEnvList').textContent = REPORT_ENV_TEXT;
+    if (state.reportEnabled && !secretValue) newSecret();
+  }
+  $('fReport').addEventListener('change', function () {
+    state.reportEnabled = $('fReport').checked;
+    save(); renderReport();
+  });
+  $('btnSecretShow').addEventListener('click', function () {
+    var el = $('fSecret');
+    var hidden = el.type === 'password';
+    el.type = hidden ? 'text' : 'password';
+    $('btnSecretShow').textContent = hidden ? '가리기' : '보기';
+  });
+  $('btnSecretNew').addEventListener('click', newSecret);
+  $('btnSecretCopy').addEventListener('click', function () { copyText(secretValue); });
+  $('btnCopyReportEnv').addEventListener('click', function () { copyText(REPORT_ENV_TEXT); });
+
+  // 태블릿 안내
+  var TAB_EL = { android: 'tabAndroid', ipad: 'tabIpad', windows: 'tabWindows' };
+  function renderTablet() {
+    var cur = state.tabletTab || 'android';
+    Object.keys(TAB_EL).forEach(function (k) { $(TAB_EL[k]).hidden = k !== cur; });
+    $('tabletTabs').querySelectorAll('button').forEach(function (b) {
+      b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === cur));
+    });
+    $('edgeCmd').textContent = 'msedge.exe --kiosk ' + (state.deployedUrl || 'https://<내 방명록 주소>') +
+      ' --edge-kiosk-type=fullscreen';
+  }
+  $('tabletTabs').querySelectorAll('button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      state.tabletTab = b.getAttribute('data-tab');
+      save(); renderTablet();
+    });
+  });
+
+  // 네모 코드(QR) — 주소가 있을 때만 그린다
+  var qrDrawnFor = '';
+  function renderQr() {
+    var box = $('qrBox');
+    var url = state.deployedUrl;
+    if (!url) { box.hidden = true; return; }
+    if (typeof QRCode === 'undefined') {
+      $('qrWarn').textContent = '네모 코드를 만드는 도구를 불러오지 못했습니다. 주소를 직접 입력해 주세요.';
+      $('qrWarn').hidden = false;
+      box.hidden = true;
+      return;
+    }
+    $('qrWarn').hidden = true;
+    box.hidden = false;
+    if (qrDrawnFor === url) return;
+    box.innerHTML = '';
+    new QRCode(box, { text: url, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+    qrDrawnFor = url;
+    renderTablet();
+  }
+
+  function copyText(text) {
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try { navigator.clipboard.writeText(text); return; } catch (e) {}
+    }
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  // ---------- 전체 다시 그리기 ----------
+  function refreshAll() {
+    var name = (state.productName || DEFAULT_PRODUCT_NAME) + ' 설정 마법사';
+    $('pageTitle').textContent = name;
+    document.title = name;
+    $('cfgValue').textContent = encodeConfig(configObject(false));
+    $('btnDeploy').href = deployUrl();
+    renderSummary('sumTable5');
+    renderQr();
+    renderTablet();
+  }
+
+  // ---------- 시작 ----------
+  load();
+  pushInputs();
+  if (state.sourceUrl) $('srcUrl').value = state.sourceUrl;
+  if (state.deployedUrl) {
+    $('depUrl').value = state.deployedUrl;
+    $('depUrl2').value = state.deployedUrl;
+  }
+  showParsed();
+  renderLogoBranch();
+  renderReport();
+  renderTablet();
+  renderTrouble();
+  renderDeploy();
+  refreshAll();
+  loadCaptures();
+})();
+</script>
+</body>
+</html>

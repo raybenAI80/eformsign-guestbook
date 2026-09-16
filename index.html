@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>키오스크</title>
+<style>
+  /* ── 한국어 줄바꿈 (korean-typography.css 드롭인, W3C klreq §7.1) ──────────
+     정본: C:UsersFORCS.agent-harness	oolskorean-linebreakcsskorean-typography.css
+     🔴 overflow-wrap: anywhere 금지 — min-content 에 어절 내부 분리 기회를 반영해
+        flex/grid 자식이 어절 폭 아래로 수축하고 keep-all 이 무력화된다. */
+  html { word-break: keep-all; overflow-wrap: break-word; line-break: strict; }
+  body, p, li, dd, dt, td, th, h1, h2, h3, h4, h5, h6,
+  figcaption, blockquote, label, button, a, span, div {
+    word-break: keep-all; overflow-wrap: break-word;
+  }
+  p, li, dd, blockquote, .body, .desc, .note { text-wrap: pretty; }
+  h1, h2, h3, h4, h5, h6, .title, .headline, .lead, .callout, .caption { text-wrap: balance; }
+  /* 숫자+단위·로마자 고유명처럼 갈라지면 안 되는 어구 */
+  .nb { white-space: nowrap; }
+
+  :root {
+    --brand: #0E73C3;
+    --ink: #1a1a1a;
+    --ink-weak: #5c6570;
+    --line: #e3e7eb;
+    --bg: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg); color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    /* 한국어 줄바꿈: 어절 내부 분리 금지 */
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    line-break: strict;
+    overscroll-behavior: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #app { display: flex; flex-direction: column; height: 100%; }
+
+  header#kioskHeader {
+    flex: 0 0 auto;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px;
+  }
+  header#kioskHeader h1 {
+    margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.01em;
+    text-wrap: balance;
+  }
+  header#kioskHeader p {
+    margin: 0; font-size: 14px; color: var(--ink-weak); text-wrap: balance;
+  }
+  /* 헤더 브랜드 — 로고가 있으면 로고, 없으면 회사명, 둘 다 없으면 제목만 */
+  header#kioskHeader #brand { display: flex; align-items: center; flex: 0 0 auto; }
+  header#kioskHeader #brand[hidden] { display: none !important; }
+  header#kioskHeader #brandLogo { display: block; height: 40px; max-height: 40px; width: auto; max-width: 220px; object-fit: contain; }
+  header#kioskHeader #brandLogo[hidden] { display: none !important; }
+  header#kioskHeader #brandName { font-size: 16px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+  header#kioskHeader #brandName[hidden] { display: none !important; }
+  header#kioskHeader .bar {
+    width: 4px; align-self: stretch; background: var(--brand); border-radius: 2px;
+  }
+  /* 「처음부터 다시」 — 헤더 우측. 오작동을 줄이려고 작게 두고, 누르면 확인 오버레이를 거친다. */
+  #btnRestart {
+    margin-left: auto; align-self: center;
+    appearance: none; background: #fff; color: var(--brand);
+    border: 1.5px solid var(--brand); border-radius: 8px;
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    padding: 8px 14px; cursor: pointer; white-space: nowrap;
+  }
+  #btnRestart[hidden] { display: none !important; }
+
+  main#stage { position: relative; flex: 1 1 auto; min-height: 0; }
+  /* 🔴 efs_embedded_v2.js 의 open() 은 $('#id').attr('src', url) 를 한다 →
+     이 id 를 가진 요소는 반드시 <iframe> 이어야 한다(div 면 아무 일도 안 일어난다). */
+  #frameHost { position: absolute; inset: 0; }
+  #frameHost iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+  /* 복귀 카운트다운이 뜬 동안에는 작성 중이던 내용을 흐리게 가린다(개인정보 노출 완화) */
+  #frameHost.blurred iframe { filter: blur(6px); }
+
+  /* 오버레이 공통 */
+  .overlay {
+    position: absolute; inset: 0; z-index: 10;
+    background: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; padding: 32px; text-align: center;
+  }
+  .overlay[hidden] { display: none !important; }
+  .overlay h2 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -.02em; text-wrap: balance; }
+  .overlay p { margin: 0; font-size: 17px; color: var(--ink-weak); text-wrap: balance; }
+
+  .check {
+    width: 84px; height: 84px; border-radius: 50%;
+    border: 3px solid var(--brand);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .check svg { width: 44px; height: 44px; stroke: var(--brand); fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  #countdown { font-size: 14px; color: var(--ink-weak); font-variant-numeric: tabular-nums; }
+
+  /* 무응답 리셋 직전 경고 — 터치하면 계속 작성한다 */
+  #ovIdle { gap: 14px; }
+  #ovIdle .ring {
+    width: 108px; height: 108px; border-radius: 50%;
+    border: 4px solid var(--brand);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 42px; font-weight: 700; color: var(--brand);
+    font-variant-numeric: tabular-nums;
+  }
+  #ovIdle h2 { font-size: 30px; }
+  #ovIdle .hint { font-size: 19px; color: var(--brand); font-weight: 600; }
+
+  .btn {
+    appearance: none; border: 0; border-radius: 10px;
+    background: var(--brand); color: #fff;
+    font-size: 18px; font-weight: 600; padding: 14px 30px; cursor: pointer;
+    font-family: inherit;
+  }
+  .btn.secondary { background: #fff; color: var(--brand); border: 1.5px solid var(--brand); }
+
+  /* 「처음부터 다시」 확인 — 실수 터치로 내용이 날아가지 않도록 한 번 더 묻는다 */
+  #ovRestart { z-index: 20; gap: 16px; }
+  #ovRestart h2 { font-size: 30px; }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+  .spinner {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 3px solid var(--line); border-top-color: var(--brand);
+    animation: spin .9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #errBox {
+    max-width: 620px; text-align: left; font-size: 13px; color: #8a2b2b;
+    background: #fdf3f3; border: 1px solid #f0d0d0; border-radius: 8px; padding: 12px 14px;
+    white-space: pre-wrap; word-break: break-all; overflow: auto; max-height: 240px;
+  }
+
+  #log {
+    position: fixed; right: 8px; bottom: 8px; z-index: 50;
+    width: 360px; max-height: 40vh; overflow: auto;
+    background: rgba(20,24,28,.92); color: #d8e2ea;
+    font: 11px/1.45 ui-monospace, Menlo, Consolas, monospace;
+    padding: 8px 10px; border-radius: 8px; white-space: pre-wrap;
+  }
+  #log[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="kioskHeader">
+    <span id="brand" hidden>
+      <img id="brandLogo" alt="" hidden>
+      <span id="brandName" hidden></span>
+    </span>
+    <span class="bar" aria-hidden="true"></span>
+    <div>
+      <h1 id="hTitle">방문자 기록부</h1>
+      <p id="hSub">방문 정보를 입력하고 서명해 주세요.</p>
+    </div>
+    <button id="btnRestart" type="button">처음부터 다시</button>
+  </header>
+
+  <main id="stage">
+    <div id="frameHost"><iframe id="eformsign_iframe" title="문서 작성" allow="camera; microphone; clipboard-write; local-network-access"></iframe></div>
+
+    <!-- 로딩 -->
+    <section class="overlay" id="ovLoading">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>작성 화면을 준비하고 있습니다.</p>
+    </section>
+
+    <!-- 감사합니다 -->
+    <section class="overlay" id="ovThanks" hidden>
+      <div class="check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div>
+      <h2 id="thanksTitle">작성해 주셔서 감사합니다.</h2>
+      <p id="thanksSub">잠시 후 처음 화면으로 돌아갑니다.</p>
+      <p id="countdown"></p>
+      <button class="btn secondary" id="btnSkip" type="button">지금 다음 방문자 시작</button>
+    </section>
+
+    <!-- 무응답 리셋 경고 -->
+    <section class="overlay" id="ovIdle" hidden>
+      <div class="ring" id="idleRing" aria-hidden="true">5</div>
+      <h2>계속 작성하시겠습니까?</h2>
+      <p class="hint">아무 곳이나 터치하면 계속 작성합니다.</p>
+      <p id="idleSub">응답이 없으면 처음 화면으로 돌아갑니다.</p>
+      <button class="btn" id="btnKeep" type="button">계속 작성하기</button>
+    </section>
+
+    <!-- 「처음부터 다시」 확인 -->
+    <section class="overlay" id="ovRestart" hidden>
+      <h2>입력한 내용이 지워집니다.</h2>
+      <p>처음부터 다시 시작할까요?</p>
+      <div class="actions">
+        <button class="btn" id="btnRestartYes" type="button">처음부터 다시 시작</button>
+        <button class="btn secondary" id="btnRestartNo" type="button">계속 작성하기</button>
+      </div>
+    </section>
+
+    <!-- 오류 -->
+    <section class="overlay" id="ovError" hidden>
+      <h2>작성 화면을 열지 못했습니다.</h2>
+      <p>관리자에게 알려 주세요.</p>
+      <pre id="errBox"></pre>
+      <button class="btn" id="btnRetry" type="button">다시 시도</button>
+    </section>
+  </main>
+</div>
+
+<pre id="log" hidden></pre>
+
+<script src="https://www.eformsign.com/plugins/jquery/jquery.min.js"></script>
+<script src="https://www.eformsign.com/lib/js/efs_embedded_v2.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // ---------- 설정 병합 (config.js + URL 쿼리) ----------
+  var q = new URLSearchParams(location.search);
+  var C = Object.assign({}, window.KIOSK_CONFIG || {});
+  if (q.get('mode')) C.mode = q.get('mode');
+  if (q.get('sec')) C.thanksSeconds = Number(q.get('sec'));
+  if (q.get('idle')) C.idleResetSeconds = Number(q.get('idle'));
+  if (q.get('abandon')) C.abandonResetSeconds = Number(q.get('abandon'));
+  if (q.get('countdown')) C.countdownSeconds = Number(q.get('countdown'));
+  if (q.get('template')) C.templateId = q.get('template');
+  if (q.get('company')) C.companyId = q.get('company');
+  if (q.get('debug')) C.debug = q.get('debug') !== '0';
+  if (C.mode !== 'immediate' && C.mode !== 'thanks') C.mode = 'thanks';
+  if (!(C.thanksSeconds > 0)) C.thanksSeconds = 4;
+  // 무응답 리셋: 입력 시작 전(idle) / 입력 중 이탈(abandon) 두 기준을 따로 둔다.
+  if (!(C.idleResetSeconds >= 0)) C.idleResetSeconds = 120;
+  if (!(C.abandonResetSeconds > 0)) C.abandonResetSeconds = 180;
+  // 복귀 카운트다운 — 리셋 몇 초 전부터 "계속 작성하시겠습니까?" 를 띄울지
+  if (!(C.countdownSeconds > 0)) C.countdownSeconds = 5;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var els = {
+    stage: $('stage'), host: $('frameHost'),
+    loading: $('ovLoading'), thanks: $('ovThanks'), error: $('ovError'),
+    idle: $('ovIdle'), idleRing: $('idleRing'), idleSub: $('idleSub'), btnKeep: $('btnKeep'),
+    errBox: $('errBox'), countdown: $('countdown'),
+    hTitle: $('hTitle'), hSub: $('hSub'),
+    thanksTitle: $('thanksTitle'), thanksSub: $('thanksSub'),
+    btnSkip: $('btnSkip'), btnRetry: $('btnRetry'), log: $('log'),
+    btnRestart: $('btnRestart'), restart: $('ovRestart'),
+    btnRestartYes: $('btnRestartYes'), btnRestartNo: $('btnRestartNo')
+  };
+
+  // ── 브랜드(로고/회사명) ── logoUrl > companyName > title 순으로 하나만 보여 준다.
+  document.title = C.productName || '키오스크';
+  (function applyBrand() {
+    var brand = $('brand'), logo = $('brandLogo'), name = $('brandName');
+    if (C.logoUrl) {
+      logo.src = C.logoUrl;
+      logo.alt = C.companyName || C.title || '';
+      logo.hidden = false;
+      brand.hidden = false;
+      // 로고 파일을 못 읽으면 회사명으로 내려간다(빈 상자를 남기지 않는다).
+      logo.addEventListener('error', function () {
+        logo.hidden = true;
+        if (C.companyName) { name.textContent = C.companyName; name.hidden = false; }
+        else brand.hidden = true;
+      });
+    } else if (C.companyName) {
+      name.textContent = C.companyName;
+      name.hidden = false;
+      brand.hidden = false;
+    }
+  })();
+
+  els.hTitle.textContent = C.title || '방문자 기록부';
+  els.hSub.textContent = C.subtitle || '';
+  els.thanksTitle.textContent = C.thanksMessage || '작성해 주셔서 감사합니다.';
+  els.thanksSub.textContent = C.thanksSubMessage || '';
+  els.idleRing.textContent = String(C.countdownSeconds);
+  if (C.debug) els.log.hidden = false;
+
+  // ---------- 로그 ----------
+  var logLines = [];
+  window.__kioskLog = logLines;
+  function log() {
+    var msg = new Date().toISOString().slice(11, 23) + ' ' +
+      Array.prototype.map.call(arguments, function (a) {
+        return typeof a === 'string' ? a : JSON.stringify(a);
+      }).join(' ');
+    logLines.push(msg);
+    if (logLines.length > 400) logLines.shift();
+    if (!els.log.hidden) { els.log.textContent = logLines.slice(-60).join('\n'); els.log.scrollTop = els.log.scrollHeight; }
+    try { console.log('[kiosk]', msg); } catch (e) {}
+  }
+
+  // ---------- 상태 ----------
+  var state = { session: 0, phase: 'boot', docs: [], formReady: false, loads: 0, submits: 0 };
+  window.__kioskState = state;
+
+  function show(which) {
+    els.loading.hidden = which !== 'loading';
+    els.thanks.hidden = which !== 'thanks';
+    els.error.hidden = which !== 'error';
+    els.btnRestart.hidden = which === 'thanks';   // 감사 화면에서는 되돌릴 것이 없다
+    if (which !== null) closeRestartConfirm();
+    if (which) cancelWarn('show:' + which);      // 무응답 경고는 작성 화면에서만 뜬다
+    state.phase = which || 'form';
+    log('phase=' + state.phase);
+  }
+
+  // ---------- 무응답 리셋 ----------
+  // 🔴 작성 프레임은 cross-origin iframe 이라 그 안의 터치·키 입력이 부모 document 로
+  //    올라오지 않는다. 부모 이벤트만 보면 "열심히 입력 중인 방문자"가 무응답으로 보인다.
+  //    그래서 세 경로를 함께 쓴다.
+  //      (a) 부모 영역의 pointer/touch/key/wheel
+  //      (b) 포커스가 작성 프레임 안에 있는 동안 1초 폴링으로 갱신 (window blur 시점에
+  //          activeElement 가 iframe 이면 "프레임 안으로 들어갔다"로 확정)
+  //      (c) 이폼사인 action_callback / postMessage 수신
+  //    그리고 리셋 기준을 두 가지로 나눈다.
+  //      · 입력 시작 전(프레임에 한 번도 포커스가 안 간 세션) = idleResetSeconds
+  //      · 입력 중(프레임에 포커스가 갔던 세션)               = abandonResetSeconds,
+  //        그것도 포커스가 프레임 밖에 있을 때만 카운트한다.
+  var WARN_SECONDS = C.countdownSeconds;      // 복귀 카운트다운(초) — config.countdownSeconds / ?countdown=
+  var idle = { last: Date.now(), source: 'boot', engaged: false, warnLeft: 0 };
+  window.__kioskIdle = idle;
+
+  function frameFocused() {
+    var f = els.host.querySelector('iframe');
+    return !!(f && document.activeElement === f);
+  }
+  function armIdle(source) {
+    idle.last = Date.now();
+    idle.source = source || 'parent-input';
+    if (idle.warnLeft > 0) cancelWarn(idle.source);
+  }
+  ['pointerdown', 'touchstart', 'keydown', 'wheel'].forEach(function (ev) {
+    window.addEventListener(ev, function () { armIdle('parent:' + ev); }, { passive: true });
+  });
+  // window blur 시 포커스가 iframe 으로 넘어갔으면 = 방문자가 작성 프레임 안에 있다
+  window.addEventListener('blur', function () {
+    setTimeout(function () {
+      if (frameFocused()) {
+        if (!idle.engaged) log('작성 프레임 진입(engaged) — 이후 리셋 기준 abandonResetSeconds=' + C.abandonResetSeconds + 's');
+        idle.engaged = true;
+        armIdle('frame-focus');
+      }
+    }, 0);
+  });
+
+  function idleLimitSeconds() {
+    if (!(C.idleResetSeconds > 0)) return 0;          // 0 = 리셋 끔
+    return idle.engaged ? C.abandonResetSeconds : C.idleResetSeconds;
+  }
+
+  function showWarn(left) {
+    idle.warnLeft = left;
+    els.idleRing.textContent = String(left);
+    els.idleSub.textContent = left + '초 뒤 처음 화면으로 돌아갑니다.';
+    if (els.idle.hidden) {
+      els.idle.hidden = false;
+      els.host.classList.add('blurred');        // 카운트다운 동안 작성 내용을 가린다
+      log('무응답 경고 표시 — 남은 ' + left + 's, 마지막 활동 출처=' + idle.source);
+    }
+  }
+  function cancelWarn(by) {
+    if (idle.warnLeft > 0 || !els.idle.hidden) log('무응답 경고 취소 by=' + (by || 'unknown'));
+    idle.warnLeft = 0;
+    els.idle.hidden = true;
+    els.host.classList.remove('blurred');
+  }
+
+  setInterval(function () {
+    if (state.phase !== 'form') { cancelWarn('phase=' + state.phase); return; }
+    var limit = idleLimitSeconds();
+    if (!limit) { cancelWarn('disabled'); return; }
+    if (frameFocused()) {                              // 프레임 안에서 작성 중
+      if (!idle.engaged) { idle.engaged = true; log('작성 프레임 진입(engaged, poll)'); }
+      armIdle('frame-focus');
+      return;
+    }
+    var elapsed = (Date.now() - idle.last) / 1000;
+    if (elapsed >= limit) {
+      log('무응답 리셋 실행 — 사유=' + (idle.engaged ? 'abandon' : 'idle') +
+          ' 한도=' + limit + 's 경과=' + Math.round(elapsed) + 's 마지막 활동 출처=' + idle.source);
+      cancelWarn('reset');
+      startSession(idle.engaged ? 'abandon' : 'idle');
+      return;
+    }
+    if (elapsed >= limit - WARN_SECONDS) showWarn(Math.max(1, Math.ceil(limit - elapsed)));
+    else if (!els.idle.hidden) cancelWarn('activity');
+  }, 1000);
+
+  els.btnKeep && els.btnKeep.addEventListener('click', function () { armIdle('keep-button'); });
+
+  // ---------- 「처음부터 다시」 ----------
+  function closeRestartConfirm() {
+    if (!els.restart.hidden) { els.restart.hidden = true; log('처음부터 다시 — 취소(입력 내용 유지)'); }
+  }
+  els.btnRestart.addEventListener('click', function () {
+    armIdle('restart-button');
+    if (state.phase === 'thanks') return;
+    els.restart.hidden = false;
+    log('처음부터 다시 — 확인 요청 phase=' + state.phase);
+  });
+  els.btnRestartYes.addEventListener('click', function () {
+    els.restart.hidden = true;
+    log('처음부터 다시 — 사용자 확인, 세션을 새로 시작한다');
+    startSession('manual');
+  });
+  els.btnRestartNo.addEventListener('click', function () { armIdle('restart-cancel'); closeRestartConfirm(); });
+
+  // ---------- 브라우저 이탈 방지 ----------
+  history.pushState(null, '', location.href);
+  window.addEventListener('popstate', function () {
+    history.pushState(null, '', location.href);
+    log('back suppressed');
+  });
+  document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+
+  // 🔴 efs_embedded_v2.js 는 iframe 이 보내는 `completeWriteDocument` 메시지를 받으면
+  //    전역 함수 completeWriteDocument(data, iframe) 를 부른다. 이 함수를 부모 페이지가
+  //    정의해 두지 않으면 ReferenceError 로 메시지 처리가 통째로 죽고 success_callback 도 오지 않는다.
+  //    (스크립트 상단 주석이 /* global ... completeWriteDocument */ 인 이유.)
+  window.completeWriteDocument = function (data, srcIframe) {
+    log('completeWriteDocument', data && data.message ? data.message : data);
+    try { if (srcIframe && srcIframe.postMessage) srcIframe.postMessage(JSON.stringify({ type: 'document', fn: 'completeWriteDocumentCallback', message: {} }), '*'); } catch (e) {}
+    onSuccess((data && data.message) || data || {});
+  };
+
+  // 진단: iframe 이 보내는 모든 postMessage 를 그대로 남긴다
+  window.addEventListener('message', function (e) {
+    if (!e.origin || e.origin.indexOf('eformsign') === -1) return;
+    var d = e.data; try { if (typeof d === 'string') d = JSON.parse(d); } catch (x) {}
+    var dump; try { dump = JSON.stringify(d); } catch (x) { dump = String(d); }
+    log('RAW message', (dump || '').slice(0, 400));
+    armIdle('postMessage');                       // 프레임이 말을 걸었다 = 살아 있는 세션
+  });
+
+  // ---------- 이폼사인 구동 ----------
+  // '@today' -> 오늘 날짜(YYYY-MM-DD). 방문일시처럼 매번 같은 값을 손으로 고르게 하지 않는다.
+  function resolveValue(v) {
+    if (v !== '@today') return v;
+    var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  }
+
+  function buildOption() {
+    var opt = {
+      company: { id: C.companyId, country_code: C.countryCode || 'kr' },
+      user: { type: '02', external_user_info: { name: C.visitorName || '방문자' } },
+      mode: { type: '01', template_id: C.templateId },
+      layout: {
+        lang_code: C.langCode || 'ko',
+        header: C.showHeader !== false,
+        hide_request_popup: C.hideRequestPopup === true
+      }
+    };
+    if (C.prefill && C.prefill.length) {
+      opt.prefill = {
+        fields: C.prefill.map(function (f) {
+          var o = { id: f.id, value: resolveValue(f.value) };
+          if (f.enabled !== undefined) o.enabled = f.enabled;
+          if (f.required !== undefined) o.required = f.required;
+          return o;
+        })
+      };
+    }
+    return opt;
+  }
+
+  // 세션마다 iframe 을 통째로 새로 만든다 → 직전 방문자의 입력값·뷰어 상태가 남지 않는다.
+  function clearFrame() {
+    els.host.innerHTML = '';
+    var f = document.createElement('iframe');
+    f.id = 'eformsign_iframe';
+    f.title = '문서 작성';
+    f.setAttribute('allow', 'camera; microphone; clipboard-write; local-network-access');
+    // action_callback 이 오지 않는 경우에도 화면이 멈추지 않도록 load 를 보조 신호로 쓴다
+    f.addEventListener('load', function () {
+      state.loads += 1;
+      log('iframe load #' + state.loads + (state.formReady ? ' (작성 화면 이후)' : ''));
+      if (state.phase === 'loading') show(null);
+      armIdle('iframe-load');
+      // 🔴 외부 작성자(user.type "02") 신규 작성에서는 제출해도 success_callback 이 오지 않는다.
+      //    제출하면 iframe 이 스스로 이폼사인의 제출 완료 안내 화면으로 이동한다 →
+      //    "작성 화면 로드(action_callback) 이후의 iframe 이동" 을 제출 신호로 쓴다.
+      if (state.formReady && state.phase === 'form') {
+        state.formReady = false;
+        log('제출 감지(iframe 이동)');
+        setTimeout(function () { onSubmitted({ via: 'iframe-navigation' }); }, 300);
+      }
+    });
+    els.host.appendChild(f);
+  }
+
+  function startSession(reason) {
+    var my = ++state.session;
+    state.formReady = false;
+    log('startSession#' + my + ' reason=' + reason + ' mode=' + C.mode);
+    show('loading');
+    clearFrame();
+    idle.engaged = false;            // 새 세션 = 아직 아무도 입력을 시작하지 않았다
+    armIdle('session-start');
+
+    var opt = buildOption();
+    log('option', opt);
+
+    try {
+      var efs = new EformSignDocument();
+      window.__kioskEfs = efs;
+      efs.document(
+        opt,
+        'eformsign_iframe',
+        function (res) { if (my === state.session) onSuccess(res); },
+        function (res) { if (my === state.session) onError(res); },
+        function (res) { if (my === state.session) onAction(res); }
+      );
+      efs.open();
+      window.__kioskEfsList = (window.__kioskEfsList || []).concat([efs]);
+    } catch (e) {
+      onError({ code: 'JS', message: (e && e.message) || String(e), stack: e && e.stack });
+    }
+  }
+
+  function onAction(res) {
+    log('action_callback', res && (res.data || res));
+    if (state.phase === 'loading') show(null);
+    state.formReady = true;     // 작성 화면이 떴다 = 이후의 iframe 이동은 제출로 본다
+    armIdle('action_callback');
+  }
+
+  function onSuccess(res) {
+    log('success_callback', res);
+    state.formReady = false;
+    if (res && res.document_id) state.docs.push(res.document_id);
+    else if (res && res.message && res.message.document_id) state.docs.push(res.message.document_id);
+    window.__kioskDocs = state.docs;
+    armIdle('submit');
+
+    onSubmitted(res);
+  }
+
+  // 제출 확정 처리(콜백 경로/네비게이션 경로 공통). 한 세션에서 한 번만 동작한다.
+  var submittedForSession = -1;
+  function onSubmitted(info) {
+    if (submittedForSession === state.session) return;
+    submittedForSession = state.session;
+    state.submits += 1;
+    log('onSubmitted #' + state.submits, info);
+    armIdle('submitted');
+    cancelWarn('submitted');
+    if (C.mode === 'immediate') startSession('after-submit-immediate');
+    else showThanks();
+  }
+
+  function onError(res) {
+    log('error_callback', res);
+    els.errBox.textContent = JSON.stringify(res, null, 2);
+    show('error');
+  }
+
+  // ---------- 감사 화면 ----------
+  var thanksTimer = null, tickTimer = null;
+  function showThanks() {
+    show('thanks');
+    var left = C.thanksSeconds;
+    els.countdown.textContent = left + '초 후 다음 방문자 화면으로 넘어갑니다.';
+    clearInterval(tickTimer); clearTimeout(thanksTimer);
+    tickTimer = setInterval(function () {
+      left -= 1;
+      els.countdown.textContent = (left > 0 ? left : 0) + '초 후 다음 방문자 화면으로 넘어갑니다.';
+    }, 1000);
+    thanksTimer = setTimeout(function () {
+      clearInterval(tickTimer);
+      startSession('after-thanks');
+    }, C.thanksSeconds * 1000);
+  }
+
+  els.btnSkip.addEventListener('click', function () {
+    clearInterval(tickTimer); clearTimeout(thanksTimer);
+    startSession('skip-thanks');
+  });
+  els.btnRetry.addEventListener('click', function () { startSession('retry'); });
+
+  // 테스트 훅
+  window.__kioskRestart = startSession;
+  window.__kioskSimulateSubmit = function (docId) {
+    onSuccess({ code: '-1', document_id: docId || ('SIM-' + Date.now()) });
+  };
+
+  // ---------- 시작 ----------
+  if (typeof EformSignDocument === 'undefined') {
+    onError({ code: 'SCRIPT', message: 'efs_embedded_v2.js 를 불러오지 못했습니다. 네트워크(또는 file:// 실행)를 확인하세요.' });
+  } else {
+    startSession('boot');
+  }
+})();
+</script>
+</body>
+</html>

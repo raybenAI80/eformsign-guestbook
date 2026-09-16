@@ -1,0 +1,8 @@
+node_modules/
+*.log
+.vercel/
+.env*
+public/
+evidence/
+.work/
+.gates/
