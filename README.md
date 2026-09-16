@@ -141,7 +141,10 @@ python -m http.server 8099 --bind 127.0.0.1
 **컴맹 기준 수용 조건** (2026-09-16 사용자 지시)
 
 - 화면 문안에 개발자 용어 금지. 기계 게이트 `tools/check-plain-language.mjs` 가 표시 텍스트 노드를
-  훑어 금칙어를 검출합니다(괄호 안 원어와 `data-term-ok` 요소는 제외).
+  훑어 금칙어를 검출합니다(괄호 안 원어와 `data-term-ok` 요소는 제외). HTML(`setup.html` 등) 뿐 아니라
+  고객용 안내 문서(md)도 검사 대상입니다 — `--md <파일...>` 로 지정한 md 파일을, 또는
+  `--docs` 로 `docs/README.md · docs/vercel-signup-guide.md · docs/report-option.md ·
+  docs/after-form-change.md` 4종을 한꺼번에 검사합니다.
 - 한 화면 = 할 일 하나 = 강조 버튼 하나. 나머지 버튼은 작고 회색.
 - 각 단계에 실제 화면 그림 + 눌러야 할 자리 빨간 박스. 로그인 뒤 화면은
   `docs/img/post-login-captures.json` 이 들어오면 자동으로 붙고, 없으면 「화면 그림 준비 중」 자리표시자와
@@ -360,7 +363,9 @@ index.html          키오스크 화면 (설정 한 장으로 동작)
 setup.html          설정 마법사 (정적, 서버 없음)
 config.js           설정 파일
 build.mjs           환경변수(KIOSK_CONFIG 우선) → public/config.js 생성 (의존성 0)
-tools/check-plain-language.mjs  화면 문안 금칙어 게이트
+tools/check-plain-language.mjs  화면 문안 금칙어 게이트 (--md, --docs 로 고객용 md 4종도 검사)
+tools/verify-origin.mjs         고객 자체 도메인(비-vercel·비-localhost) 에서도 임베딩이 열리는지 실증
+tools/serve-https.mjs           verify-origin 용 로컬 HTTPS 정적 서버 (nip.io 등 와일드카드 루프백 호스트)
 vercel.json         빌드·캐시·보안 헤더
 vercel.report.json  리포트 옵션용 crons 조각 (기본 미적용)
 api/report.mjs      완료 문서 리포트 (유료 옵션, 기본 꺼짐)
@@ -395,6 +400,13 @@ CDP_PORT=9233 node tools/probe-abandon-matrix.mjs       # KIOSK_CASES=ab3,ab6 �
 # 한국어 줄바꿈 게이트
 node C:/Users/FORCS/.agent-harness/tools/korean-linebreak/cli.mjs \
   --file index.html --widths 1440,1100,375 --fail-on fail
+
+# 고객 자체 도메인에서도 열리는지(비-vercel·비-localhost origin) 실증
+node tools/serve-https.mjs --host kiosk.127.0.0.1.nip.io --port 8443 --root .
+node tools/verify-origin.mjs --port 9233 --base https://kiosk.127.0.0.1.nip.io:8443
+
+# 고객용 안내 문서(md) 쉬운 말 게이트
+node tools/check-plain-language.mjs --docs
 ```
 
 🔴 좌표 기반 검증에 `?debug=1` 을 쓰지 마세요 — 로그 패널이 프레임 클릭을 가로챕니다.

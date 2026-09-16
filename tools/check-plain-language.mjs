@@ -3,6 +3,13 @@
  * 쉬운 말 게이트 — 화면에 보이는 글에서 개발자 용어를 찾아낸다.
  *
  *   node tools/check-plain-language.mjs setup.html
+ *   node tools/check-plain-language.mjs --md docs/README.md docs/vercel-signup-guide.md
+ *   node tools/check-plain-language.mjs --docs        (고객용 md 4종을 한꺼번에)
+ *
+ * 확장자가 .md 면 자동으로 글(markdown) 모드로 본다. 글 모드에서 검사하지 않는 곳:
+ *   울타리 코드 블록(```) · 인라인 코드(`...`) · 주석(<!-- -->) · 링크와 그림의 주소 ·
+ *   맨 주소(https://…) · 괄호 안의 원어.
+ * IT 담당자용 문서(accessibility.md · form-agnostic-audit.md · own-domain-https.md)는 대상이 아니다.
  *
  * 검사 1 (금칙어)   : HTML 의 **표시 텍스트 노드**만.
  * 검사 2 (조사 띄어쓰기): 숫자·로마자 뒤에 띄어 쓴 조사(「0 이면」·「Create 를」)를 FAIL 로 잡는다.
@@ -32,6 +39,26 @@ const BANNED = [
   [/\bzip\b|집파일/gi, 'zip', '파일 묶음'],
   [/\bCLI\b/g, 'CLI', '명령 창'],
   [/터미널/g, '터미널', '명령 창'],
+  [/커밋/g, '커밋', '고친 내용 저장'],
+  [/푸시/g, '푸시', '고친 파일 올리기'],
+  [/엔드포인트/g, '엔드포인트', '주소'],
+];
+
+/**
+ * 글(markdown) 모드에서만 더 보는 금칙어.
+ * 「API 키」는 setup.html 에서 이폼사인 콘솔 메뉴 이름을 그대로 인용하는 자리에 쓰이므로
+ * 화면(HTML) 검사에는 넣지 않는다. 글에서는 메뉴 이름을 인라인 코드로 감싸면 검사에서 빠진다.
+ */
+const BANNED_MD = [
+  [/API\s*키/gi, 'API 키', '연결 열쇠(API 키)'],
+];
+
+/** --docs 로 한꺼번에 검사하는 고객용 문서 4종 */
+const CUSTOMER_DOCS = [
+  'docs/README.md',
+  'docs/vercel-signup-guide.md',
+  'docs/report-option.md',
+  'docs/after-form-change.md',
 ];
 
 /** 조사 목록 — 긴 것부터 (앞의 대안이 먼저 맞는다) */
@@ -122,6 +149,29 @@ function textNodes(html) {
   return out;
 }
 
+/**
+ * 글(markdown)에서 검사 대상이 아닌 곳을 같은 길이의 공백/줄바꿈으로 지운다.
+ * 길이를 유지해야 줄번호가 어긋나지 않는다.
+ */
+function maskMarkdown(src) {
+  const blank = (m) => m.replace(/[^\n]/g, ' ');
+  return src
+    // <!-- 주석 -->
+    .replace(/<!--[\s\S]*?-->/g, blank)
+    // ``` 울타리 코드 블록 ```
+    .replace(/^[ \t]*(`{3,}|~{3,})[\s\S]*?^[ \t]*\1[ \t]*$/gm, blank)
+    // `인라인 코드`
+    .replace(/`[^`\n]*`/g, blank)
+    // 그림·링크의 주소 부분 — 보이는 글(대체글·링크 글)은 남긴다
+    .replace(/\]\([^)\n]*\)/g, (m) => ']' + ' '.repeat(m.length - 1))
+    // 맨 주소
+    .replace(/<?https?:\/\/[^\s<>)\]]+>?/g, blank)
+    // 각주 정의 표시와 파일 경로만 있는 줄
+    .replace(/^\[\^[^\]]+\]:/gm, blank)
+    // 번호 목록의 번호 — 「2. 이 화면의」 를 조사 띄어쓰기로 오인하지 않게 지운다
+    .replace(/^([ \t]*)(\d+)\.(?=[ \t])/gm, (m, sp, n) => sp + ' '.repeat(n.length + 1));
+}
+
 /** 괄호 안(원어 병기)은 검사에서 뺀다. */
 function stripParens(s) {
   return s.replace(/\([^()]*\)/g, ' ').replace(/（[^（）]*）/g, ' ');
@@ -133,9 +183,16 @@ function decodeEntities(s) {
 }
 
 function main() {
-  const targets = process.argv.slice(2);
+  let argv = process.argv.slice(2);
+  let forceMd = false;
+  let targets = [];
+  for (const a of argv) {
+    if (a === '--md') { forceMd = true; continue; }
+    if (a === '--docs') { forceMd = true; targets.push(...CUSTOMER_DOCS); continue; }
+    targets.push(a);
+  }
   if (!targets.length) {
-    console.error('사용법: node tools/check-plain-language.mjs <파일.html> [...]');
+    console.error('사용법: node tools/check-plain-language.mjs <파일.html|파일.md> [...]  |  --docs');
     process.exit(2);
   }
   let hits = 0;
@@ -145,31 +202,40 @@ function main() {
       console.error(`파일이 없습니다: ${file}`);
       process.exit(2);
     }
-    const html = fs.readFileSync(file, 'utf8');
+    const src = fs.readFileSync(file, 'utf8');
+    const isMd = forceMd || /\.md$/i.test(rel);
 
     // ── 검사 2: 숫자·로마자(코드 용어 포함) 뒤에 띄어 쓴 조사 ──
     // 태그를 지우고 문서 전체를 이어붙여 스캔한다 — <code>KIOSK_CONFIG</code> 라고
     // 처럼 인라인 태그가 용어와 조사 사이에 끼어도, 줄이 바뀌어도 놓치지 않는다.
-    const blanked = blankCommentLines(html);
+    const blanked = isMd ? maskMarkdown(src) : blankCommentLines(src);
     const stripped = decodeEntities(blanked.replace(/<[^>]*>/g, ''));
+    const scanJosa = isMd ? stripParens(stripped) : stripped;
     JOSA_RE_WHOLE.lastIndex = 0;
     let jm;
-    while ((jm = JOSA_RE_WHOLE.exec(stripped))) {
+    while ((jm = JOSA_RE_WHOLE.exec(scanJosa))) {
       hits++;
-      const lineNo = stripped.slice(0, jm.index).split('\n').length;
+      const lineNo = scanJosa.slice(0, jm.index).split('\n').length;
       const term = jm[1];
       const josa = jm[3];
       const ctxStart = Math.max(0, jm.index - 30);
-      const ctxEnd = Math.min(stripped.length, jm.index + jm[0].length + 20);
-      const snippet = stripped.slice(ctxStart, ctxEnd).replace(/\s+/g, ' ').trim();
-      console.log(`${rel}:${lineNo}  조사 띄어쓰기 「${term} ${josa}」 → 「${term}${josa}」 로 붙여 쓰고 <span class="nb"> 로 묶으세요`);
+      const ctxEnd = Math.min(scanJosa.length, jm.index + jm[0].length + 20);
+      const snippet = scanJosa.slice(ctxStart, ctxEnd).replace(/\s+/g, ' ').trim();
+      const how = isMd
+        ? `「${term}${josa}」 로 붙여 쓰세요`
+        : `「${term}${josa}」 로 붙여 쓰고 <span class="nb"> 로 묶으세요`;
+      console.log(`${rel}:${lineNo}  조사 띄어쓰기 「${term} ${josa}」 → ${how}`);
       console.log(`    … ${snippet}`);
     }
 
     // ── 검사 1: 금칙어 ──
-    for (const [line, raw] of textNodes(html)) {
+    const banned = isMd ? BANNED.concat(BANNED_MD) : BANNED;
+    const nodes = isMd
+      ? blanked.split('\n').map((ln, i) => [i + 1, ln])
+      : textNodes(src);
+    for (const [line, raw] of nodes) {
       const text = stripParens(decodeEntities(raw));
-      for (const [re, name, better] of BANNED) {
+      for (const [re, name, better] of banned) {
         re.lastIndex = 0;
         if (re.test(text)) {
           hits++;

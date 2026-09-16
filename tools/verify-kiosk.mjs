@@ -56,10 +56,12 @@ const click = async (x, y, wait = 1200) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
   await sleep(wait);
 };
-/** OZ 뷰어의 입력칸은 insertText 만으로는 값이 들어가지 않는다 — 실제 키 이벤트까지 함께 보낸다. */
+/** OZ 뷰어의 입력칸은 insertText 만으로는 값이 들어가지 않는다 — 실제 키 이벤트까지 함께 보낸다.
+ *  🔴 keyDown 에 text 를 실으면 char 이벤트와 함께 **두 번** 입력된다(2026-09-16 실측:
+ *     "ORIGIN검증" → "OORRIIGGIINN검검증증"). keyDown 은 키만, 실제 문자는 char 로 보낸다. */
 const type = async (s) => {
   for (const ch of s) {
-    await send('Input.dispatchKeyEvent', { type: 'keyDown', text: ch, unmodifiedText: ch, key: ch });
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: ch });
     await send('Input.dispatchKeyEvent', { type: 'char', text: ch, unmodifiedText: ch, key: ch });
     await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ch });
     await sleep(60);
