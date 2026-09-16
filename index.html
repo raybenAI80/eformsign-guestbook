@@ -2,7 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- 🔴 user-scalable=no / maximum-scale 를 쓰지 않는다 — 저시력 방문자가 화면을 키울 수
+     있어야 한다(WCAG 1.4.4). 방문자가 확대해 둔 상태는 세션이 바뀔 때 되돌아가지 않으므로,
+     현장에서 문제가 되면 태블릿의 키오스크 모드(앱 고정·가이드 접근) 쪽에서 막는다. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>키오스크</title>
 <style>
   /* ── 한국어 줄바꿈 (korean-typography.css 드롭인, W3C klreq §7.1) ──────────
@@ -73,6 +76,26 @@
     padding: 8px 14px; cursor: pointer; white-space: nowrap;
   }
   #btnRestart[hidden] { display: none !important; }
+  #btnRestart { min-height: 44px; }   /* 터치 타깃 44px 이상 */
+
+  /* 키보드 포커스는 어디서든 눈에 보여야 한다 (WCAG 2.4.7) */
+  :focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; border-radius: 8px; }
+  .overlay :focus-visible { outline-offset: 4px; }
+
+  /* 화면 낭독기에만 읽히는 글 */
+  .srOnly {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* 움직임을 줄여 달라고 설정한 사용자에게는 애니메이션을 끈다 (WCAG 2.3.3) */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important;
+    }
+    .spinner { border-top-color: var(--line); }
+  }
 
   main#stage { position: relative; flex: 1 1 auto; min-height: 0; }
   /* 🔴 efs_embedded_v2.js 의 open() 은 $('#id').attr('src', url) 를 한다 →
@@ -159,43 +182,48 @@
     </span>
     <span class="bar" aria-hidden="true"></span>
     <div>
-      <h1 id="hTitle">방문자 기록부</h1>
-      <p id="hSub">방문 정보를 입력하고 서명해 주세요.</p>
+      <h1 id="hTitle">문서 작성</h1>
+      <p id="hSub">내용을 작성한 뒤 전송을 눌러 주세요.</p>
     </div>
-    <button id="btnRestart" type="button">처음부터 다시</button>
+    <button id="btnRestart" type="button"
+            aria-label="작성하던 내용을 지우고 처음부터 다시 시작">처음부터 다시</button>
   </header>
 
   <main id="stage">
-    <div id="frameHost"><iframe id="eformsign_iframe" title="문서 작성" allow="camera; microphone; clipboard-write; local-network-access"></iframe></div>
+    <div id="frameHost"><iframe id="eformsign_iframe" title="문서 작성 화면" allow="camera; microphone; clipboard-write; local-network-access"></iframe></div>
 
     <!-- 로딩 -->
-    <section class="overlay" id="ovLoading">
+    <section class="overlay" id="ovLoading" role="status" aria-live="polite">
       <div class="spinner" aria-hidden="true"></div>
       <p>작성 화면을 준비하고 있습니다.</p>
     </section>
 
     <!-- 감사합니다 -->
-    <section class="overlay" id="ovThanks" hidden>
+    <section class="overlay" id="ovThanks" role="status" aria-live="polite" hidden>
       <div class="check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div>
       <h2 id="thanksTitle">작성해 주셔서 감사합니다.</h2>
       <p id="thanksSub">잠시 후 처음 화면으로 돌아갑니다.</p>
-      <p id="countdown"></p>
+      <p id="countdown" aria-hidden="true"></p>
       <button class="btn secondary" id="btnSkip" type="button">지금 다음 방문자 시작</button>
     </section>
 
-    <!-- 무응답 리셋 경고 -->
-    <section class="overlay" id="ovIdle" hidden>
+    <!-- 무응답 리셋 경고 — 시간이 걸려 있는 알림이므로 alertdialog 로 알린다 -->
+    <section class="overlay" id="ovIdle" role="alertdialog" aria-modal="true"
+             aria-labelledby="idleTitle" aria-describedby="idleSpoken" hidden>
       <div class="ring" id="idleRing" aria-hidden="true">5</div>
-      <h2>계속 작성하시겠습니까?</h2>
-      <p class="hint">아무 곳이나 터치하면 계속 작성합니다.</p>
-      <p id="idleSub">응답이 없으면 처음 화면으로 돌아갑니다.</p>
+      <h2 id="idleTitle">계속 작성하시겠습니까?</h2>
+      <p class="hint" aria-hidden="true">아무 곳이나 터치하면 계속 작성합니다.</p>
+      <p id="idleSub" aria-hidden="true">응답이 없으면 처음 화면으로 돌아갑니다.</p>
+      <!-- 낭독용 한 문장. 화면에 보이는 두 줄을 합친 것이라 눈으로는 보이지 않게 둔다. -->
+      <p id="idleSpoken" class="srOnly" aria-live="assertive"></p>
       <button class="btn" id="btnKeep" type="button">계속 작성하기</button>
     </section>
 
     <!-- 「처음부터 다시」 확인 -->
-    <section class="overlay" id="ovRestart" hidden>
-      <h2>입력한 내용이 지워집니다.</h2>
-      <p>처음부터 다시 시작할까요?</p>
+    <section class="overlay" id="ovRestart" role="alertdialog" aria-modal="true"
+             aria-labelledby="restartTitle" aria-describedby="restartDesc" hidden>
+      <h2 id="restartTitle">입력한 내용이 지워집니다.</h2>
+      <p id="restartDesc">처음부터 다시 시작할까요?</p>
       <div class="actions">
         <button class="btn" id="btnRestartYes" type="button">처음부터 다시 시작</button>
         <button class="btn secondary" id="btnRestartNo" type="button">계속 작성하기</button>
@@ -205,14 +233,14 @@
     <!-- 오류 -->
     <section class="overlay" id="ovError" hidden>
       <h2>작성 화면을 열지 못했습니다.</h2>
-      <p>관리자에게 알려 주세요.</p>
+      <p id="errHint">관리자에게 알려 주세요.</p>
       <pre id="errBox"></pre>
       <button class="btn" id="btnRetry" type="button">다시 시도</button>
     </section>
   </main>
 </div>
 
-<pre id="log" hidden></pre>
+<pre id="log" hidden aria-hidden="true"></pre>
 
 <script src="https://www.eformsign.com/plugins/jquery/jquery.min.js"></script>
 <script src="https://www.eformsign.com/lib/js/efs_embedded_v2.js"></script>
@@ -245,7 +273,7 @@
     stage: $('stage'), host: $('frameHost'),
     loading: $('ovLoading'), thanks: $('ovThanks'), error: $('ovError'),
     idle: $('ovIdle'), idleRing: $('idleRing'), idleSub: $('idleSub'), btnKeep: $('btnKeep'),
-    errBox: $('errBox'), countdown: $('countdown'),
+    errBox: $('errBox'), errHint: $('errHint'), countdown: $('countdown'),
     hTitle: $('hTitle'), hSub: $('hSub'),
     thanksTitle: $('thanksTitle'), thanksSub: $('thanksSub'),
     btnSkip: $('btnSkip'), btnRetry: $('btnRetry'), log: $('log'),
@@ -259,7 +287,8 @@
     var brand = $('brand'), logo = $('brandLogo'), name = $('brandName');
     if (C.logoUrl) {
       logo.src = C.logoUrl;
-      logo.alt = C.companyName || C.title || '';
+      // 로고 그림의 대체글은 회사 이름이다. 회사 이름을 안 넣었으면 최소한 「회사 로고」로 읽힌다.
+      logo.alt = C.companyName || C.title || '회사 로고';
       logo.hidden = false;
       brand.hidden = false;
       // 로고 파일을 못 읽으면 회사명으로 내려간다(빈 상자를 남기지 않는다).
@@ -275,8 +304,8 @@
     }
   })();
 
-  els.hTitle.textContent = C.title || '방문자 기록부';
-  els.hSub.textContent = C.subtitle || '';
+  els.hTitle.textContent = C.title || '문서 작성';
+  els.hSub.textContent = C.subtitle || '내용을 작성한 뒤 전송을 눌러 주세요.';
   els.thanksTitle.textContent = C.thanksMessage || '작성해 주셔서 감사합니다.';
   els.thanksSub.textContent = C.thanksSubMessage || '';
   els.idleRing.textContent = String(C.countdownSeconds);
@@ -367,6 +396,16 @@
     return idle.engaged ? C.abandonResetSeconds : C.idleResetSeconds;
   }
 
+  // 낭독기가 초마다 떠들지 않도록, 처음 뜰 때와 3초 남았을 때만 문장을 새로 읽힌다.
+  var idleSpokenAt = 0;
+  function speakWarn(left) {
+    var el = document.getElementById('idleSpoken');
+    if (!el) return;
+    if (left === idleSpokenAt) return;
+    idleSpokenAt = left;
+    el.textContent = left + '초 뒤 처음 화면으로 돌아갑니다. 계속하려면 화면을 터치하거나 아무 키나 누르세요.';
+  }
+
   function showWarn(left) {
     idle.warnLeft = left;
     els.idleRing.textContent = String(left);
@@ -374,13 +413,23 @@
     if (els.idle.hidden) {
       els.idle.hidden = false;
       els.host.classList.add('blurred');        // 카운트다운 동안 작성 내용을 가린다
+      idleSpokenAt = 0;
+      speakWarn(left);
+      // 포커스를 덮개 안으로 가져온다 — 작성 프레임 안에 있던 키보드 사용자도
+      // 이 알림을 듣고 Enter/Space 로 곧장 이어서 작성할 수 있다.
+      try { els.btnKeep && els.btnKeep.focus({ preventScroll: true }); } catch (e) {}
       log('무응답 경고 표시 — 남은 ' + left + 's, 마지막 활동 출처=' + idle.source);
+    } else if (left === 3) {
+      speakWarn(left);
     }
   }
   function cancelWarn(by) {
     if (idle.warnLeft > 0 || !els.idle.hidden) log('무응답 경고 취소 by=' + (by || 'unknown'));
     idle.warnLeft = 0;
     els.idle.hidden = true;
+    idleSpokenAt = 0;
+    var sp = document.getElementById('idleSpoken');
+    if (sp) sp.textContent = '';
     els.host.classList.remove('blurred');
   }
 
@@ -406,14 +455,35 @@
   els.btnKeep && els.btnKeep.addEventListener('click', function () { armIdle('keep-button'); });
 
   // ---------- 「처음부터 다시」 ----------
+  var restartLastFocus = null;
   function closeRestartConfirm() {
-    if (!els.restart.hidden) { els.restart.hidden = true; log('처음부터 다시 — 취소(입력 내용 유지)'); }
+    if (!els.restart.hidden) {
+      els.restart.hidden = true;
+      log('처음부터 다시 — 취소(입력 내용 유지)');
+      // 대화상자를 닫으면 열었던 자리로 포커스를 돌려 놓는다.
+      try { (restartLastFocus || els.btnRestart).focus({ preventScroll: true }); } catch (e) {}
+      restartLastFocus = null;
+    }
   }
   els.btnRestart.addEventListener('click', function () {
     armIdle('restart-button');
     if (state.phase === 'thanks') return;
+    restartLastFocus = document.activeElement;
     els.restart.hidden = false;
+    // 「내용이 지워집니다」이므로 안전한 쪽(계속 작성하기)에 포커스를 둔다.
+    try { els.btnRestartNo.focus({ preventScroll: true }); } catch (e) {}
     log('처음부터 다시 — 확인 요청 phase=' + state.phase);
+  });
+  // Esc 로 확인 대화상자를 닫는다. Tab 은 대화상자 안에서만 돈다.
+  document.addEventListener('keydown', function (e) {
+    if (els.restart.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); armIdle('restart-esc'); closeRestartConfirm(); return; }
+    if (e.key !== 'Tab') return;
+    var f = els.restart.querySelectorAll('button');
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
   els.btnRestartYes.addEventListener('click', function () {
     els.restart.hidden = true;
@@ -507,12 +577,24 @@
     els.host.appendChild(f);
   }
 
+  // 작성 화면이 이 시간 안에 뜨지 않으면 설정 문제로 보고 관리자 안내를 띄운다.
+  // 🔴 근거: 「URL로 문서 생성 허용」 OFF 를 실기로 재현했을 때 error_callback 이 오지 않고
+  //    formReady 만 false 로 남았다(2026-09-16). 정상 로드는 실측 3~9초였다.
+  var LOAD_WATCH_SECONDS = 25;
+  var loadWatchTimer = null;
+
   function startSession(reason) {
     var my = ++state.session;
     state.formReady = false;
     log('startSession#' + my + ' reason=' + reason + ' mode=' + C.mode);
     show('loading');
     clearFrame();
+    clearTimeout(loadWatchTimer);
+    loadWatchTimer = setTimeout(function () {
+      if (my !== state.session || state.formReady) return;
+      log('서식 로드 감시 시간 초과 — 설정 안내 표시');
+      showSetupHint();
+    }, (Number(C.loadWatchSeconds) > 0 ? Number(C.loadWatchSeconds) : LOAD_WATCH_SECONDS) * 1000);
     idle.engaged = false;            // 새 세션 = 아직 아무도 입력을 시작하지 않았다
     idle.inFrame = false;            // 포커스 진입 판정도 초기화한다
     armIdle('session-start');
@@ -541,6 +623,7 @@
     log('action_callback', res && (res.data || res));
     if (state.phase === 'loading') show(null);
     state.formReady = true;     // 작성 화면이 떴다 = 이후의 iframe 이동은 제출로 본다
+    clearTimeout(loadWatchTimer);   // 정상 로드 — 감시 해제
     armIdle('action_callback');
   }
 
@@ -570,7 +653,18 @@
 
   function onError(res) {
     log('error_callback', res);
+    els.errHint.textContent = '관리자에게 알려 주세요.';
     els.errBox.textContent = JSON.stringify(res, null, 2);
+    show('error');
+  }
+
+  // 서식은 불러오는데 작성 화면이 끝내 뜨지 않는 경우 = 서식 설정 문제일 가능성이 가장 높다.
+  function showSetupHint() {
+    els.errHint.textContent =
+      '담당자 확인 사항: 이폼사인에서 이 서식을 열고 「URL로 문서 생성 허용」이 켜져 있는지, '
+      + '서식을 고친 뒤 다시 발행했는지 확인해 주세요.';
+    els.errBox.textContent =
+      '서식 ID: ' + (C.templateId || '(없음)') + '\n회사 ID: ' + (C.companyId || '(없음)');
     show('error');
   }
 
@@ -605,7 +699,7 @@
 
   // ---------- 시작 ----------
   if (typeof EformSignDocument === 'undefined') {
-    onError({ code: 'SCRIPT', message: 'efs_embedded_v2.js 를 불러오지 못했습니다. 네트워크(또는 file:// 실행)를 확인하세요.' });
+    onError({ code: 'SCRIPT', message: '이폼사인 작성 스크립트를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요. 파일 이름: efs_embedded_v2.js' });
   } else {
     startSession('boot');
   }
