@@ -1,4 +1,4 @@
-// 무응답 리셋 3케이스 실기 검증 — 헤드리스 CDP
+// 무응답 리셋 5케이스 실기 검증 — 헤드리스 CDP
 import fs from 'node:fs';
 const PORT = process.env.CDP_PORT || '9233';
 const BASE = process.env.KIOSK_BASE || 'http://localhost:8099';
@@ -39,7 +39,7 @@ const waitFor = async (fn, ms=30000) => { const t0=Date.now(); while (Date.now()
 await send('Page.enable', {});
 await send('Emulation.setDeviceMetricsOverride', { width: 768, height: 1024, deviceScaleFactor: 1, mobile: false });
 
-// ── CASE 1: 프레임 안에 포커스를 둔 채 40초 대기 → 리셋되지 않아야 한다 (idle=15)
+// ── CASE 1: 프레임 안에 포커스를 두고 40초 대기 → abandon 한도(180s) 전이므로 리셋 없음 (idle=15)
 await nav(`${BASE}/?idle=15&abandon=180&debug=1`);
 await click(500, 518);                       // 방문자 성명 입력 영역
 await sleep(800);
@@ -78,9 +78,45 @@ const c3after = JSON.parse(await st());
 report.case3 = { start: c3start, warn: c3warn, cancelled: c3cancel, after: c3after,
   pass: !!c3warn && c3cancel.warn === false && c3after.session === c3start.session, logs: await logs() };
 
-console.log(JSON.stringify({case1:report.case1.pass,case2:report.case2.pass,case3:report.case3.pass}));
+// ── CASE 4 (2026-09-16 신설): 프레임 안에 포커스를 **유지한 채** 이탈 → abandon 리셋이 와야 한다
+//    이전 판은 포커스가 프레임 안이면 매 초 타이머를 되감아 리셋이 영원히 오지 않았다.
+await nav(`${BASE}/?idle=15&abandon=20&countdown=5&debug=1`);
+await click(500, 518);                       // 방문자 성명 입력 영역 = 포커스가 프레임 안으로
+await sleep(800);
+for (const ch of '이탈테스트') await send('Input.insertText', { text: ch });
+await sleep(800);
+const c4start = JSON.parse(await st());
+await shot('idle-case4-a-typed-focus-in-frame');
+const c4warn = await waitFor(v => v.warn === true, 30000);
+await shot('idle-case4-b-countdown-blur');    // 흐림 덮개
+const c4after = await waitFor(v => v.session > c4start.session, 15000);
+await shot('idle-case4-c-after-reset');
+report.case4 = { start: c4start, warn: c4warn, after: c4after,
+  pass: c4start.engaged === true && !!c4warn && !!c4after, logs: await logs() };
+
+// ── CASE 5 (2026-09-16 신설): 카운트다운 덮개를 터치 → 취소되고 타이머가 다시 시작해야 한다
+//    (포커스가 프레임 안에 있어도 덮개가 화면 전체를 덮으므로 부모가 터치를 받는다)
+await nav(`${BASE}/?idle=15&abandon=20&countdown=5&debug=1`);
+await click(500, 518);
+await sleep(800);
+for (const ch of '이탈테스트') await send('Input.insertText', { text: ch });
+const c5start = JSON.parse(await st());
+const c5warn = await waitFor(v => v.warn === true, 30000);
+await shot('idle-case5-a-countdown');
+await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 384, y: 760 }] });
+await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+await sleep(1500);
+const c5cancel = JSON.parse(await st());
+await shot('idle-case5-b-cancelled');
+await sleep(8000);                            // 취소 직후 8초 = 한도(20s) 전이므로 여전히 같은 세션
+const c5mid = JSON.parse(await st());
+const c5again = await waitFor(v => v.session > c5start.session, 25000);   // 타이머 재시작 → 다시 리셋
+report.case5 = { start: c5start, warn: c5warn, cancelled: c5cancel, mid: c5mid, again: c5again,
+  pass: !!c5warn && c5cancel.warn === false && c5mid.session === c5start.session && !!c5again, logs: await logs() };
+
+console.log(JSON.stringify({case1:report.case1.pass,case2:report.case2.pass,case3:report.case3.pass,case4:report.case4.pass,case5:report.case5.pass}));
 fs.writeFileSync(`${OUT}/idle-cases-report.json`, JSON.stringify(report, null, 1));
-const allPass = report.case1.pass && report.case2.pass && report.case3.pass;
+const allPass = report.case1.pass && report.case2.pass && report.case3.pass && report.case4.pass && report.case5.pass;
 console.log('ALL_PASS=' + allPass);
 ws.close();
 process.exit(allPass ? 0 : 1);

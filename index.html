@@ -313,18 +313,23 @@
 
   // ---------- 무응답 리셋 ----------
   // 🔴 작성 프레임은 cross-origin iframe 이라 그 안의 터치·키 입력이 부모 document 로
-  //    올라오지 않는다. 부모 이벤트만 보면 "열심히 입력 중인 방문자"가 무응답으로 보인다.
-  //    그래서 세 경로를 함께 쓴다.
+  //    올라오지 않는다. 실측(2026-09-16)으로 프레임은 입력 활동에 대응하는 postMessage 도
+  //    보내지 않는다 — 오는 것은 라이프사이클 메시지(uniConnect / isEmbedding /
+  //    actionCallback func_onload·전송)뿐이다. 즉 **프레임 안의 활동은 관측할 수 없다.**
+  //
+  //    그래서 타이머는 "마지막으로 관측된 활동"부터 벽시계로 센다. 관측 가능한 활동은
   //      (a) 부모 영역의 pointer/touch/key/wheel
-  //      (b) 포커스가 작성 프레임 안에 있는 동안 1초 폴링으로 갱신 (window blur 시점에
-  //          activeElement 가 iframe 이면 "프레임 안으로 들어갔다"로 확정)
-  //      (c) 이폼사인 action_callback / postMessage 수신
-  //    그리고 리셋 기준을 두 가지로 나눈다.
+  //      (b) 포커스가 프레임 **안으로 들어간 순간**(1회) — 그 뒤로 프레임 안에 머무는
+  //          시간은 활동으로 치지 않는다. 이전 판은 여기서 매 초 타이머를 되감아
+  //          "칸에 글을 쓰다 그대로 떠난 방문자"가 영원히 리셋되지 않았다.
+  //      (c) 이폼사인 action_callback / postMessage 수신(라이프사이클)
+  //    리셋 기준은 두 가지다.
   //      · 입력 시작 전(프레임에 한 번도 포커스가 안 간 세션) = idleResetSeconds
-  //      · 입력 중(프레임에 포커스가 갔던 세션)               = abandonResetSeconds,
-  //        그것도 포커스가 프레임 밖에 있을 때만 카운트한다.
+  //      · 입력 중(프레임에 포커스가 갔던 세션)               = abandonResetSeconds
+  //    오래 쓰는 방문자는 카운트다운 덮개를 한 번 터치하면 계속 쓸 수 있다(덮개가 화면
+  //    전체를 덮으므로 어디를 터치해도 부모가 받는다).
   var WARN_SECONDS = C.countdownSeconds;      // 복귀 카운트다운(초) — config.countdownSeconds / ?countdown=
-  var idle = { last: Date.now(), source: 'boot', engaged: false, warnLeft: 0 };
+  var idle = { last: Date.now(), source: 'boot', engaged: false, warnLeft: 0, inFrame: false };
   window.__kioskIdle = idle;
 
   function frameFocused() {
@@ -336,18 +341,25 @@
     idle.source = source || 'parent-input';
     if (idle.warnLeft > 0) cancelWarn(idle.source);
   }
+  // 포커스가 프레임 안으로 "들어간 순간"만 활동 1회로 친다(머무는 동안은 아님).
+  function noteFrameFocus() {
+    if (idle.inFrame) return false;
+    idle.inFrame = true;
+    if (!idle.engaged) {
+      idle.engaged = true;
+      log('작성 프레임 진입(engaged) — 이후 리셋 기준 abandonResetSeconds=' + C.abandonResetSeconds + 's');
+    } else {
+      log('작성 프레임 재진입 — 활동으로 기록(frame-focus)');
+    }
+    armIdle('frame-focus');
+    return true;
+  }
   ['pointerdown', 'touchstart', 'keydown', 'wheel'].forEach(function (ev) {
     window.addEventListener(ev, function () { armIdle('parent:' + ev); }, { passive: true });
   });
   // window blur 시 포커스가 iframe 으로 넘어갔으면 = 방문자가 작성 프레임 안에 있다
   window.addEventListener('blur', function () {
-    setTimeout(function () {
-      if (frameFocused()) {
-        if (!idle.engaged) log('작성 프레임 진입(engaged) — 이후 리셋 기준 abandonResetSeconds=' + C.abandonResetSeconds + 's');
-        idle.engaged = true;
-        armIdle('frame-focus');
-      }
-    }, 0);
+    setTimeout(function () { if (frameFocused()) noteFrameFocus(); }, 0);
   });
 
   function idleLimitSeconds() {
@@ -376,11 +388,9 @@
     if (state.phase !== 'form') { cancelWarn('phase=' + state.phase); return; }
     var limit = idleLimitSeconds();
     if (!limit) { cancelWarn('disabled'); return; }
-    if (frameFocused()) {                              // 프레임 안에서 작성 중
-      if (!idle.engaged) { idle.engaged = true; log('작성 프레임 진입(engaged, poll)'); }
-      armIdle('frame-focus');
-      return;
-    }
+    // 포커스가 프레임 안으로 들어간 순간만 활동 1회. 머무는 동안은 타이머를 멈추지 않는다.
+    if (frameFocused()) noteFrameFocus();
+    else idle.inFrame = false;
     var elapsed = (Date.now() - idle.last) / 1000;
     if (elapsed >= limit) {
       log('무응답 리셋 실행 — 사유=' + (idle.engaged ? 'abandon' : 'idle') +
@@ -504,6 +514,7 @@
     show('loading');
     clearFrame();
     idle.engaged = false;            // 새 세션 = 아직 아무도 입력을 시작하지 않았다
+    idle.inFrame = false;            // 포커스 진입 판정도 초기화한다
     armIdle('session-start');
 
     var opt = buildOption();
