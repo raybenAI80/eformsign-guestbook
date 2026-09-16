@@ -559,20 +559,17 @@
     f.id = 'eformsign_iframe';
     f.title = '문서 작성';
     f.setAttribute('allow', 'camera; microphone; clipboard-write; local-network-access');
-    // action_callback 이 오지 않는 경우에도 화면이 멈추지 않도록 load 를 보조 신호로 쓴다
+    // 🔴 iframe load 는 제출 신호가 아니다(2026-09-16 실측으로 확정).
+    //    load 는 세션당 2회 뜬다 — #1 방금 만든 빈 iframe(about:blank), #2 작성 화면의 첫 내비게이션.
+    //    #2 는 action_callback(func_onload) 보다 늦게 오는 경우가 있어(실측 +0.28s·+0.61s)
+    //    "작성 화면 이후의 이동" 으로 오인됐고, 입력 없이 열어 두기만 한 15회 중 2회가
+    //    제출로 잘못 판정됐다(문서 생성 0건). 그래서 load 는 화면 전환·타이머 관리에만 쓴다.
+    //    제출은 completeWriteDocument → success_callback(document_id) 경로로만 판정한다.
     f.addEventListener('load', function () {
       state.loads += 1;
-      log('iframe load #' + state.loads + (state.formReady ? ' (작성 화면 이후)' : ''));
+      log('iframe load #' + state.loads);
       if (state.phase === 'loading') show(null);
       armIdle('iframe-load');
-      // 🔴 외부 작성자(user.type "02") 신규 작성에서는 제출해도 success_callback 이 오지 않는다.
-      //    제출하면 iframe 이 스스로 이폼사인의 제출 완료 안내 화면으로 이동한다 →
-      //    "작성 화면 로드(action_callback) 이후의 iframe 이동" 을 제출 신호로 쓴다.
-      if (state.formReady && state.phase === 'form') {
-        state.formReady = false;
-        log('제출 감지(iframe 이동)');
-        setTimeout(function () { onSubmitted({ via: 'iframe-navigation' }); }, 300);
-      }
     });
     els.host.appendChild(f);
   }
@@ -622,7 +619,7 @@
   function onAction(res) {
     log('action_callback', res && (res.data || res));
     if (state.phase === 'loading') show(null);
-    state.formReady = true;     // 작성 화면이 떴다 = 이후의 iframe 이동은 제출로 본다
+    state.formReady = true;     // 작성 화면이 떴다 = 로드 감시를 풀어도 된다
     clearTimeout(loadWatchTimer);   // 정상 로드 — 감시 해제
     armIdle('action_callback');
   }
@@ -638,10 +635,20 @@
     onSubmitted(res);
   }
 
-  // 제출 확정 처리(콜백 경로/네비게이션 경로 공통). 한 세션에서 한 번만 동작한다.
+  // 제출 확정 처리. 한 세션에서 한 번만 동작한다.
+  // 🔴 문서 번호(document_id)가 있어야 제출로 인정한다. 번호 없이 들어온 호출은
+  //    감사 화면을 띄우지 않고 기록만 남긴 뒤 조용히 새 작성 화면을 연다
+  //    (작성자에게 "제출됐다"고 잘못 알리지 않기 위해서다).
   var submittedForSession = -1;
   function onSubmitted(info) {
     if (submittedForSession === state.session) return;
+    var docId = (info && info.document_id) || (info && info.message && info.message.document_id) || '';
+    if (!docId) {
+      log('문서 번호 없는 제출 신호 — 감사 화면 없이 새 작성 화면으로', info);
+      submittedForSession = state.session;
+      startSession('submit-without-document-id');
+      return;
+    }
     submittedForSession = state.session;
     state.submits += 1;
     log('onSubmitted #' + state.submits, info);

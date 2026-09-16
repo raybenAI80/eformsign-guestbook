@@ -366,6 +366,8 @@ build.mjs           환경변수(KIOSK_CONFIG 우선) → public/config.js 생�
 tools/check-plain-language.mjs  화면 문안 금칙어 게이트 (--md, --docs 로 고객용 md 4종도 검사)
 tools/verify-origin.mjs         고객 자체 도메인(비-vercel·비-localhost) 에서도 임베딩이 열리는지 실증
 tools/serve-https.mjs           verify-origin 용 로컬 HTTPS 정적 서버 (nip.io 등 와일드카드 루프백 호스트)
+tools/check-a11y.mjs            접근성 게이트 (axe-core, 펼침 모드 + setup.html 카드 16장 전수)
+tools/walkthrough-setup.mjs     setup.html 카드 마법사 16장 워크스루 재생성 (텍스트+axe+375/768 스크린샷)
 vercel.json         빌드·캐시·보안 헤더
 vercel.report.json  리포트 옵션용 crons 조각 (기본 미적용)
 api/report.mjs      완료 문서 리포트 (유료 옵션, 기본 꺼짐)

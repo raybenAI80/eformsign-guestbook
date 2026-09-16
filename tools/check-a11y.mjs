@@ -7,7 +7,9 @@
  * 베이스주소를 주지 않으면 이 폴더를 임시 웹 서버(기본 8399)로 띄워 검사한다.
  * 검사 대상
  *   1) setup.html — 6단계까지 모두 펼친 상태(설정을 미리 채워 넣고 설치 단계를 연다)
- *   2) index.html — 방명록 래퍼. 카운트다운 덮개를 띄운 상태도 함께 본다.
+ *   2) setup.html — 카드 모드(기본 화면) 16장을 한 장씩 axe로 전수 검사
+ *      (카드 모드 전용 CSS/구조는 펼침 모드 검사가 타지 않으므로 별도 필요, 2026-09-16)
+ *   3) index.html — 방명록 래퍼. 카운트다운 덮개를 띄운 상태도 함께 본다.
  *
  * 끝 코드: serious 이상 위반이 하나라도 있으면 1, 없으면 0.
  * 🔴 이 파일은 tools/verify-kiosk.mjs 와 독립이다. 서로 건드리지 않는다.
@@ -130,6 +132,55 @@ async function auditPage(port, url, axeSrc, prepare, label) {
   } finally { await pg.close(); }
 }
 
+// ── 카드 모드 전수 검사 (setup.html, 카드 16장을 한 장씩 axe) ──────────────
+// 🔴 펼침 모드(PREP_SETUP)만 검사하면 body.cardMode 전용 CSS/구조(예: 카드 모드에서만
+// 숨는 h3.subHeadWrap)를 안 타서 빈 헤딩 같은 결함을 놓친다(2026-09-16 실증).
+// 카드 순서는 setup.html 의 cardList()(BASE_CARDS 7 + SUBS.vercel 9 = 16장)와 맞춘다.
+const SETUP_CARD_LABELS = [
+  'step1', 'step2', 'step3', 'step3b', 'step4', 'step4b', 'step5',
+  'sub-gh', 'sub-vercel', 'sub-copy', 'sub-deploy', 'sub-deploy2', 'sub-deploy3', 'sub-url', 'sub-report', 'sub-tablet'
+];
+const PREP_SETUP_CARDS = `(function () {
+  try { localStorage.removeItem('kiosk-setup-v2'); } catch (e) {}
+  var set = function (id, v) { var el = document.getElementById(id); if (el) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); } };
+  set('srcUrl', 'https://www.eformsign.com/eform/document/external_user_view_service.html?company_id=' + 'a'.repeat(32) + '&form_id=' + 'b'.repeat(32) + '&lang_code=ko&country_code=kr');
+  var p = document.getElementById('btnParse'); if (p) p.click();
+  var y = document.getElementById('btnYes'); if (y && !y.disabled) y.click();
+  set('fCompanyName', '주식회사 보기');
+  var pv = document.getElementById('pathVercel'); if (pv) pv.click();
+  return typeof window.__setupShowCard === 'function' ? 'ready' : 'missing __setupShowCard';
+})()`;
+const AXE_VIOLATIONS_EXPR = `
+  axe.run(document, {
+    runOnly: { type: 'tag', values: ['wcag2a','wcag2aa','wcag21a','wcag21aa','best-practice'] },
+    resultTypes: ['violations']
+  }).then(function (r) {
+    return JSON.stringify(r.violations.map(function (v) {
+      return { id: v.id, impact: v.impact, help: v.help, helpUrl: v.helpUrl, tags: v.tags,
+               nodes: v.nodes.slice(0, 6).map(function (n) { return { target: n.target, html: (n.html || '').slice(0, 220) }; }),
+               nodeCount: v.nodes.length };
+    }));
+  })
+`;
+async function auditSetupCards(port, url, axeSrc) {
+  const pg = await newPage(port, url);
+  try {
+    await sleep(1800);
+    const ready = await pg.evaluate(PREP_SETUP_CARDS);
+    if (ready !== 'ready') throw new Error('setup.html 카드 모드 준비 실패: ' + ready);
+    await sleep(600);
+    await pg.evaluate(axeSrc);
+    const out = [];
+    for (let i = 0; i < SETUP_CARD_LABELS.length; i++) {
+      await pg.evaluate(`window.__setupShowCard(${i})`);
+      await sleep(300);
+      const violations = JSON.parse(await pg.evaluate(AXE_VIOLATIONS_EXPR));
+      out.push({ label: `setup.html (카드 모드 ${i + 1}/${SETUP_CARD_LABELS.length}: ${SETUP_CARD_LABELS[i]})`, url, violations, incomplete: [] });
+    }
+    return out;
+  } finally { await pg.close(); }
+}
+
 // ── setup.html 을 6단계까지 펼치는 준비 스크립트 ──────────────────────────
 const PREP_SETUP = `(function () {
   try {
@@ -147,6 +198,10 @@ const PREP_SETUP = `(function () {
   var rep = document.getElementById('fReport'); if (rep && !rep.checked) { rep.checked = true; rep.dispatchEvent(new Event('change', { bubbles: true })); }
   var s6 = document.getElementById('step6'); if (s6) s6.hidden = false;
   var body = document.getElementById('pathVercelBody'); if (body) body.hidden = false;
+  // 카드 한 장씩 보여 주는 모드를 풀어 모든 단계를 한 화면에 펼친다(전수 검사용).
+  if (typeof window.__setupShowAllCards === 'function') window.__setupShowAllCards();
+  // 접힌 「안 돼요」 도움말까지 펼친다.
+  document.querySelectorAll('details').forEach(function (d) { d.open = true; });
   return 'prepared';
 })()`;
 
@@ -176,6 +231,7 @@ try {
 
   const results = [];
   for (const p of pages) results.push(await auditPage(CDP_PORT, p.url, axeSrc, p.prepare, p.label));
+  results.push(...await auditSetupCards(CDP_PORT, origin + '/setup.html', axeSrc));
 
   const rank = { critical: 4, serious: 3, moderate: 2, minor: 1, null: 0 };
   let worst = 0, total = 0;

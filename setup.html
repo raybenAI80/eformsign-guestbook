@@ -293,8 +293,48 @@
   a { color: var(--brand); }
   footer.note { margin-top: 24px; color: var(--ink-weak); font-size: 13px; }
 
+  /* ── 카드 한 장씩 보이는 단계형 ─────────────────────────────────────────
+     한 화면에 할 일 하나. 위에는 지금 어디쯤인지, 아래에는 이전·다음 둘뿐. */
+  body.cardMode section.step {
+    margin-bottom: 0; border-color: #eef1f4; border-radius: 14px;
+    padding: 24px 24px 22px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 8px 24px rgba(16, 24, 40, .06);
+  }
+  nav.wizProgress { margin: 0 0 14px; }
+  nav.wizProgress[hidden] { display: none !important; }
+  nav.wizProgress .wizCount { margin: 0 0 8px; font-size: 13px; color: var(--ink-weak); font-weight: 600; }
+  nav.wizProgress ol { list-style: none; display: flex; gap: 5px; margin: 0; padding: 0; }
+  nav.wizProgress li { flex: 1 1 8px; min-width: 8px; height: 6px; border-radius: 999px; background: #dde3e9; }
+  nav.wizProgress li.done { background: #9cc6e8; }
+  nav.wizProgress li.cur { background: var(--brand); }
+
+  nav.wizNav { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 16px; }
+  nav.wizNav .wizHint { flex: 1 1 100%; margin: 0; }
+  nav.wizNav[hidden] { display: none !important; }
+  nav.wizNav .wizBack { flex: 0 0 auto; font-size: 15px; padding: 11px 18px; }
+  nav.wizNav .wizNext { flex: 1 1 auto; font-size: 17px; padding: 14px 26px; max-width: 420px; text-align: center; }
+  /* 아직 넘어갈 수 없을 때는 색을 빼서, 한 화면에 파란 버튼이 하나만 보이게 한다 */
+  nav.wizNav .wizNext:disabled { background: #e8ecf0; color: #737b84; opacity: 1; }
+
+  /* 설치 단계의 하위 걸음 — 카드 모드에서는 머리글 없이 본문만 보인다 */
+  body.cardMode .sub { border: 0; margin-top: 0; background: none; box-shadow: none; }
+  /* 🔴 subHead(버튼)만 감추면 h3.subHeadWrap 이 빈 헤딩으로 남아 axe empty-heading 위반.
+     카드 모드에서는 h2#step6h(위 step6Title)가 같은 제목을 이미 보여 주므로 h3 통째로 감춘다. */
+  body.cardMode .sub h3.subHeadWrap { display: none; }
+  body.cardMode .sub .subBody { display: block; padding: 0; }
+  body.cardMode .sub[hidden] { display: none !important; }
+
+  /* 「안 돼요」 접힘 */
+  details.troubleDetails > summary {
+    cursor: pointer; font-size: 13px; color: var(--ink-weak);
+    min-height: 44px; display: flex; align-items: center;
+  }
+  details.troubleDetails[open] > summary { margin-bottom: 4px; }
+
   @media (max-width: 480px) {
     .wrap { padding: 20px 16px 60px; }
+    body.cardMode section.step { padding: 20px 16px 18px; }
+    nav.wizNav .wizNext { max-width: none; }
     .btn.big { max-width: none; }
     /* 좁은 화면에서는 항목명을 값 위에 쌓는다 (가로 스크롤 대신) */
     table.sumTable { table-layout: auto; }
@@ -307,26 +347,22 @@
   }
 </style>
 </head>
-<body>
+<body class="cardMode">
 <a class="skipLink" href="#main">본문으로 건너뛰기</a>
 <div class="wrap">
 
   <header class="top">
     <h1 id="pageTitle">이폼사인 방명록 설정 마법사</h1>
-    <p>서식 주소를 붙여 넣으면 나머지는 이 화면이 만들어 드립니다.
+    <p>방명록 서식은 이폼사인이 제공하는 템플릿을 그대로 쓰거나,
+       웹폼 디자이너로 원하는 양식을 직접 만들어 쓰면 됩니다.<br>
+       서식 주소를 붙여 넣으면 나머지는 이 화면이 만들어 드립니다.
        입력한 내용은 이 브라우저 안에만 남고 어디로도 보내지 않습니다.</p>
   </header>
 
-  <nav class="stepNav" aria-labelledby="navTitle">
-    <h2 id="navTitle">단계 바로가기</h2>
-    <ol>
-      <li><a href="#step1">1 서식 주소</a></li>
-      <li><a href="#step2">2 열리는지 확인</a></li>
-      <li><a href="#step3">3 회사 이름과 로고</a></li>
-      <li><a href="#step4">4 제출 뒤 동작</a></li>
-      <li><a href="#step5">5 설정 요약</a></li>
-      <li><a href="#step6">6 설치</a></li>
-    </ol>
+  <nav class="wizProgress" id="wizProgress" aria-labelledby="navTitle">
+    <h2 id="navTitle" class="srOnly">지금 몇 번째인지</h2>
+    <p class="wizCount" id="wizCount" role="status" aria-live="polite"></p>
+    <ol id="wizDots"></ol>
   </nav>
 
   <main id="main">
@@ -334,8 +370,9 @@
   <!-- ① 외부 작성 URL -->
   <section class="step" id="step1" aria-labelledby="step1h">
     <h2 id="step1h"><span class="no" aria-hidden="true">1</span><span class="srOnly">1단계. </span>서식 주소 붙여넣기</h2>
-    <p class="desc" id="srcUrlHint">이폼사인 서식 설정에서 <b>「URL로 문서 생성 허용」</b>을 켠 뒤 받은 작성 주소를
-       그대로 붙여 넣으세요. 나머지는 자동으로 읽어 냅니다.</p>
+    <p class="desc" id="srcUrlHint">이폼사인 템플릿을 쓰거나 웹폼 디자이너로 만든 서식이면 됩니다.
+       서식 설정에서 <span class="nb"><b>「URL로 문서 생성 허용」</b>을</span> 켜면 작성 주소가 나옵니다.
+       그 주소를 아래에 붙여 넣으세요. 나머지는 자동으로 읽어 냅니다.</p>
     <label class="field" for="srcUrl">서식 작성 주소</label>
     <input type="text" id="srcUrl" spellcheck="false" aria-describedby="srcUrlHint"
            placeholder="https://www.eformsign.com/eform/document/external_user_view_service.html?company_id=...&amp;form_id=...">
@@ -345,6 +382,11 @@
     </div>
     <div class="msg err" id="urlErr" role="alert" hidden></div>
     <div class="msg ok" id="urlOk" role="status" aria-live="polite" hidden></div>
+    <details class="itDetails" id="step1Trouble">
+      <summary>안 돼요</summary>
+      <p class="hint">서식이 아직 없어요 → 이폼사인에서 템플릿을 가져오거나
+         웹폼 디자이너로 만든 뒤 발행하세요.</p>
+    </details>
     <details class="itDetails" id="urlOut" hidden>
       <summary>자세히</summary>
       <dl class="kv">
@@ -381,7 +423,7 @@
 
   <!-- ③ 브랜딩 -->
   <section class="step" id="step3" aria-labelledby="step3h">
-    <h2 id="step3h"><span class="no" aria-hidden="true">3</span><span class="srOnly">3단계. </span>회사 이름과 로고, 안내 문구</h2>
+    <h2 id="step3h"><span class="no" aria-hidden="true">3</span><span class="srOnly">3단계. </span>회사 이름과 로고 넣기</h2>
     <p class="desc">로고를 올리면 방명록 화면 왼쪽 위에 표시됩니다. 로고가 없으면 회사 이름이 대신 나옵니다.
        올린 그림은 작게 줄여서 설정에 함께 담습니다.</p>
     <div class="grid2">
@@ -415,6 +457,13 @@
       <div class="msg ok" id="logoSkipOk" role="status" aria-live="polite" hidden>로고 없이 회사 이름으로 표시합니다.</div>
     </div>
 
+  </section>
+
+  <!-- ③-2 화면에 보일 글 -->
+  <section class="step" id="step3b" aria-labelledby="step3bh">
+    <h2 id="step3bh"><span class="no" aria-hidden="true">4</span><span class="srOnly">4단계. </span>화면에 보일 글 정하기</h2>
+    <p class="desc">방문자가 태블릿에서 보게 될 제목과 안내 문구입니다.
+       비워 두면 기본 문구가 그대로 나옵니다.</p>
     <div class="grid2">
       <div>
         <label class="field" for="fTitle">화면 제목 <span class="hint">만든 서식 이름을 넣으세요</span></label>
@@ -424,14 +473,18 @@
         <label class="field" for="fSubtitle">안내 문구</label>
         <input type="text" id="fSubtitle" placeholder="내용을 작성한 뒤 전송을 눌러 주세요.">
       </div>
+      <div>
+        <label class="field" for="fVisitor">작성자 표시 이름</label>
+        <input type="text" id="fVisitor" placeholder="작성자">
+      </div>
     </div>
   </section>
 
   <!-- ④ 동작 -->
   <section class="step" id="step4" aria-labelledby="step4h">
-    <h2 id="step4h"><span class="no" aria-hidden="true">4</span><span class="srOnly">4단계. </span>제출 뒤 동작과 대기시간</h2>
-    <p class="desc">방문자가 전송을 누른 뒤 곧바로 새 서식을 열지, 감사 인사를 잠시 보여 준 뒤 열지 고릅니다.
-       대기시간은 현장에 맞춰 조정하세요.</p>
+    <h2 id="step4h"><span class="no" aria-hidden="true">5</span><span class="srOnly">5단계. </span>전송을 누른 뒤 무엇을 할지 고르기</h2>
+    <p class="desc">방문자가 전송을 누른 뒤 곧바로 새 서식을 열지,
+       감사 인사를 잠시 보여 준 뒤 열지 고릅니다.</p>
     <div class="grid2">
       <div>
         <label class="field" for="fMode">제출 뒤 동작</label>
@@ -446,6 +499,15 @@
         <p class="hint" id="fThanksHint"><span class="nb">4~6초</span>를 권합니다.<br>
            제출 뒤 동작이 「감사 화면」일 때만 쓰입니다.</p>
       </div>
+    </div>
+  </section>
+
+  <!-- ④-2 되돌리기 대기시간 -->
+  <section class="step" id="step4b" aria-labelledby="step4bh">
+    <h2 id="step4bh"><span class="no" aria-hidden="true">6</span><span class="srOnly">6단계. </span>처음 화면으로 되돌리는 시간 정하기</h2>
+    <p class="desc">아무도 손대지 않거나 작성하다 자리를 뜬 화면을
+       언제 처음으로 되돌릴지 정합니다. 현장에 맞춰 조정하세요.</p>
+    <div class="grid2">
       <div>
         <label class="field" for="fIdle">빈 화면 방치 되돌리기(초)</label>
         <input type="number" id="fIdle" min="0" max="3600" value="120" aria-describedby="fIdleHint">
@@ -471,29 +533,26 @@
            눈이 잘 보이지 않거나 글을 읽는 데 시간이 걸리는 방문자가 있으면
            <span class="nb">20초</span> 이상으로 넉넉히 두세요.</p>
       </div>
-      <div>
-        <label class="field" for="fVisitor">작성자 표시 이름</label>
-        <input type="text" id="fVisitor" placeholder="작성자">
-      </div>
     </div>
   </section>
 
   <!-- ⑤ 요약 + 설치 시작 -->
   <section class="step" id="step5" aria-labelledby="step5h">
-    <h2 id="step5h"><span class="no" aria-hidden="true">5</span><span class="srOnly">5단계. </span>내가 정한 설정 요약</h2>
-    <p class="desc">아래 내용이 맞으면 설치를 시작하세요. 고칠 것이 있으면 위로 올라가 바꾸면 됩니다.</p>
+    <h2 id="step5h"><span class="no" aria-hidden="true">7</span><span class="srOnly">7단계. </span>내가 정한 설정 요약</h2>
+    <p class="desc">아래 내용이 맞으면 설치를 시작하세요.
+       고칠 것이 있으면 아래 「이전」을 눌러 되돌아가 바꾸면 됩니다.</p>
     <div class="tableScroll">
       <table class="sumTable" id="sumTable5"><tbody></tbody></table>
     </div>
     <div class="row">
       <button class="btn big" id="pathVercel" type="button">설치 시작하기</button>
     </div>
-    <p class="hint">계정을 새로 만들고 화면을 따라가면<br>
-       <span class="nb">10분</span> 안에 끝납니다.<br>
-       먼저 무료로 설치해 보세요.<br>
-       회사 업무로 계속 쓰기로 하면 그때 <span class="nb">Vercel</span>의 유료 요금제
-       (<span class="nb">Pro</span> · <span class="nb">2026-09-15</span> 기준 한 사람 <span class="nb">월 20달러</span>)로 바꾸면 됩니다.<br>
-       <span class="nb">Vercel</span>에 직접 내는 이 비용은 방명록 이용료와는 별개입니다.</p>
+    <p class="hint">계정을 새로 만들고 화면을 따라가면 <span class="nb">10분</span> 안에 끝납니다.<br>
+       먼저 무료 요금제로 설치해 보세요. 회사 업무로 계속 쓰기로 하면 필요에 따라
+       유료 요금제(<span class="nb">Pro</span>, 한 사람 <span class="nb">월 20달러</span>)로 바꾸거나,
+       <span class="nb">IT 담당자가</span> 있으면 아래 접힌 칸에서 회사 서버에 올리는 방법을 고를 수도 있습니다.<br>
+       <span class="nb">Vercel</span>은 무료 요금제를 개인 용도로 정해 두었고, 이 비용은
+       <span class="nb">Vercel</span>에 직접 내며 방명록 이용료와는 별개입니다.</p>
 
     <details class="itDetails" id="selfDetails">
       <summary>회사 안 서버에 직접 올리고 싶습니다 — <span class="nb">IT 담당자</span>에게 전달</summary>
@@ -524,8 +583,6 @@
         <div class="subBody" id="subGhBody">
           <p>방명록 파일을 내 이름으로 보관할 곳을 먼저 만듭니다.<br>
              이메일과 새 비밀번호만 있으면 됩니다.</p>
-          <p>오른쪽 위 <span class="nb">「Sign up」</span>을 누르고,<br>
-             이메일과 새 비밀번호를 만드세요.</p>
           <p>🔴 <b>회사 공용이 아닌 개인 계정으로 만드세요.</b> 무료로 쓰려면 개인 계정이어야 합니다.
              회사 공용으로 묶인 곳에 파일을 두면 유료 요금제가 처음부터 있어야 합니다.</p>
           <figure class="shot" data-shot="gh"></figure>
@@ -543,13 +600,12 @@
         <h3 class="subHeadWrap"><button class="subHead" type="button" aria-expanded="false" aria-controls="subVercelBody"><span class="subNo" aria-hidden="true">2</span><span class="subTitle">Vercel 계정 만들기</span></button></h3>
         <div class="subBody" id="subVercelBody">
           <p>방명록 화면을 인터넷에 띄워 주는 곳입니다.
-             방금 만든 <span class="nb">GitHub</span> 계정으로 이어서 가입하면<br>
-             단계가 줄어듭니다.</p>
-          <p>먼저 무료로 설치해 보세요. 돈을 내지 않고 그대로 만들어 볼 수 있습니다.<br>
-             회사 업무로 계속 쓰기로 하면 그때 <span class="nb">Vercel</span>의 유료 요금제
-             (<span class="nb">Pro</span> · <span class="nb">2026-09-15</span> 기준 한 사람 <span class="nb">월 20달러</span>)로 바꾸세요.<br>
-             <span class="nb">Vercel</span>은 무료 요금제를 개인 용도로만 쓰도록 정해 두었습니다.<br>
-             <span class="nb">Vercel</span>에 직접 내는 이 비용은 방명록 이용료와는 별개입니다.</p>
+             방금 만든 <span class="nb">GitHub</span> 계정으로 이어서 가입하면 단계가 줄어듭니다.</p>
+          <p>먼저 무료 요금제로 설치해 보세요. 회사 업무로 계속 쓰기로 하면 필요에 따라
+             유료 요금제(<span class="nb">Pro</span>, 한 사람 <span class="nb">월 20달러</span>)로 바꾸거나,
+             <span class="nb">IT 담당자가</span> 있으면 회사 서버에 올릴 수도 있습니다.
+             <span class="nb">Vercel</span>은 무료 요금제를 개인 용도로 정해 두었고, 이 비용은
+             <span class="nb">Vercel</span>에 직접 내며 방명록 이용료와는 별개입니다.</p>
           <!-- 출처: docs/vercel-signup-guide.md §3 (Fair Use Guidelines · Pricing, 2026-09-15 확인) -->
           <figure class="shot" data-shot="vercel"></figure>
           <div class="row">
@@ -720,7 +776,7 @@
             <p><span class="nb">Chrome으로</span> 주소를 연 뒤<br>
                <b class="nb">화면 고정(앱 고정)을</b> 켭니다.</p>
             <p>설정 &gt; 보안 &gt; 앱 고정을 켠 뒤,<br>
-               최근 앱 화면에서 <span class="nb">Chrome</span> 아이콘을 눌러 「고정」을 고르세요.</p>
+               최근 앱 화면에서 <span class="nb">Chrome</span> 아이콘을 눌러 <span class="nb">「고정」을</span> 고르세요.</p>
             <p>방명록 전용 기기라면<br>
                <i class="nb">Fully Kiosk Browser</i> 같은 앱에<br>
                시작 주소를 넣는 쪽이 더 안정적입니다.</p>
@@ -813,6 +869,12 @@
 
   </main>
 
+  <nav class="wizNav" id="wizNav" aria-label="단계 이동">
+    <button class="btn secondary wizBack" id="wizPrev" type="button">이전</button>
+    <button class="btn wizNext" id="wizNext" type="button">다음</button>
+    <p class="hint wizHint" id="wizHint" role="status" aria-live="polite"></p>
+  </nav>
+
   <footer class="note">
     입력한 값은 이 브라우저에만 임시로 남습니다. 다른 사람과 함께 쓰는 컴퓨터라면 마친 뒤
     「입력 내용 모두 지우기」를 눌러 주세요.
@@ -850,7 +912,9 @@
     idleResetSeconds: 120, abandonResetSeconds: 180, countdownSeconds: 5,
     // ⑥ 설치 진행 상태 (🔴 비밀값은 여기에 넣지 않는다 — 브라우저에 남는다)
     deployPath: '', deployDone: {}, deployedUrl: '', reportEnabled: false, tabletTab: 'android',
-    trouble: {}
+    trouble: {},
+    // 지금 보고 있는 카드 번호(0부터). 새로 고쳐도 보던 자리로 돌아온다.
+    cardIdx: 0
   };
   window.__setupState = state;
 
@@ -917,11 +981,14 @@
       $('outCountry').textContent = state.countryCode;
       $('outLang').textContent = state.langCode;
     }
+    // 주소를 읽고 나면 「주소 읽기」는 할 일이 끝났으므로 강조를 뺀다(강조 버튼은 카드당 하나).
+    $('btnParse').classList.toggle('secondary', ok);
     $('btnCheck').disabled = !ok;
     $('btnYes').disabled = !ok;
     $('btnNo').disabled = !ok;
     $('checkOk').hidden = state.verified !== true;
     $('checkNo').hidden = state.verified !== false;
+    applyCards();
   }
 
   $('btnParse').addEventListener('click', function () {
@@ -1447,7 +1514,7 @@
       { label: '권한을 허용하라는 화면이 나옵니다',
         answer: '허용해도 됩니다. 내 계정에 파일을 넣기 위해 필요한 절차입니다.' },
       { label: '요금제를 고르라고 합니다',
-        answer: '먼저 해 보는 단계면 무료를 고르세요. 나중에 언제든 바꿀 수 있습니다. 회사 업무로 계속 쓰기로 이미 정했다면 유료(Pro)를 고르세요.' }
+        answer: '먼저 해 보는 단계면 무료를 고르세요. 나중에 언제든 바꿀 수 있습니다. 회사 업무로 계속 쓰기로 정했다면 그때 필요에 따라 유료(Pro)로 바꾸면 됩니다.' }
     ],
     copy: [
       { label: '복사 버튼을 눌러도 아무 일도 없습니다',
@@ -1550,15 +1617,16 @@
       wrap.setAttribute('data-built', '1');
       var list = (TROUBLE[key] || []).concat([HELP_LAST]);
 
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'troubleBtn';
-      btn.textContent = '안 돼요';
-      wrap.appendChild(btn);
+      // 카드 아래 접힘 — 평소에는 한 줄, 눌러야 증상 고르기가 펼쳐진다.
+      var det = document.createElement('details');
+      det.className = 'troubleDetails';
+      var sum = document.createElement('summary');
+      sum.textContent = '안 돼요';
+      det.appendChild(sum);
+      wrap.appendChild(det);
 
       var panel = document.createElement('div');
       panel.className = 'troublePanel';
-      panel.hidden = true;
       var q = document.createElement('p');
       q.className = 'qs';
       q.textContent = '어떤 상황인가요? 하나만 고르세요.';
@@ -1600,10 +1668,7 @@
       copyRow.appendChild(copyBtn);
       panel.appendChild(copyRow);
 
-      wrap.appendChild(panel);
-      btn.addEventListener('click', function () {
-        panel.hidden = !panel.hidden;
-      });
+      det.appendChild(panel);
       paintAnswer(wrap, key);
     });
   }
@@ -1622,6 +1687,8 @@
     ans.textContent = '다음 행동: ' + (typeof item.answer === 'function' ? item.answer() : item.answer);
     ans.hidden = false;
     panel.hidden = false;
+    var det = wrap.querySelector('details.troubleDetails');
+    if (det) det.open = true;
   }
 
   // ---------- 파일 묶음 ----------
@@ -1777,6 +1844,7 @@
     var allOk = doneCount === list.length;
     if (state.deployPath === 'vercel') $('depAllOk').hidden = !allOk;
     else $('depAllOk2').hidden = !allOk;
+    applyCards();
   }
 
   // 펼침 상태를 화면 낭독기에도 알린다. 접힌 칸의 내용은 화면에서 감춰져 읽히지 않는다.
@@ -1799,8 +1867,12 @@
   function pickPath(p) {
     state.deployPath = p;
     save(); renderDeploy(); refreshAll();
-    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    $('step6').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    // 설치 방법을 고르면 곧바로 첫 설치 카드로 넘어간다.
+    if (cardMode) showCard(BASE_CARDS.length);
+    else {
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      $('step6').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+    }
   }
   $('pathVercel').addEventListener('click', function () { pickPath('vercel'); });
   $('pathSelf').addEventListener('click', function () { pickPath('self'); });
@@ -1998,7 +2070,20 @@
     box.innerHTML = '';
     new QRCode(box, { text: url, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
     qrDrawnFor = url;
+    // 그림에는 대체 글이 있어야 한다 — 만드는 쪽이 넣어 주지 않으므로 여기서 붙인다.
+    labelQr(box);
+    setTimeout(function () { labelQr(box); }, 60);
     renderTablet();
+  }
+
+  function labelQr(box) {
+    var txt = '내 방명록 주소를 담은 네모 코드';
+    var im = box.querySelector('img');
+    if (im) { im.alt = txt; im.removeAttribute('title'); }
+    var cv = box.querySelector('canvas');
+    if (cv) { cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', txt); }
+    var tb = box.querySelector('table');
+    if (tb) { tb.setAttribute('role', 'img'); tb.setAttribute('aria-label', txt); }
   }
 
   /** 복사에 성공했으면 true. 실패하면 false 를 돌려 부르는 쪽이 폴백을 띄우게 한다. */
@@ -2016,6 +2101,203 @@
     document.body.removeChild(ta);
     return !!ok;
   }
+
+  // ---------- 카드 한 장씩 보여 주는 단계 진행 ----------
+  // 한 화면에 할 일 하나. 위에는 지금 어디쯤인지, 아래에는 「이전」·「다음」 둘뿐이다.
+  // 🔴 단계 내용·검증·산출은 그대로 두고 보여 주는 방식만 바꾼 층이다.
+  var BASE_CARDS = ['step1', 'step2', 'step3', 'step3b', 'step4', 'step4b', 'step5'];
+  var ALL_SECS = BASE_CARDS.concat(['step6']);
+  var cardMode = true;
+  var wantFocus = false;
+
+  /** 지금 상태에서 넘겨 볼 카드 목록. 설치 방법을 고르면 그 하위 걸음이 뒤에 붙는다. */
+  function cardList() {
+    var list = BASE_CARDS.map(function (id) { return { sec: id, sub: null }; });
+    subList().forEach(function (k) { list.push({ sec: 'step6', sub: k }); });
+    return list;
+  }
+
+  /** 이 카드에서 「다음」을 열어 줄 조건. 조건이 없으면 늘 열린다. */
+  function canGoNext(c) {
+    if (!c) return false;
+    if (c.sec === 'step1') return !!(state.companyId && state.templateId);
+    if (c.sec === 'step2') return state.verified === true;
+    if (c.sec === 'step5') return !!state.deployPath;
+    return true;
+  }
+  function nextReason(c) {
+    if (!c) return '';
+    if (c.sec === 'step1') return '위 칸에 주소를 넣고 「주소 읽기」를 먼저 눌러 주세요.';
+    if (c.sec === 'step2') return '작성 화면을 띄워 본 뒤 「서식이 보입니다」를 눌러 주세요.';
+    if (c.sec === 'step5') return '위 「설치 시작하기」를 누르면 다음으로 넘어갑니다.';
+    return '';
+  }
+
+  function clampIdx(i, len) {
+    var n = Number(i);
+    if (!isFinite(n) || n < 0) n = 0;
+    if (n > len - 1) n = len - 1;
+    return n;
+  }
+
+  function renderProgress(idx, list) {
+    // 설치 방법을 아직 안 골랐으면 남은 설치 걸음 수를 미리 세어 둔다(줄어들지 않게).
+    var total = list.length + (state.deployPath ? 0 : SUBS.vercel.length);
+    $('wizCount').textContent = (idx + 1) + ' / ' + total;
+    var ol = $('wizDots');
+    if (ol.childElementCount !== total) {
+      ol.innerHTML = '';
+      for (var i = 0; i < total; i++) ol.appendChild(document.createElement('li'));
+    }
+    Array.prototype.forEach.call(ol.children, function (li, i) {
+      li.className = i < idx ? 'done' : (i === idx ? 'cur' : '');
+      if (i === idx) li.setAttribute('aria-current', 'step');
+      else li.removeAttribute('aria-current');
+    });
+  }
+
+  function renderNav(idx, list) {
+    var c = list[idx];
+    var last = idx === list.length - 1 && !!state.deployPath;
+    $('wizPrev').disabled = idx === 0;
+    var nx = $('wizNext');
+    if (last && c.sub && isDone(c.sub)) {
+      nx.textContent = '모두 끝났습니다';
+      nx.disabled = true;
+      $('wizHint').textContent = '';
+      return;
+    }
+    nx.textContent = last ? '완료' : '다음';
+    var can = canGoNext(c);
+    nx.disabled = !can;
+    $('wizHint').textContent = can ? '' : nextReason(c);
+  }
+
+  /** 지금 카드만 남기고 나머지를 감춘다. 상태를 바꾸지 않으므로 어디서 불러도 안전하다. */
+  function applyCards() {
+    if (!cardMode) return;
+    var list = cardList();
+    var idx = clampIdx(state.cardIdx, list.length);
+    state.cardIdx = idx;
+    var cur = list[idx];
+
+    ALL_SECS.forEach(function (id) {
+      var el = $(id);
+      if (el) el.hidden = id !== cur.sec;
+    });
+    document.querySelectorAll('.sub').forEach(function (el) {
+      var on = !!cur.sub && el.getAttribute('data-sub') === cur.sub;
+      el.hidden = !on;
+      el.classList.toggle('open', on);
+    });
+    if (cur.sub) {
+      $('pathVercelBody').hidden = state.deployPath !== 'vercel';
+      $('pathSelfBody').hidden = state.deployPath !== 'self';
+      var box = $(SUB_EL[cur.sub]);
+      var t = box ? box.querySelector('.subTitle') : null;
+      $('step6Title').textContent = t ? t.textContent : '설치';
+      $('step6Desc').textContent = (cur.sub === subList()[0])
+        ? '여기부터는 인터넷에 올리는 걸음입니다. 화면마다 한 가지씩만 하면 됩니다.'
+        : '';
+      if ($('depProgress')) $('depProgress').textContent = '';
+      var head = $('step6h');
+      var noEl = head.querySelector('.no');
+      if (noEl) noEl.textContent = String(idx + 1);
+      var srEl = head.querySelector('.srOnly');
+      if (srEl) srEl.textContent = (idx + 1) + '단계. ';
+    }
+    renderProgress(idx, list);
+    renderNav(idx, list);
+  }
+
+  /** 카드 안에서 처음 손댈 곳으로 초점을 옮긴다. */
+  function focusCard() {
+    if (!wantFocus) return;
+    var list = cardList();
+    var cur = list[clampIdx(state.cardIdx, list.length)];
+    var root = $(cur.sec);
+    if (!root) return;
+    if (cur.sub) root = $(SUB_EL[cur.sub]) || root;
+    // 🔴 접힌 <details> 안의 칸은 눈에 보이지 않지만 offsetParent 로는 걸러지지 않는다.
+    //    실제로 자리를 차지하는지(getClientRects)와 접힘 여부를 함께 본다.
+    var cands = root.querySelectorAll('input:not([type=hidden]):not([disabled]), select, textarea');
+    for (var i = 0; i < cands.length; i++) {
+      var c = cands[i];
+      var d = c.closest ? c.closest('details') : null;
+      if (d && !d.open) continue;
+      if (!c.getClientRects().length) continue;
+      try { c.focus(); } catch (e) {}
+      if (document.activeElement === c) return;
+    }
+    var h = $(cur.sec).querySelector('h2');
+    if (h) { h.setAttribute('tabindex', '-1'); try { h.focus(); } catch (e) {} }
+  }
+
+  function showCard(i) {
+    var list = cardList();
+    state.cardIdx = clampIdx(i, list.length);
+    save();
+    applyCards();
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    try { window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+    focusCard();
+  }
+  window.__setupShowCard = showCard;
+  window.__setupCardIndex = function () { return state.cardIdx; };
+
+  function nextCard() {
+    var list = cardList();
+    var idx = clampIdx(state.cardIdx, list.length);
+    var c = list[idx];
+    if (!canGoNext(c)) return;
+    // 설치 카드는 「다음」이 곧 「이 걸음을 마쳤습니다」다.
+    if (c.sub && !isDone(c.sub)) markDone(c.sub);
+    var after = cardList();
+    if (idx < after.length - 1) showCard(idx + 1);
+    else { applyCards(); focusCard(); }
+  }
+  function prevCard() { showCard(clampIdx(state.cardIdx, cardList().length) - 1); }
+
+  $('wizNext').addEventListener('click', function () { wantFocus = true; nextCard(); });
+  $('wizPrev').addEventListener('click', function () { wantFocus = true; prevCard(); });
+
+  // Enter — 넘어갈 수 있으면 「다음」, 아니면 이 카드의 강조 버튼을 누른다.
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    var t = e.target;
+    if (!t || !t.tagName) return;
+    var tag = t.tagName.toLowerCase();
+    if (tag !== 'input' || t.type === 'checkbox' || t.type === 'radio' || t.type === 'file') return;
+    if (!cardMode) return;
+    e.preventDefault();
+    wantFocus = true;
+    if (!$('wizNext').disabled) { nextCard(); return; }
+    var list = cardList();
+    var root = $(list[clampIdx(state.cardIdx, list.length)].sec);
+    var main = root && root.querySelector('.btn:not(.secondary)');
+    if (main) main.click();
+  });
+
+  /**
+   * 카드 나눔을 풀고 모든 단계를 한 번에 펼친다.
+   * 접근성 전수 검사(tools/check-a11y.mjs)처럼 감춰진 내용까지 봐야 하는 도구용이다.
+   */
+  window.__setupShowAllCards = function () {
+    cardMode = false;
+    document.body.classList.remove('cardMode');
+    ALL_SECS.forEach(function (id) {
+      var el = $(id);
+      if (el) el.hidden = (id === 'step6' && !state.deployPath);
+    });
+    document.querySelectorAll('.sub').forEach(function (el) {
+      el.hidden = false;
+      el.classList.add('open');
+    });
+    syncSubAria();
+    $('wizProgress').hidden = true;
+    $('wizNav').hidden = true;
+    return 'all cards shown';
+  };
 
   // ---------- 전체 다시 그리기 ----------
   function refreshAll() {
@@ -2046,6 +2328,7 @@
   renderTrouble();
   renderDeploy();
   refreshAll();
+  applyCards();
   loadCaptures();
 })();
 </script>
