@@ -4,6 +4,7 @@ node_modules/
 .env*
 public/
 evidence/
+reports/
 .work/
 .gates/
 .sysint/

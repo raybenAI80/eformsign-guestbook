@@ -162,7 +162,7 @@
 ## 5. 다시 검사하는 방법
 
 ```bash
-cd kiosk-product
+# 저장소 루트에서 실행합니다
 node tools/check-a11y.mjs                 # 이 폴더를 임시로 띄워 검사
 node tools/check-a11y.mjs <올린 주소>    # 이미 올려 둔 주소를 검사
 ```

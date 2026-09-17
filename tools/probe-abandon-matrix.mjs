@@ -9,15 +9,18 @@
 //   CDP_PORT=9240 KIOSK_BASE=http://127.0.0.1:8699 \
 //   KIOSK_QUERY='company=<id>&template=<id>' node tools/probe-abandon-matrix.mjs
 import fs from 'node:fs';
+import path from 'node:path';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { resolveCoords, passConsentGate, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // 🔴 이 도구는 **이미 떠 있는** 헤드리스 크롬에 붙는다(직접 띄우지 않는다).
 //    CDP 포트 기본값은 9240 으로 통일한다 — 8099~8599 는 정적 서버·다른 워커 대역이라
 //    그 대역을 CDP_PORT 로 주면 기동 시 경고한다(2026-09-16).
 const PORT = process.env.CDP_PORT || String(DEFAULT_ATTACH_CDP_PORT);
 warnReservedCdpPort(PORT, 'probe-abandon-matrix');
 const BASE = process.env.KIOSK_BASE || 'http://localhost:8099';
-const OUT = process.env.KIOSK_OUT || 'D:/pjt/eformsign/kiosk-product/evidence/abandon-matrix';
+const OUT = process.env.KIOSK_OUT || path.join(ROOT, 'evidence', 'abandon-matrix');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 fs.mkdirSync(OUT, { recursive: true });
 

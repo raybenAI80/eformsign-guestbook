@@ -5,14 +5,17 @@
 //   KIOSK_QUERY='company=<id>&template=<formId>' node tools/probe-idle-reset.mjs --form <formId>
 //   (`--form` 을 생략하면 KIOSK_QUERY 의 template= 값을 쓴다)
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { resolveCoords, passConsentGate, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // 🔴 이 도구는 **이미 떠 있는** 헤드리스 크롬에 붙는다(직접 띄우지 않는다).
 //    CDP 포트 기본값은 9240 으로 통일한다 — 8099~8599 는 정적 서버·다른 워커 대역이라
 //    그 대역을 CDP_PORT 로 주면 기동 시 경고한다(2026-09-16).
 const PORT = process.env.CDP_PORT || String(DEFAULT_ATTACH_CDP_PORT);
 warnReservedCdpPort(PORT, 'probe-idle-reset');
 const BASE = process.env.KIOSK_BASE || 'http://localhost:8099';
-const OUT = 'D:/pjt/eformsign/kiosk-product/evidence/final';
+const OUT = path.join(ROOT, 'evidence', 'final');
 /** 🔴 작성 프레임 안을 터치하는 좌표. 서식 항목이 바뀌면 입력칸 위치도 바뀐다.
  *  프레임은 다른 도메인이라 위치를 자동으로 찾을 수 없다(실측 부정 결과 — form-coords.mjs 머리말).
  *  해석 규칙은 verify-kiosk.mjs 와 같은 `form-coords.mjs` 를 쓴다.

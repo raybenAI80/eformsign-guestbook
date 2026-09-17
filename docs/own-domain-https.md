@@ -64,7 +64,7 @@ Vercel 을 쓰지 않고 **고객사가 이미 운영 중인 웹서버나 스토
 고객이 파일을 올린 직후, 담당자에게 넘기기 전에 우리가 직접 돌린다.
 
 ```bash
-cd kiosk-product
+# 저장소 루트에서 실행합니다
 node tools/verify-origin.mjs --url https://kiosk.고객사.co.kr --label 고객사명
 ```
 

@@ -13,7 +13,10 @@
  *    좌표 잡는 법은 README 「서식을 고친 뒤」 절.
  */
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { resolveCoords, passConsentGate, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > -1 ? process.argv[i + 1] : d; };
 // 🔴 이 도구는 **이미 떠 있는** 헤드리스 크롬에 붙는다(직접 띄우지 않는다).
 //    CDP 포트 기본값은 9240 으로 통일한다 — 8099~8599 는 정적 서버·다른 워커 대역이라
@@ -35,7 +38,7 @@ const EXTRA = (() => {
   if (!parts.length && process.env.KIOSK_QUERY) parts.push(process.env.KIOSK_QUERY);
   return parts.length ? '&' + parts.join('&') : '';
 })();
-const EV = arg('ev', 'D:/pjt/eformsign/kiosk-product/evidence');
+const EV = arg('ev', path.join(ROOT, 'evidence'));
 
 /** 클릭 좌표 — 해석 규칙은 form-coords.mjs 한 곳에 둔다(프로브들과 공용). */
 const { coords: COORDS, sources: COORD_SRC, warnings: COORD_WARN } = resolveCoords({ argv: process.argv, env: process.env });
