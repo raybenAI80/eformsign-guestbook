@@ -8,7 +8,7 @@
 3. 프로젝트 memory = `C:/Users/FORCS/.claude/projects/D--pjt-eformsign-guestbook/memory/`.
 
 ## 🔴 public 저장소
-- 회사 ID·템플릿 ID·검증 리포트를 커밋하지 않는다(그 자산은 `eformsign-guestbook-ops/tools-evidence/` 에 있다).
+- 회사 ID·템플릿 ID·검증 리포트를 커밋하지 않는다(그 자산은 `eformsign-guestbook-demo/tools-evidence/` 에 있다).
 - 고객용 문서 4종은 쉬운 말 게이트(`tools/check-plain-language.mjs --docs`) 대상이다.
 
 ## 완료 판정
