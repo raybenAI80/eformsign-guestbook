@@ -6,12 +6,16 @@
 //    를 확인한다. 케이스마다 리셋 전/후 스크린샷 2장을 남긴다.
 //
 // 사용:
-//   CDP_PORT=9243 KIOSK_BASE=http://127.0.0.1:8199 \
+//   CDP_PORT=9240 KIOSK_BASE=http://127.0.0.1:8699 \
 //   KIOSK_QUERY='company=<id>&template=<id>' node tools/probe-abandon-matrix.mjs
 import fs from 'node:fs';
 import crypto from 'node:crypto';
-import { resolveCoords } from './form-coords.mjs';
-const PORT = process.env.CDP_PORT || '9233';
+import { resolveCoords, passConsentGate, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
+// 🔴 이 도구는 **이미 떠 있는** 헤드리스 크롬에 붙는다(직접 띄우지 않는다).
+//    CDP 포트 기본값은 9240 으로 통일한다 — 8099~8599 는 정적 서버·다른 워커 대역이라
+//    그 대역을 CDP_PORT 로 주면 기동 시 경고한다(2026-09-16).
+const PORT = process.env.CDP_PORT || String(DEFAULT_ATTACH_CDP_PORT);
+warnReservedCdpPort(PORT, 'probe-abandon-matrix');
 const BASE = process.env.KIOSK_BASE || 'http://localhost:8099';
 const OUT = process.env.KIOSK_OUT || 'D:/pjt/eformsign/kiosk-product/evidence/abandon-matrix';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -59,8 +63,11 @@ const URL = `${BASE}/?idle=20&abandon=20&countdown=5`;
 //   기본값 → tools/form-profiles/<서식ID>.json → --coords <파일> → --<키>-x/-y → 환경변수
 // 🔴 서식 중립: 이 파일에 좌표를 다시 하드코딩하지 않는다. 다른 서식을 검증하려면
 //    프로필 파일을 하나 만들거나 KIOSK_COORDS 환경변수로 덮어쓴다.
-const { coords: C, sources: COORD_SRC } = resolveCoords({ argv: process.argv, env: process.env });
+const { coords: C, sources: COORD_SRC, templateId: FORM_ID, warnings: COORD_WARN } =
+  resolveCoords({ argv: process.argv, env: process.env });
+console.log('FORM ' + (FORM_ID || '(미지정)'));
 console.log('COORDS ' + JSON.stringify(C) + ' ← ' + COORD_SRC.join(' → '));
+COORD_WARN.forEach(w => console.warn('⚠️  ' + w));
 const C_CONSENT = C.consent;      // 동의 체크박스 (프레임 안 첫 화면)
 const C_CONTINUE = C.continue;    // 「계속」
 const C_NAME = C.name;            // 첫 번째 입력칸
@@ -79,9 +86,10 @@ await send('Emulation.setDeviceMetricsOverride', { width: 768, height: 1024, dev
 async function open({ passConsent = true } = {}) {
   await send('Page.navigate', { url: URL + EXTRA });
   await sleep(9000);
+  // 동의 게이트 통과는 프로브 공용 절차다(form-coords.mjs) — 여기에 다시 적지 않는다.
   if (passConsent) {
-    await click(...C_CONSENT); await sleep(700);
-    await click(...C_CONTINUE); await sleep(8000);
+    const g = await passConsentGate({ click, sleep, coords: C, cdpPort: PORT });
+    console.log('  CONSENT gate=' + g.gate + ' clicked=' + g.clicked + (g.detail ? ' (' + g.detail.reason + ')' : ''));
   }
 }
 
@@ -108,8 +116,7 @@ async function runCase(key, label, setup, opts = {}) {
   let cleared = null;
   if (after && opts.passConsent !== false) {
     // 리셋 직후 화면은 동의 화면이므로 동일 절차로 본문까지 들어간 뒤 비교한다
-    await click(...C_CONSENT); await sleep(700);
-    await click(...C_CONTINUE); await sleep(8000);
+    await passConsentGate({ click, sleep, coords: C, cdpPort: PORT });
     const now = sha(await shot(null, CLIP_NAME));
     cleared = now === blank;
     await shot(`${key}-4-next-visitor-blank`);

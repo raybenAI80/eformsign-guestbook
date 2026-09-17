@@ -26,7 +26,9 @@
  * 주요 옵션
  *   --submit            전송까지 한다(실제 문서가 1건 만들어진다)
  *   --company/--template  저장소 config.js 가 비어 있을 때 URL 쿼리로 주입
- *   --port <n>          CDP 포트(기본 8199 계열에서 비어 있는 것을 고른다)
+ *   --form <formId>     --template 의 별칭. 서식 좌표 프로필(form-profiles/<formId>.json)도 함께 적용된다
+ *   --port <n>          CDP 포트(생략하면 8699 부터 빈 포트를 자동 탐색한다.
+ *                       8099~8599 는 정적 서버·다른 워커 대역이라 쓰면 경고한다)
  *   --out <file>        결과 JSON 경로(기본 reports/origin-<host>.json)
  *   --shots <dir>       스크린샷 디렉터리(기본 evidence/origin)
  *   --insecure          자체서명 인증서를 무시한다(--serve 면 자동)
@@ -40,10 +42,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import net from 'node:net';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { resolveCoords } from './form-coords.mjs';
+import { resolveCoords, passConsentGate, pickFreePort, makeProfileDir, warnReservedCdpPort } from './form-coords.mjs';
 import { serveHttps } from './serve-https.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -55,18 +56,12 @@ const SUBMIT = has('submit');
 const SHOTS = path.resolve(arg('shots', path.join(ROOT, 'evidence', 'origin')));
 const LABEL = arg('label', '');
 
-// ── 유틸 ──────────────────────────────────────────────────────────────────
-function freePort(from) {
-  return new Promise((resolve, reject) => {
-    const s = net.createServer();
-    s.once('error', () => resolve(freePort(from + 1)));
-    s.once('listening', () => s.close(() => resolve(from)));
-    s.listen(from, '127.0.0.1');
-    s.unref?.();
-    setTimeout(() => reject(new Error('포트 탐색 실패')), 5000).unref?.();
-  });
-}
+// 좌표·서식 해석은 다른 프로브와 같은 규칙(form-coords.mjs)을 쓴다.
+//   --form <formId> = --template <formId>, env KIOSK_FORM/KIOSK_TEMPLATE/KIOSK_QUERY
+const { coords: COORDS, sources: COORD_SRC, templateId: FORM_ID, warnings: COORD_WARN } =
+  resolveCoords({ argv: process.argv, env: process.env });
 
+// ── 유틸 ──────────────────────────────────────────────────────────────────
 const CHROME_CANDIDATES = [
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
   'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
@@ -79,9 +74,23 @@ function chromePath() {
   return p;
 }
 
+/** --serve 루트의 로컬 config.js 에서 companyId/templateId 리터럴 값을 읽는다(원격 fetch 없이).
+ *  파일 없음·파싱 실패면 빈 문자열을 돌려준다 — 하드 에러가 아니라 호출부의
+ *  --company/--form 요구 판정에 쓰는 폴백일 뿐이다. */
+function readLocalConfigIds(root) {
+  try {
+    const txt = fs.readFileSync(path.join(root, 'config.js'), 'utf8');
+    const company = (/companyId\s*:\s*'([^']*)'/.exec(txt) || [])[1] || '';
+    const template = (/templateId\s*:\s*'([^']*)'/.exec(txt) || [])[1] || '';
+    return { company, template };
+  } catch { return { company: '', template: '' }; }
+}
+
 async function launchChrome(port, { insecure }) {
-  const profile = path.join(os.tmpdir(), 'kiosk-origin-profile-' + port);
-  fs.rmSync(profile, { recursive: true, force: true });
+  // 🔴 프로필은 포트+PID 로 **새로** 만든다. 남아 있는 디렉터리는 다른 세션의 크롬이
+  //    물고 있을 수 있으므로 지우지 않는다(지우려다 EBUSY unlink 로 죽었던 사고, 2026-09-16).
+  const profile = makeProfileDir('origin', port);
+  console.log('PROFILE ' + profile);
   const args = [
     '--headless=new',
     '--remote-debugging-port=' + port,
@@ -133,19 +142,45 @@ let server = null;
 async function main() {
   let base = arg('url', '');
   const serveRoot = arg('serve', '');
+  let resolvedServeRoot = '';
   if (serveRoot) {
+    resolvedServeRoot = path.resolve(serveRoot);
     const host = arg('host', 'kiosk.127.0.0.1.nip.io');
     const httpsPort = Number(arg('https-port', '8443'));
     const certDir = path.resolve(arg('cert-dir', path.join(os.tmpdir(), 'kiosk-origin-cert')));
-    server = await serveHttps({ host, port: httpsPort, root: path.resolve(serveRoot), certDir });
+    server = await serveHttps({ host, port: httpsPort, root: resolvedServeRoot, certDir });
     base = server.url;
-    console.log('SERVE ' + base + '  (root=' + path.resolve(serveRoot) + ')');
+    console.log('SERVE ' + base + '  (root=' + resolvedServeRoot + ')');
   }
   if (!base) throw new Error('--url 또는 --serve 가 필요합니다.');
 
+  // 회사 ID·서식 ID 확인 — 둘 다 비면 크롬을 띄운 뒤 frame FAIL 만 나와 원인을 알 수 없다
+  // (2026-09-16 실사고). --serve 면 그 루트의 로컬 config.js 값도 폴백으로 본다.
+  // 원격 --url(이미 배포된 페이지)은 그 페이지 자체 config.js 를 신뢰하고 별도 조회하지
+  // 않는다 — --company/--template 는 그 값을 덮어쓰는 선택적 쿼리 오버라이드일 뿐이다.
+  const localCfg = resolvedServeRoot ? readLocalConfigIds(resolvedServeRoot) : { company: '', template: '' };
+  const companyId = arg('company', '') || localCfg.company;
+  if (!companyId) {
+    throw new Error(
+      '회사 ID 가 비어 있습니다 — --company <companyId> 를 주거나 config.js 를 채우세요. ' +
+      '비어 있으면 frame FAIL 만 나와 원인을 알 수 없습니다.'
+    );
+  }
+  const effectiveFormId = FORM_ID || localCfg.template;
+  if (!effectiveFormId) {
+    throw new Error(
+      '서식 ID 가 비어 있습니다 — --form <formId>(또는 --template) 를 주거나 config.js 를 채우세요. ' +
+      '비어 있으면 frame FAIL 만 나와 원인을 알 수 없습니다.'
+    );
+  }
+
   const origin = new URL(base).origin;
   const insecure = has('insecure') || !!serveRoot;
-  const cdpPort = Number(arg('port', '0')) || (await freePort(8199));
+  const givenPort = Number(arg('port', '0'));
+  if (givenPort) warnReservedCdpPort(givenPort, 'verify-origin');
+  // --port 생략 시 8699 부터 빈 포트를 찾는다(8099~8599 는 정적 서버·다른 워커 대역).
+  const cdpPort = givenPort || (await pickFreePort({ start: 8699, span: 50 }));
+  if (!givenPort) console.log('CDP 포트 자동 선택: ' + cdpPort + ' (8699 부터 탐색)');
   const chrome = await launchChrome(cdpPort, { insecure });
   started.push(chrome);
   console.log('CHROME pid=' + chrome.pid + ' cdp=' + cdpPort + ' headless');
@@ -173,9 +208,12 @@ async function main() {
   await pg.send('Log.enable', {});
   await pg.send('Emulation.setDeviceMetricsOverride', { width: 768, height: 1024, deviceScaleFactor: 1, mobile: false });
 
+  console.log('FORM ' + (FORM_ID || '(미지정)') + '  COORDS via ' + COORD_SRC.join(','));
+  COORD_WARN.forEach((w) => console.warn('⚠️  ' + w));
+
   const q = [];
   if (arg('company', '')) q.push('company=' + encodeURIComponent(arg('company')));
-  if (arg('template', '')) q.push('template=' + encodeURIComponent(arg('template')));
+  if (FORM_ID) q.push('template=' + encodeURIComponent(FORM_ID));
   q.push('idle=0', 'mode=immediate');
   const pageUrl = base.replace(/\/$/, '') + '/?' + q.join('&');
 
@@ -232,8 +270,7 @@ async function main() {
 
   // ── 3. 전송 ─────────────────────────────────────────────────────────
   if (SUBMIT && frameOk) {
-    const { coords: C, sources } = resolveCoords({ argv: process.argv, env: process.env });
-    console.log('  COORDS via ' + sources.join(','));
+    const C = COORDS;
     const click = async (xy, wait = 1500) => {
       await pg.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: xy[0], y: xy[1], button: 'left', clickCount: 1 });
       await pg.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: xy[0], y: xy[1], button: 'left', clickCount: 1 });
@@ -250,8 +287,14 @@ async function main() {
       }
     };
     await sleep(6000);
-    await click(C.consent);
-    await click(C.continue, 9000);
+    // 동의 게이트는 다른 프로브와 같은 공통 함수로 통과한다(게이트 유무를 먼저 감지한다).
+    const gate = await passConsentGate({
+      click: (x, y) => click([x, y], 0), sleep, coords: C,
+      consentWait: 1500, continueWait: 9000, cdpPort: cdpPort,
+    });
+    result.consentGate = gate;
+    console.log('  동의 게이트 ' + (gate.gate === true ? '있음 → 통과' + (gate.passed === false ? '(통과 확인 실패)' : '')
+      : gate.gate === false ? '없음 → 클릭 생략' : '감지 불가 → 그냥 클릭 (' + (gate.detail?.reason || '') + ')'));
     await shot('2-editable');
     if (!has('notype')) {
       await click(C.name, 1500); await type(arg('name', 'ORIGIN검증'));

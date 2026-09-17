@@ -1,6 +1,6 @@
 /**
  * 키오스크 래퍼 실기 검증 — (A) 즉시 복귀 / (B) 감사 화면 후 복귀 를 연속 2회 돌린다.
- * node verify-kiosk.mjs --port 9226 --mode immediate|thanks --rounds 2 --name 홍길동
+ * node verify-kiosk.mjs --port 9240 --mode immediate|thanks --rounds 2 --name 홍길동
  * 좌표는 768x1024 태블릿 뷰포트 기준.
  *
  * 🔴 서식 항목이 바뀌면 좌표가 어긋난다(2026-09-16).
@@ -13,9 +13,13 @@
  *    좌표 잡는 법은 README 「서식을 고친 뒤」 절.
  */
 import fs from 'node:fs';
-import { resolveCoords } from './form-coords.mjs';
+import { resolveCoords, passConsentGate, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > -1 ? process.argv[i + 1] : d; };
-const PORT = arg('port', '9226');
+// 🔴 이 도구는 **이미 떠 있는** 헤드리스 크롬에 붙는다(직접 띄우지 않는다).
+//    CDP 포트 기본값은 9240 으로 통일한다 — 8099~8599 는 정적 서버·다른 워커 대역이라
+//    그 대역을 --port 로 주면 기동 시 경고한다(2026-09-16).
+const PORT = arg('port', String(DEFAULT_ATTACH_CDP_PORT));
+warnReservedCdpPort(PORT, 'verify-kiosk');
 const MODE = arg('mode', 'immediate');
 const ROUNDS = Number(arg('rounds', '2'));
 const BASE = arg('base', 'http://localhost:8099');
@@ -34,7 +38,7 @@ const EXTRA = (() => {
 const EV = arg('ev', 'D:/pjt/eformsign/kiosk-product/evidence');
 
 /** 클릭 좌표 — 해석 규칙은 form-coords.mjs 한 곳에 둔다(프로브들과 공용). */
-const { coords: COORDS, sources: COORD_SRC } = resolveCoords({ argv: process.argv, env: process.env });
+const { coords: COORDS, sources: COORD_SRC, warnings: COORD_WARN } = resolveCoords({ argv: process.argv, env: process.env });
 const TAG = MODE === 'immediate' ? 'A' : 'B';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -85,6 +89,7 @@ await send('Page.navigate', { url: `${BASE}/?idle=0&mode=${MODE}&sec=4${EXTRA}` 
 await sleep(3000);
 
 console.log('COORDS ' + JSON.stringify(COORDS) + ' via ' + COORD_SRC.join(','));
+COORD_WARN.forEach(w => console.warn('⚠️  ' + w));
 const results = [];
 for (let round = 1; round <= ROUNDS; round++) {
   const visitor = arg('name', '방문객') + round;
@@ -97,8 +102,9 @@ for (let round = 1; round <= ROUNDS; round++) {
   await shot(`${TAG}-r${round}-1-blank-form`);
 
   // 이전 회차의 입력값이 남아 있지 않은지: 성명 칸을 캡처로 남긴다(위 스크린샷)
-  await click(...COORDS.consent);            // 전자문서 사용 동의 체크
-  await click(COORDS.continue[0], COORDS.continue[1], 9000);   // 계속
+  // 동의 게이트(동의 체크 → 계속) 통과는 프로브와 공용 절차다 — form-coords.mjs 한 곳에 있다.
+  const gate = await passConsentGate({ click: (x, y) => click(x, y, 0), sleep, coords: COORDS, consentWait: 1200, continueWait: 9000, cdpPort: PORT });
+  console.log('  CONSENT gate=' + gate.gate + ' clicked=' + gate.clicked + (gate.detail ? ' (' + gate.detail.reason + ')' : ''));
   await shot(`${TAG}-r${round}-2-editable`);
 
   if (!process.argv.includes('--notype')) {

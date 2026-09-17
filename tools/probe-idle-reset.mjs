@@ -1,18 +1,31 @@
 // 무응답 리셋 5케이스 실기 검증 — 헤드리스 CDP
+//
+// 사용:
+//   CDP_PORT=9240 KIOSK_BASE=http://127.0.0.1:8699 \
+//   KIOSK_QUERY='company=<id>&template=<formId>' node tools/probe-idle-reset.mjs --form <formId>
+//   (`--form` 을 생략하면 KIOSK_QUERY 의 template= 값을 쓴다)
 import fs from 'node:fs';
-import { resolveCoords } from './form-coords.mjs';
-const PORT = process.env.CDP_PORT || '9233';
+import { resolveCoords, passConsentGate, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
+// 🔴 이 도구는 **이미 떠 있는** 헤드리스 크롬에 붙는다(직접 띄우지 않는다).
+//    CDP 포트 기본값은 9240 으로 통일한다 — 8099~8599 는 정적 서버·다른 워커 대역이라
+//    그 대역을 CDP_PORT 로 주면 기동 시 경고한다(2026-09-16).
+const PORT = process.env.CDP_PORT || String(DEFAULT_ATTACH_CDP_PORT);
+warnReservedCdpPort(PORT, 'probe-idle-reset');
 const BASE = process.env.KIOSK_BASE || 'http://localhost:8099';
 const OUT = 'D:/pjt/eformsign/kiosk-product/evidence/final';
 /** 🔴 작성 프레임 안을 터치하는 좌표. 서식 항목이 바뀌면 입력칸 위치도 바뀐다.
  *  프레임은 다른 도메인이라 위치를 자동으로 찾을 수 없다(실측 부정 결과 — form-coords.mjs 머리말).
  *  해석 규칙은 verify-kiosk.mjs 와 같은 `form-coords.mjs` 를 쓴다.
- *    · 서식별 프로필:  KIOSK_QUERY="company=..&template=<formId>"  → form-profiles/<formId>.json 자동 적용
+ *    · 서식별 프로필:  --form <formId> 또는 KIOSK_QUERY="company=..&template=<formId>"
+ *                      → form-profiles/<formId>.json 자동 적용 (없으면 기본 좌표 + 경고)
  *    · 직접 지정:      KIOSK_TAP_X=500 KIOSK_TAP_Y=518 node probe-idle-reset.mjs
  *  아무 입력칸이어도 된다 — 이 프로브가 보는 것은 "프레임 안으로 포커스가 들어갔는가" 뿐이다. */
-const { coords: COORDS, sources: COORD_SRC } = resolveCoords({ argv: process.argv, env: process.env });
+const { coords: COORDS, sources: COORD_SRC, templateId: FORM_ID, warnings: COORD_WARN } =
+  resolveCoords({ argv: process.argv, env: process.env });
 const [TAP_X, TAP_Y] = COORDS.name;
+console.log('FORM ' + (FORM_ID || '(미지정)'));
 console.log('COORDS name=' + JSON.stringify(COORDS.name) + ' via ' + COORD_SRC.join(','));
+COORD_WARN.forEach(w => console.warn('⚠️  ' + w));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -41,6 +54,18 @@ const click = async (x, y) => {
  *  KIOSK_QUERY="company=<id>&template=<id>" 를 환경변수로 넘긴다. */
 const EXTRA = process.env.KIOSK_QUERY ? '&' + process.env.KIOSK_QUERY : '';
 const nav = async url => { await send('Page.navigate', { url: url + EXTRA }); await sleep(9000); };
+/** 작성 화면(입력칸)까지 들어간다 — 외부 작성자 동의 게이트가 있으면 먼저 통과시킨다.
+ *  🔴 이 단계를 빼면 입력칸 좌표를 눌러도 프레임 포커스가 들어가지 않아 engaged=false 가 되고
+ *     case1·case4 가 래퍼와 무관하게 FAIL 한다(2026-09-16 실측). 동의 게이트가 없는 서식이면
+ *     빈 여백을 두 번 누르는 것이라 무해하다. 굳이 끄려면 --skip-consent. */
+const SKIP_CONSENT = process.argv.includes('--skip-consent');
+const enterWriter = async () => {
+  if (SKIP_CONSENT) return;
+  const g = await passConsentGate({ click, sleep, coords: COORDS, cdpPort: PORT });
+  console.log('CONSENT gate=' + g.gate + ' clicked=' + g.clicked + ' passed=' + g.passed
+    + (g.detail ? ' (' + g.detail.reason + ')' : ''));
+  return g;
+};
 const st = () => evalJs('JSON.stringify({session:__kioskState.session,phase:__kioskState.phase,engaged:__kioskIdle.engaged,src:__kioskIdle.source,warn:!document.getElementById("ovIdle").hidden})');
 const logs = () => evalJs('JSON.stringify(__kioskLog.slice(-40))').then(x=>JSON.parse(x));
 const report = {};
@@ -51,6 +76,7 @@ await send('Emulation.setDeviceMetricsOverride', { width: 768, height: 1024, dev
 
 // ── CASE 1: 프레임 안에 포커스를 두고 40초 대기 → abandon 한도(180s) 전이므로 리셋 없음 (idle=15)
 await nav(`${BASE}/?idle=15&abandon=180&debug=1`);
+await enterWriter();                             // 동의 게이트 통과 → 작성 화면
 await click(TAP_X, TAP_Y);                       // 작성 프레임 안 입력칸
 await sleep(800);
 for (const ch of '홍길동') await send('Input.insertText', { text: ch });
@@ -91,6 +117,7 @@ report.case3 = { start: c3start, warn: c3warn, cancelled: c3cancel, after: c3aft
 // ── CASE 4 (2026-09-16 신설): 프레임 안에 포커스를 **유지한 채** 이탈 → abandon 리셋이 와야 한다
 //    이전 판은 포커스가 프레임 안이면 매 초 타이머를 되감아 리셋이 영원히 오지 않았다.
 await nav(`${BASE}/?idle=15&abandon=20&countdown=5&debug=1`);
+await enterWriter();                             // 동의 게이트 통과 → 작성 화면
 await click(TAP_X, TAP_Y);                       // 작성 프레임 안 입력칸 = 포커스가 프레임 안으로
 await sleep(800);
 for (const ch of '이탈테스트') await send('Input.insertText', { text: ch });
@@ -107,6 +134,7 @@ report.case4 = { start: c4start, warn: c4warn, after: c4after,
 // ── CASE 5 (2026-09-16 신설): 카운트다운 덮개를 터치 → 취소되고 타이머가 다시 시작해야 한다
 //    (포커스가 프레임 안에 있어도 덮개가 화면 전체를 덮으므로 부모가 터치를 받는다)
 await nav(`${BASE}/?idle=15&abandon=20&countdown=5&debug=1`);
+await enterWriter();                             // 동의 게이트 통과 → 작성 화면
 await click(TAP_X, TAP_Y);
 await sleep(800);
 for (const ch of '이탈테스트') await send('Input.insertText', { text: ch });

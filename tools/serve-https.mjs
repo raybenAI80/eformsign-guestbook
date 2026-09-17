@@ -59,6 +59,9 @@ const MIME = {
 
 /** 정적 HTTPS 서버를 띄운다. @returns {Promise<{server, url, close}>} */
 export function serveHttps({ host, port, root, certDir } = {}) {
+  // 🔴 root 는 절대·정규화 경로여야 한다. 호출층이 슬래시 표기(D:/a/b)로 넘기면
+  //    path.join 결과(D:\a\b)와의 startsWith 비교가 어긋나 모든 요청이 404 가 된다(2026-09-16 실측).
+  root = path.resolve(root || process.cwd());
   const { key, crt } = ensureCert(host, certDir);
   const server = https.createServer(
     { key: fs.readFileSync(key), cert: fs.readFileSync(crt) },

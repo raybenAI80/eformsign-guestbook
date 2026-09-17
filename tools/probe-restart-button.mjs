@@ -1,6 +1,11 @@
 // 「처음부터 다시」 + 복귀 카운트다운 설정 실기 검증 — 헤드리스 CDP
 import fs from 'node:fs';
-const PORT = process.env.CDP_PORT || '9233';
+import { DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
+// 🔴 이 도구는 **이미 떠 있는** 헤드리스 크롬에 붙는다(직접 띄우지 않는다).
+//    CDP 포트 기본값은 9240 으로 통일한다 — 8099~8599 는 정적 서버·다른 워커 대역이라
+//    그 대역을 CDP_PORT 로 주면 기동 시 경고한다(2026-09-16).
+const PORT = process.env.CDP_PORT || String(DEFAULT_ATTACH_CDP_PORT);
+warnReservedCdpPort(PORT, 'probe-restart-button');
 const BASE = process.env.KIOSK_BASE || 'http://localhost:8099';
 const OUT = 'D:/pjt/eformsign/kiosk-product/evidence/final';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
