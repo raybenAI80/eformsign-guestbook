@@ -4,7 +4,7 @@
  * 왜 필요한가: Vercel 「Deploy」 버튼으로 설치하면 고객이 저장소 파일(config.js)을 직접 고칠 수
  * 없다. 그래서 프로젝트 설정 > Environment Variables 에 넣은 값으로 config.js 를 만들어 준다.
  *
- *   node build.mjs              → public/ 에 index.html · setup.html · config.js · assets/ 를 만든다
+ *   node build.mjs              → public/ 에 index.html · setup.html · report.html · config.js · assets/ 를 만든다
  *   KIOSK_CONFIG=<설정 마법사가 만든 한 줄> node build.mjs
  *
  * 우선순위 (위가 이긴다):
@@ -172,7 +172,7 @@ function main() {
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
 
-  for (const f of ['index.html', 'setup.html']) {
+  for (const f of ['index.html', 'setup.html', 'report.html']) {
     if (!copyFile(f)) throw new Error(`필수 파일이 없습니다: ${f}`);
   }
   const assets = copyDir('assets');

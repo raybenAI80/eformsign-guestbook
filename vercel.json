@@ -17,6 +17,13 @@
       ]
     },
     {
+      "source": "/report.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+      ]
+    },
+    {
       "source": "/(.*)",
       "headers": [
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },

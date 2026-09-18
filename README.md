@@ -282,6 +282,17 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 3. 하루 한 번 자동 실행하려면 `vercel.report.json` 의 `crons` 블록을 `vercel.json` 최상위에
    붙여 넣고 다시 배포합니다. 🔴 **Vercel 무료 플랜의 크론은 하루 1회까지만** 허용됩니다.
 
+### 리포트 화면 (`report.html`)
+
+메일·웹훅 말고 **화면으로 바로 보는 길**도 같이 들어 있습니다. 배포 주소 뒤에 `/report.html` 을
+붙여 열고 `REPORT_SECRET` 값을 입력하면, 같은 `/api/report` 응답을 그대로 표로 그립니다 —
+합계 카드(완료 건수·기록이 있는 날·평균 처리시간·열 개수)와 날짜별 막대, 문서별 표,
+그리고 **CSV 내려받기** 버튼입니다. 표시만 하는 정적 파일이라 서버 코드는 손대지 않습니다.
+
+입력한 값은 그 탭의 `sessionStorage` 에만 두고 창을 닫으면 지워집니다. 옵션이 꺼져 있거나
+(`404`) 값이 틀리거나(`401`) 자격 증명이 비었을 때(`500`) 각각 무엇을 고치면 되는지
+화면에서 안내합니다. 이 화면은 검색엔진 색인에서 제외됩니다(`X-Robots-Tag: noindex`).
+
 리포트 표의 열은 **서식 항목에서 그때그때 만듭니다** — 어떤 서식을 붙여도 항목이 열로 따라옵니다.
 🔴 다만 **개인정보가 담긴 항목 값은 기본으로 싣지 않습니다.** 기본 리포트에 담기는 것은
 문서명·서식명·완료일·처리시간(분)과 **어떤 항목이 있었는지**까지입니다.
@@ -361,11 +372,13 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 ```
 index.html          키오스크 화면 (설정 한 장으로 동작)
 setup.html          설정 마법사 (정적, 서버 없음)
+report.html         완료 문서 리포트 화면 (정적, /api/report 를 표로 그린다)
 config.js           설정 파일
 build.mjs           환경변수(KIOSK_CONFIG 우선) → public/config.js 생성 (의존성 0)
 tools/check-plain-language.mjs  화면 문안 금칙어 게이트 (--md, --docs 로 고객용 md 4종도 검사)
 tools/verify-origin.mjs         고객 자체 도메인(비-vercel·비-localhost) 에서도 임베딩이 열리는지 실증
 tools/serve-https.mjs           verify-origin 용 로컬 HTTPS 정적 서버 (nip.io 등 와일드카드 루프백 호스트)
+tools/report-preview.mjs        report.html 로컬 미리보기 (--state ok|empty|disabled|unauthorized|error, 키 불필요)
 tools/check-a11y.mjs            접근성 게이트 (axe-core, 펼침 모드 + setup.html 카드 16장 전수)
 tools/walkthrough-setup.mjs     setup.html 카드 마법사 16장 워크스루 재생성 (텍스트+axe+375/768 스크린샷)
 vercel.json         빌드·캐시·보안 헤더

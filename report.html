@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>완료 문서 리포트</title>
+<!-- 제품 이름은 config.js 한 곳에서 온다 (window.KIOSK_CONFIG.productName). -->
+<script src="config.js"></script>
+<style>
+  /* ── 한국어 줄바꿈 (korean-typography.css 드롭인, W3C klreq §7.1) ──────────
+     정본: C:\Users\FORCS\.agent-harness\tools\korean-linebreak\css\korean-typography.css
+     🔴 overflow-wrap: anywhere 금지 — min-content 에 어절 내부 분리 기회를 반영해
+        flex/grid 자식이 어절 폭 아래로 수축하고 keep-all 이 무력화된다. */
+  html { word-break: keep-all; overflow-wrap: break-word; line-break: strict; }
+  body, p, li, dd, dt, td, th, h1, h2, h3, h4, h5, h6,
+  figcaption, blockquote, label, button, a, span, div {
+    word-break: keep-all; overflow-wrap: break-word;
+  }
+  p, li, dd, blockquote, .desc, .note, figcaption { text-wrap: pretty; }
+  h1, h2, h3, h4, h5, h6, .title, .lead, .callout { text-wrap: balance; }
+  .hint, figcaption, summary, th, .cardKey { text-wrap: balance; }
+  .nb { white-space: nowrap; }
+  .btn, button { white-space: nowrap; }
+  code {
+    font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .93em;
+    word-break: break-all; overflow-wrap: break-word; line-break: auto;
+  }
+
+  :root {
+    --brand: #0E73C3;
+    /* 입력칸·버튼 테두리는 WCAG 1.4.11(UI 요소 3:1) 을 맞춘 별도 색을 쓴다. */
+    --line-strong: #767e87;
+    --ink: #1a1a1a;
+    --ink-weak: #5c6570;
+    --line: #e3e7eb;
+    --bg: #f6f8fa;
+    --ok: #1a7f52;
+    --warn: #9a6400;
+    --err: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    font-size: 15px; line-height: 1.65;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  header.top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  header.top h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.01em; }
+  header.top .who { color: var(--ink-weak); font-size: 15px; }
+  .period { color: var(--ink-weak); font-size: 15px; }
+  .lead { margin: 0 0 20px; color: var(--ink-weak); }
+
+  .card {
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px 22px; margin-bottom: 18px;
+  }
+  .card > h2 { margin: 0 0 12px; font-size: 17px; font-weight: 700; }
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 18px; }
+  .panel > h2 { margin: 0; font-size: 16px; font-weight: 700; padding: 15px 22px; border-bottom: 1px solid var(--line); }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .stat { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+  .cardKey { color: var(--ink-weak); font-size: 14px; margin-bottom: 6px; }
+  .cardVal { font-size: 32px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .cardVal small { font-size: 15px; font-weight: 500; color: var(--ink-weak); margin-left: 4px; }
+
+  .tableScroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--ink-weak); font-weight: 600; background: #fafbfc; }
+  tr:last-child td { border-bottom: 0; }
+
+  .bars { padding: 16px 22px; display: grid; gap: 9px; }
+  .bar { display: grid; grid-template-columns: 108px 1fr 62px; align-items: center; gap: 12px; font-size: 14px; }
+  .bar span { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .bar i { display: block; height: 14px; border-radius: 7px; background: var(--brand); min-width: 4px; }
+  .bar b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .field { display: block; font-weight: 600; margin-bottom: 6px; }
+  input[type="password"], input[type="text"] {
+    width: 100%; max-width: 420px; font: inherit; padding: 11px 13px;
+    border: 1.5px solid var(--line-strong); border-radius: 10px; background: #fff; color: var(--ink);
+  }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .btn {
+    appearance: none; font: inherit; font-weight: 600; cursor: pointer;
+    border-radius: 10px; padding: 11px 18px; min-height: 44px;
+    background: var(--brand); color: #fff; border: 1.5px solid var(--brand);
+  }
+  .btn.secondary { background: #fff; color: var(--brand); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  :focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; border-radius: 8px; }
+
+  .msg { border-radius: 10px; padding: 13px 16px; margin-top: 14px; font-weight: 600; }
+  .msg.err { background: #fdecea; color: var(--err); }
+  .msg.warn { background: #fff5e0; color: var(--warn); }
+  .msg[hidden] { display: none !important; }
+
+  .empty { padding: 44px 22px; text-align: center; color: var(--ink-weak); }
+  .empty strong { display: block; color: var(--ink); font-size: 18px; margin-bottom: 8px; }
+
+  details.trouble { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  details.trouble > summary { cursor: pointer; padding: 12px 16px; font-weight: 600; color: var(--brand); }
+  details.trouble > div { padding: 0 16px 14px; color: var(--ink); }
+  details.trouble ol { margin: 0; padding-left: 20px; }
+  details.trouble li { margin-bottom: 6px; }
+
+  .note { color: var(--ink-weak); font-size: 13px; margin-top: 10px; }
+  .srOnly {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>완료 문서 리포트</h1>
+    <span class="who" id="who"></span>
+  </header>
+  <p class="lead" id="lead">작성이 끝난 문서를 한 화면에서 모아 봅니다.</p>
+
+  <!-- ① 암호 넣는 화면 ------------------------------------------------ -->
+  <section class="card" id="gate">
+    <h2>암호를 넣어 주세요</h2>
+    <p>이 화면은 아무나 열 수 없게 막아 두었습니다.<br>
+       기록 요약을 켤 때 정한 암호를 넣으면 목록이 보입니다.</p>
+    <label class="field" for="secret">암호 <span class="nb">(REPORT_SECRET에 넣은 값)</span></label>
+    <input type="password" id="secret" autocomplete="off" spellcheck="false" aria-describedby="secretHint">
+    <p class="hint note" id="secretHint">이 값은 이 화면을 닫으면 지워집니다.<br>
+       다른 사람의 기기에서는 다시 넣어야 합니다.</p>
+    <div class="row">
+      <button class="btn" type="button" id="btnOpen">기록 보기</button>
+    </div>
+    <div class="msg err" id="gateErr" role="alert" hidden></div>
+    <details class="trouble">
+      <summary>안 돼요 — 암호를 모릅니다</summary>
+      <div>
+        <ol>
+          <li>기록 요약을 켤 때 설정값 칸에 넣은 암호입니다.</li>
+          <li>기억나지 않으면 새 암호를 정해 그 칸의 값을 바꾸고 다시 설치하세요.</li>
+          <li>그래도 안 열리면 이 화면을 사진으로 찍어 담당자에게 보내 주세요.</li>
+        </ol>
+      </div>
+    </details>
+  </section>
+
+  <!-- ② 안내(꺼짐·권한 없음·오류) ------------------------------------- -->
+  <section class="panel" id="notice" hidden>
+    <div class="empty">
+      <strong id="noticeTitle"></strong>
+      <div id="noticeBody"></div>
+    </div>
+    <div style="padding: 0 22px 18px">
+      <details class="trouble" id="noticeTrouble" hidden>
+        <summary id="noticeTroubleTitle">안 돼요</summary>
+        <div id="noticeTroubleBody"></div>
+      </details>
+      <div class="row">
+        <button class="btn secondary" type="button" id="btnRetry">다시 해 보기</button>
+        <button class="btn secondary" type="button" id="btnReset">암호 다시 넣기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ③ 기록 화면 ------------------------------------------------------ -->
+  <section id="result" hidden>
+    <p class="period" id="periodLine"></p>
+    <div class="msg warn" id="cutWarn" role="status" hidden>모아 오는 상한에 걸려 뒤쪽 문서가 빠졌습니다. 모으는 기간을 줄여 주세요.</div>
+
+    <div class="stats" id="stats"></div>
+
+    <section class="panel" id="byDatePanel" hidden>
+      <h2>날짜별 건수</h2>
+      <div class="bars" id="byDate"></div>
+    </section>
+
+    <section class="panel" id="rowsPanel">
+      <h2>문서별 기록</h2>
+      <div class="tableScroll" id="tableHost"></div>
+    </section>
+
+    <div class="row">
+      <button class="btn secondary" type="button" id="btnCsv">표 내려받기</button>
+      <button class="btn secondary" type="button" id="btnRefresh">새로 읽기</button>
+      <button class="btn secondary" type="button" id="btnReset2">암호 다시 넣기</button>
+    </div>
+    <p class="note">표의 칸은 서식 항목에서 그때그때 만들어집니다.<br>
+       방문자가 적은 내용은 기본으로 싣지 않습니다. 어떤 칸이 있었는지까지만 나옵니다.</p>
+  </section>
+
+  <p class="srOnly" role="status" aria-live="polite" id="live"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var CFG = (window.KIOSK_CONFIG || {});
+  var PRODUCT = CFG.productName || '이폼사인 방명록';
+  var STORE_KEY = 'kioskReportSecret';
+
+  document.getElementById('who').textContent = PRODUCT;
+  document.title = '완료 문서 리포트 · ' + PRODUCT;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  };
+  var say = function (t) { $('live').textContent = t; };
+
+  /** 암호는 이 창(탭)에서만 기억한다. 창을 닫으면 사라진다. */
+  function getSecret() {
+    try { return window.sessionStorage.getItem(STORE_KEY) || ''; } catch (e) { return MEM.secret || ''; }
+  }
+  function setSecret(v) {
+    MEM.secret = v;
+    try { if (v) window.sessionStorage.setItem(STORE_KEY, v); else window.sessionStorage.removeItem(STORE_KEY); }
+    catch (e) { /* 기기가 막아 두었으면 이 창의 변수에만 둔다 */ }
+  }
+  var MEM = { secret: '' };
+
+  function show(which) {
+    $('gate').hidden = which !== 'gate';
+    $('notice').hidden = which !== 'notice';
+    $('result').hidden = which !== 'result';
+  }
+
+  function notice(title, body, troubleTitle, troubleHtml) {
+    $('noticeTitle').textContent = title;
+    $('noticeBody').innerHTML = body;
+    var t = $('noticeTrouble');
+    if (troubleHtml) {
+      $('noticeTroubleTitle').textContent = troubleTitle;
+      $('noticeTroubleBody').innerHTML = troubleHtml;
+      t.hidden = false;
+    } else { t.hidden = true; }
+    show('notice');
+    say(title);
+  }
+
+  // ── 표시 계산 ────────────────────────────────────────────────────────
+  function cellOf(row, col) {
+    if (col.key.indexOf('fields.') === 0) {
+      var f = row.fields || {};
+      var v = f[col.key.slice(7)];
+      return v == null ? '' : v;
+    }
+    var w = row[col.key];
+    return w == null ? '' : w;
+  }
+
+  function statCard(k, v, unit) {
+    return '<div class="stat"><div class="cardKey">' + esc(k) + '</div>' +
+           '<div class="cardVal">' + esc(v) + '<small>' + esc(unit) + '</small></div></div>';
+  }
+
+  function bars(obj) {
+    var rows = Object.keys(obj || {}).sort().map(function (k) { return [k, obj[k]]; });
+    if (!rows.length) return '';
+    var max = 1;
+    rows.forEach(function (r) { if (r[1] > max) max = r[1]; });
+    return rows.map(function (r) {
+      return '<div class="bar"><span>' + esc(r[0]) + '</span>' +
+             '<i style="width:' + Math.round((r[1] / max) * 100) + '%"></i>' +
+             '<b>' + r[1] + '건</b></div>';
+    }).join('');
+  }
+
+  var LAST = null;
+
+  function render(r) {
+    LAST = r;
+    var cols = r.columns || [];
+    var rows = r.rows || [];
+    var byDate = (r.summary && r.summary.byDate) || {};
+    var dayCount = Object.keys(byDate).length;
+    var withMin = rows.filter(function (x) { return typeof x.minutes === 'number'; });
+    var avg = withMin.length
+      ? Math.round(withMin.reduce(function (a, x) { return a + x.minutes; }, 0) / withMin.length)
+      : 0;
+
+    $('periodLine').textContent =
+      '모은 기간 ' + (r.period ? r.period.start + ' ~ ' + r.period.end + ' (' + r.period.days + '일)' : '');
+    $('cutWarn').hidden = !r.truncated;
+
+    $('stats').innerHTML =
+      statCard('작성이 끝난 문서', (r.summary && r.summary.total) || 0, '건') +
+      statCard('기록이 있는 날', dayCount, '일') +
+      statCard('평균 걸린 시간', avg, '분') +
+      statCard('표의 칸', cols.length, '개');
+
+    var barHtml = bars(byDate);
+    $('byDatePanel').hidden = !barHtml;
+    $('byDate').innerHTML = barHtml;
+
+    if (rows.length && cols.length) {
+      $('tableHost').innerHTML =
+        '<table><thead><tr>' +
+        cols.map(function (c) { return '<th scope="col">' + esc(c.label) + '</th>'; }).join('') +
+        '</tr></thead><tbody>' +
+        rows.map(function (row) {
+          return '<tr>' + cols.map(function (c) { return '<td>' + esc(cellOf(row, c)) + '</td>'; }).join('') + '</tr>';
+        }).join('') +
+        '</tbody></table>';
+    } else {
+      $('tableHost').innerHTML =
+        '<div class="empty"><strong>이 기간에는 끝난 문서가 없습니다</strong>' +
+        '아직 아무도 쓰지 않았거나, 모으는 기간이 짧은 것입니다.<br>' +
+        '모으는 기간을 늘리면 앞쪽 기록까지 보입니다.</div>';
+    }
+    $('btnCsv').disabled = !(rows.length && cols.length);
+
+    show('result');
+    say('문서 ' + ((r.summary && r.summary.total) || 0) + '건을 읽었습니다.');
+  }
+
+  // ── 표 내려받기 ──────────────────────────────────────────────────────
+  function toCsv(r) {
+    var cols = r.columns || [];
+    var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var lines = [cols.map(function (c) { return q(c.label); }).join(',')];
+    (r.rows || []).forEach(function (row) {
+      lines.push(cols.map(function (c) { return q(cellOf(row, c)); }).join(','));
+    });
+    return '\ufeff' + lines.join('\r\n');   // 엑셀이 한글을 바로 읽게 앞에 표시를 붙인다
+  }
+
+  function download(r) {
+    var name = '완료문서-' + ((r.period && r.period.start) || '') + '_' + ((r.period && r.period.end) || '') + '.csv';
+    var blob = new Blob([toCsv(r)], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    say('표를 내려받았습니다.');
+  }
+
+  // ── 불러오기 ─────────────────────────────────────────────────────────
+  var OFF_TROUBLE =
+    '<ol>' +
+    '<li>설치한 곳의 설정값 칸에 <code>KIOSK_REPORT_ENABLED</code> 값이 <code>true</code>인지 보세요.</li>' +
+    '<li>값을 넣은 뒤 다시 설치해야 켜집니다. 값만 넣고 두면 그대로 꺼져 있습니다.</li>' +
+    '<li>켜는 방법은 안내 문서 「매일 아침 기록 받아 보기」에 그림과 함께 적혀 있습니다.</li>' +
+    '</ol>';
+
+  var KEY_TROUBLE =
+    '<ol>' +
+    '<li>연결 열쇠(API 키) 칸이 비었거나 잘못 들어간 것입니다.</li>' +
+    '<li>이폼사인에서 열쇠를 다시 받아 넣고 다시 설치하세요. 대표 관리자만 받을 수 있습니다.</li>' +
+    '<li>바뀐 값은 다시 설치한 뒤부터 쓰입니다.</li>' +
+    '</ol>';
+
+  function load() {
+    var secret = getSecret();
+    if (!secret) { show('gate'); $('secret').focus(); return; }
+    say('기록을 읽고 있습니다.');
+    notice('읽고 있습니다', '잠시만 기다려 주세요.', '', '');
+
+    fetch('/api/report?secret=' + encodeURIComponent(secret), { headers: { Accept: 'application/json' } })
+      .then(function (res) {
+        return res.json().catch(function () { return { ok: false, reason: 'bad_response' }; })
+          .then(function (body) { return { status: res.status, body: body }; });
+      })
+      .then(function (out) {
+        var b = out.body || {};
+        if (out.status === 200 && b.ok === true) { render(b); return; }
+
+        if (out.status === 404 || b.reason === 'report_disabled') {
+          notice('기록 요약이 아직 켜져 있지 않습니다',
+                 '이 화면은 기록 요약 기능을 켠 뒤에 씁니다.<br>켜지 않은 동안에는 이폼사인에 아무것도 묻지 않습니다.',
+                 '안 돼요 — 켰는데도 이 안내가 나옵니다', OFF_TROUBLE);
+          return;
+        }
+        if (out.status === 401 || b.reason === 'unauthorized') {
+          setSecret('');
+          show('gate');
+          $('gateErr').hidden = false;
+          $('gateErr').textContent = '암호가 맞지 않습니다. 다시 넣어 주세요.';
+          $('secret').value = '';
+          $('secret').focus();
+          say('암호가 맞지 않습니다.');
+          return;
+        }
+        notice('기록을 읽지 못했습니다',
+               '이폼사인에 물어보는 중에 막혔습니다.<br>화면에 뜬 아래 글을 담당자에게 그대로 알려 주세요.<br>' +
+               '<code>' + esc(b.message || ('응답 ' + out.status)) + '</code>',
+               '안 돼요 — 열쇠가 없다고 나옵니다', KEY_TROUBLE);
+      })
+      .catch(function (e) {
+        notice('화면을 불러오지 못했습니다',
+               '인터넷 연결을 확인하고 다시 해 보세요.<br><code>' + esc(String(e && e.message || e)) + '</code>',
+               '', '');
+      });
+  }
+
+  // ── 버튼 ─────────────────────────────────────────────────────────────
+  $('btnOpen').addEventListener('click', function () {
+    var v = $('secret').value.trim();
+    $('gateErr').hidden = true;
+    if (!v) {
+      $('gateErr').hidden = false;
+      $('gateErr').textContent = '암호를 넣어 주세요.';
+      $('secret').focus();
+      return;
+    }
+    setSecret(v);
+    load();
+  });
+  $('secret').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); $('btnOpen').click(); }
+  });
+  $('btnRetry').addEventListener('click', load);
+  $('btnRefresh').addEventListener('click', load);
+  function reset() {
+    setSecret('');
+    $('secret').value = '';
+    $('gateErr').hidden = true;
+    show('gate');
+    $('secret').focus();
+  }
+  $('btnReset').addEventListener('click', reset);
+  $('btnReset2').addEventListener('click', reset);
+  $('btnCsv').addEventListener('click', function () { if (LAST) download(LAST); });
+
+  // 첫 진입 — 이 창에 기억된 암호가 있으면 바로 읽는다.
+  if (getSecret()) load(); else show('gate');
+})();
+</script>
+</body>
+</html>
