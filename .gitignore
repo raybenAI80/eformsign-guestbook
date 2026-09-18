@@ -8,3 +8,4 @@ reports/
 .work/
 .gates/
 .sysint/
+.local/
