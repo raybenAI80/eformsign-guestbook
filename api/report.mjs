@@ -8,7 +8,9 @@
  *   KIOSK_REPORT_ENABLED=true
  *   EFORMSIGN_API_KEY=...            이폼사인 회사 관리 > API 관리에서 발급
  *   EFORMSIGN_PRIVATE_KEY=...        같은 화면에서 받은 개인키(hex)
- *   EFORMSIGN_MEMBER_ID=...          (선택) 멤버 토큰으로 조회할 때
+ *   EFORMSIGN_MEMBER_ID=...          🔴 사실상 필수. 이 값이 없으면 회사 토큰으로 발급되고
+ *                                    문서 목록 조회가 401 `4010001 The access_token claim is invalid.`
+ *                                    로 막힌다(2026-09-18 실측). 멤버 계정 아이디를 넣는다.
  *   KIOSK_FORM_ID=...                (선택) 이 템플릿의 문서만 집계
  *   KIOSK_REPORT_DAYS=30             (선택) 조회 기간(일). 기본 30
  *   KIOSK_REPORT_FIELD_VALUES=on     (선택) 서식 항목 **값**까지 리포트에 싣는다.

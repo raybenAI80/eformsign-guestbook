@@ -272,7 +272,7 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 |---|---|
 | `KIOSK_REPORT_ENABLED` | `true` 여야 동작합니다. 없으면 `404` 로 답하고 끝 |
 | `EFORMSIGN_API_KEY` / `EFORMSIGN_PRIVATE_KEY` | 이폼사인 API 자격 |
-| `EFORMSIGN_MEMBER_ID` | (선택) 멤버 토큰으로 조회할 때 |
+| `EFORMSIGN_MEMBER_ID` | 🔴 **사실상 필수**(멤버 계정 아이디). 없으면 문서 목록 조회가 `401 {"code":"4010001","ErrorMessage":"The access_token claim is invalid."}` 로 막힙니다 — 회사 토큰으로는 문서 관리함(`type:04`)을 읽지 못합니다(2026-09-18 실측) |
 | `KIOSK_REPORT_DAYS` | (선택) 조회 기간(일). 기본 `30` |
 | `REPORT_SECRET` | 수동 호출용 열쇠. `/api/report?secret=<값>` |
 | `KIOSK_REPORT_FIELD_VALUES` | (선택) `on` 이면 서식 항목 **값**까지 싣습니다. 기본은 끔 |

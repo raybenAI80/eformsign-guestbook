@@ -9,6 +9,7 @@
  *   node tools/report-preview.mjs --state unauthorized 401 unauthorized
  *   node tools/report-preview.mjs --state error        500 (연결 열쇠 없음)
  *   옵션: --port 5179 · --secret <값>(화면에 넣을 암호. 기본 preview)
+ *         --env <파일>   KEY=VALUE 파일을 이 프로세스 환경에만 올린다(값은 어디에도 찍지 않는다)
  *
  * 🔴 --state 는 화면 확인용 표본이다. 실제 기록이 아니다.
  * 🔴 자격 증명을 묻지도, 저장하지도 않는다. 실데이터로 보려면 --state 없이 띄우고
@@ -29,6 +30,27 @@ const arg = (name, dflt) => {
 const PORT = Number(arg('port', 5179));
 const STATE = arg('state', '');
 const SECRET = arg('secret', 'preview');
+const ENV_FILE = arg('env', '');
+
+/** KEY=VALUE 파일을 process.env 로 올린다. 🔴 값은 반환하지도 출력하지도 않는다. */
+function loadEnvFile(file) {
+  const p = resolve(file);
+  if (!existsSync(p)) { console.error(`설정 파일을 찾지 못했습니다: ${p}`); process.exit(3); }
+  const names = [];
+  for (const line of readFileSync(p, 'utf8').split(/\r?\n/)) {
+    const m = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
+    if (!m || /^\s*#/.test(line)) continue;
+    let v = m[2].trim();
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+    // 예시 파일이 `KEY=<발급값>` 꼴이라 꺾쇠를 지우지 않고 붙여 넣는 일이 잦다. 감싼 꺾쇠만 벗긴다.
+    let unwrapped = false;
+    if (v.length > 1 && v.startsWith('<') && v.endsWith('>')) { v = v.slice(1, -1).trim(); unwrapped = true; }
+    process.env[m[1]] = v;
+    names.push(unwrapped ? `${m[1]}(꺾쇠 벗김)` : m[1]);
+  }
+  return names; // 이름만. 값은 절대 돌려주지 않는다.
+}
+const ENV_NAMES = ENV_FILE ? loadEnvFile(ENV_FILE) : [];
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
                '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml' };
@@ -114,5 +136,6 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log('리포트 화면 미리보기');
   console.log(`  화면   http://127.0.0.1:${PORT}/`);
   console.log(`  상태   ${STATE ? `${STATE} (표본 — 실제 기록 아님)` : '실제 api/report.mjs 호출'}`);
+  if (ENV_NAMES.length) console.log(`  설정   ${ENV_NAMES.map((n) => `${n}: 설정됨`).join(' · ')}`);
   console.log(`  암호   ${SECRET}  ← 화면의 암호 칸에 넣으세요${STATE ? ' (표본 모드는 아무 값이나 통과합니다)' : ''}`);
 });
