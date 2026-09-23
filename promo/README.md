@@ -1,7 +1,7 @@
 # 이폼사인 홍보영상 — 방명록 활용 사례 편
 
 Remotion 4 단일 스택. 실사 촬영 없음. 소재는 ① 이폼사인 실화면 캡처 ② 생성형 실사 이미지 두 종류뿐이다.
-기획 정본 = `D:/pjt/eformsign-guestbook/docs/marketing/promo-video-plan.md`
+기획 정본 = `../docs/marketing/promo-video-plan.md` (상품 저장소 루트 기준 `docs/marketing/promo-video-plan.md`)
 
 ## 한 화면 명령
 

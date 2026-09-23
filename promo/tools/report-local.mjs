@@ -15,7 +15,7 @@
  *   2) 🔴 **값은 사람이 직접 넣는다.** (API 키·개인키는 이폼사인 회사 관리 > API 관리에서 발급)
  *   3) node tools/report-local.mjs            → http://127.0.0.1:5178
  *      node tools/report-local.mjs --port 5200 --env .local/report.env
- *      node tools/report-local.mjs --product D:/pjt/eformsign-guestbook
+ *      node tools/report-local.mjs --product ..   (기본값: 이 저장소의 상위 폴더 = 상품 저장소 루트)
  *
  * 키가 없어도 뜬다 — 상품이 돌려주는 `404 report_disabled` / `401 unauthorized` 를
  * 그대로 빈 상태로 보여 준다(그 화면도 촬영 소재가 된다).
@@ -25,7 +25,7 @@
 import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
 // ── 인자 ──
 const argv = process.argv.slice(2);
@@ -35,7 +35,7 @@ const arg = (name, dflt) => {
 };
 const PORT = Number(arg('port', 5178));
 const ENV_FILE = resolve(arg('env', '.local/report.env'));
-const PRODUCT_DIR = resolve(arg('product', process.env.KIOSK_PRODUCT_DIR || 'D:/pjt/eformsign-guestbook'));
+const PRODUCT_DIR = resolve(arg('product', process.env.KIOSK_PRODUCT_DIR || fileURLToPath(new URL('../..', import.meta.url))));
 // --demo : 이폼사인을 부르지 않고 **표본 데이터**로 표만 그린다(레이아웃 검토·자리잡기용).
 // 🔴 이 화면은 영상에 쓰지 않는다. 영상용 실화면은 키를 넣고 --demo 없이 찍는다.
 const DEMO = argv.includes('--demo');

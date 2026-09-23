@@ -10,7 +10,7 @@
  *
  * 금칙어 두 묶음:
  *   (가) 방명록 상품판 고객 문서와 같은 개발자 용어 집합
- *        (D:/pjt/eformsign-guestbook/tools/check-plain-language.mjs 에서 가져왔다)
+ *        (상품 저장소 루트 ../tools/check-plain-language.mjs 에서 가져왔다)
  *   (나) 이 영상 전용 추가 금칙 — 기획서 10절
  *        · 자막 헤드라인의 「태블릿」 「설치」 「무인 키오스크」 (주인공은 이폼사인)
  *        · 가격 숫자·「무료」 (가격 정책은 유동)
