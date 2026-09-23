@@ -1,0 +1,91 @@
+{
+  "voice": "ko-KR-InJoonNeural",
+  "rate": "+0%",
+  "generatedAt": "2026-09-21T02:59:38.882Z",
+  "leadIn": 0.35,
+  "tailOut": 0.7,
+  "scenes": {
+    "hook": {
+      "text": "방명록, 아직도 수기로 작성하고 직접 관리하시나요?",
+      "hash": "3389f218d62c",
+      "seconds": 4.41,
+      "bytes": 107181,
+      "storyboardSec": 4,
+      "neededSec": 6.23,
+      "rawSeconds": 5.184
+    },
+    "paper": {
+      "text": "앞사람 이름과 연락처는 그대로 노출되고, 그 기록은 결국 누군가 한 줄씩 옮겨 적어야 합니다.",
+      "hash": "fa4cb313c01a",
+      "seconds": 7.022,
+      "bytes": 169965,
+      "storyboardSec": 6,
+      "neededSec": 9.07,
+      "rawSeconds": 8.016
+    },
+    "designer": {
+      "text": "이폼사인에서 서식을 만드세요. 방명록도 동의서도 항목 그대로.",
+      "hash": "2937be000761",
+      "seconds": 5.38,
+      "bytes": 130797,
+      "storyboardSec": 7,
+      "neededSec": 8.15,
+      "rawSeconds": 7.104
+    },
+    "fill": {
+      "text": "로그인 없이 누구나 바로 씁니다. 전송하면 그 순간 이폼사인 문서함에 완료 문서로 들어옵니다.",
+      "hash": "e7aa4417ae70",
+      "seconds": 7.312,
+      "bytes": 176877,
+      "storyboardSec": 10,
+      "neededSec": 10.17,
+      "rawSeconds": 9.12
+    },
+    "repeat": {
+      "text": "앞사람의 정보는 다음 사람에게 남지 않습니다. 이폼사인이 안전하게 보관합니다.",
+      "hash": "2ae74f339c05",
+      "seconds": 6.416,
+      "bytes": 155565,
+      "storyboardSec": 8,
+      "neededSec": 9.23,
+      "rawSeconds": 8.184
+    },
+    "manage": {
+      "text": "옮겨 적는 일이 사라집니다. 검색하고, 피디에프로 열고, 리포트로 정리하는 것까지 이폼사인 안에서 끝납니다.",
+      "hash": "e7eed6942ba8",
+      "seconds": 8.765,
+      "bytes": 212013,
+      "storyboardSec": 11,
+      "neededSec": 11.75,
+      "rawSeconds": 10.704
+    },
+    "branch": {
+      "text": "방명록은 시작일 뿐입니다. 계약서, 동의서, 신청서도 같은 방법으로 이폼사인에서 처리됩니다.",
+      "hash": "d89409e80a4f",
+      "seconds": 8.255,
+      "bytes": 199341,
+      "storyboardSec": 8,
+      "neededSec": 11.47,
+      "rawSeconds": 10.416
+    },
+    "cta": {
+      "text": "이폼사인 닷컴, 지금 시작해 보세요",
+      "hash": "dea4f9f59a77",
+      "seconds": 3.598,
+      "bytes": 87597,
+      "storyboardSec": 6,
+      "neededSec": 5.42,
+      "rawSeconds": 4.368
+    }
+  },
+  "postProcess": {
+    "maxPauseSec": 0.38,
+    "leadSec": 0.19,
+    "tailSec": 0.3,
+    "edgeFadeSec": 0.02,
+    "thresholdDb": -40,
+    "lufs": -16,
+    "truePeak": -1.5
+  },
+  "postProcessedAt": "2026-09-21T02:59:59.438Z"
+}

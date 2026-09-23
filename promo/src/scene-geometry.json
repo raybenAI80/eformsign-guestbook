@@ -1,0 +1,585 @@
+{
+  "$comment": "실캡처 좌표 정본. 🔴 손으로 고치지 말고 `node tools/measure-scenes.mjs` 로 다시 잰다. 캡처는 같은 파일명으로 재촬영되므로 재촬영 뒤엔 반드시 재측정.",
+  "measuredAt": "2026-09-21T03:48:47.131Z",
+  "method": "ffmpeg rgb24 원시 화소 스캔(색 술어 + 행 프로파일 + 최장 연속 구간)",
+  "captures": {
+    "A01": {
+      "width": 2400,
+      "height": 1350,
+      "fieldsArea": {
+        "x": 566,
+        "y": 477,
+        "w": 802,
+        "h": 714
+      },
+      "fields": [
+        {
+          "x": 769,
+          "y": 477,
+          "w": 320,
+          "h": 56
+        },
+        {
+          "x": 769,
+          "y": 560,
+          "w": 478,
+          "h": 54
+        },
+        {
+          "x": 771,
+          "y": 636,
+          "w": 597,
+          "h": 58
+        },
+        {
+          "x": 771,
+          "y": 719,
+          "w": 438,
+          "h": 53
+        },
+        {
+          "x": 768,
+          "y": 825,
+          "w": 522,
+          "h": 109
+        }
+      ]
+    },
+    "D01": {
+      "width": 2400,
+      "height": 1350,
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "w": 2400,
+        "h": 834,
+        "basis": "ink"
+      },
+      "luma": 241.4
+    },
+    "A02": {
+      "width": 2400,
+      "height": 1350,
+      "urlToggle": {
+        "x": 1696,
+        "y": 484,
+        "w": 24,
+        "h": 24,
+        "count": 517
+      },
+      "panelX": 1650
+    },
+    "A04": {
+      "width": 2400,
+      "height": 1350,
+      "dialog": {
+        "x": 868,
+        "y": 486,
+        "w": 666,
+        "h": 378
+      },
+      "deployButton": {
+        "x": 1364,
+        "y": 780,
+        "w": 131,
+        "h": 51,
+        "count": 6028
+      }
+    },
+    "D02": {
+      "width": 2400,
+      "height": 1350,
+      "search": {
+        "x": 543,
+        "y": 132,
+        "w": 450,
+        "h": 51,
+        "count": 998
+      },
+      "separators": [
+        160,
+        162,
+        263,
+        385
+      ],
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "w": 2400,
+        "h": 834,
+        "basis": "ink"
+      }
+    },
+    "D03": {
+      "width": 2400,
+      "height": 1350,
+      "page": {
+        "x": 0,
+        "y": 176,
+        "w": 2400,
+        "h": 1148
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "w": 1777,
+        "h": 1333,
+        "basis": "ink"
+      },
+      "luma": 241
+    },
+    "B02": {
+      "width": 1920,
+      "height": 2700,
+      "page": {
+        "x": 0,
+        "y": 162,
+        "w": 1920,
+        "h": 2160
+      },
+      "viewport": {
+        "x": 348,
+        "y": 0,
+        "w": 1230,
+        "h": 1877,
+        "basis": "ink"
+      },
+      "luma": 246
+    },
+    "B03": {
+      "width": 1920,
+      "height": 2700,
+      "page": {
+        "x": 0,
+        "y": 162,
+        "w": 1920,
+        "h": 2160
+      },
+      "viewport": {
+        "x": 348,
+        "y": 0,
+        "w": 1230,
+        "h": 1876,
+        "basis": "ink"
+      },
+      "luma": 245.9
+    },
+    "B04": {
+      "width": 1920,
+      "height": 2700,
+      "page": {
+        "x": 545,
+        "y": 1154,
+        "w": 830,
+        "h": 394
+      },
+      "viewport": {
+        "x": 254,
+        "y": 863,
+        "w": 1412,
+        "h": 976,
+        "basis": "dialog"
+      },
+      "luma": 131.8
+    },
+    "B05": {
+      "width": 1920,
+      "height": 2700,
+      "page": {
+        "x": 0,
+        "y": 162,
+        "w": 1920,
+        "h": 2160
+      },
+      "viewport": {
+        "x": 532,
+        "y": 0,
+        "w": 819,
+        "h": 1615,
+        "basis": "ink"
+      },
+      "luma": 253.9
+    },
+    "C01": {
+      "width": 1920,
+      "height": 2700,
+      "page": {
+        "x": 0,
+        "y": 195,
+        "w": 1920,
+        "h": 166
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "w": 1920,
+        "h": 1510,
+        "basis": "dialog"
+      },
+      "luma": 137.9
+    },
+    "C01b": {
+      "width": 1920,
+      "height": 2700,
+      "page": {
+        "x": 1,
+        "y": 264,
+        "w": 1919,
+        "h": 2058
+      },
+      "viewport": {
+        "x": 348,
+        "y": 0,
+        "w": 1230,
+        "h": 1986,
+        "basis": "ink"
+      },
+      "luma": 245.8
+    },
+    "C02": {
+      "width": 1920,
+      "height": 2700,
+      "page": {
+        "x": 1,
+        "y": 264,
+        "w": 1919,
+        "h": 2058
+      },
+      "viewport": {
+        "x": 348,
+        "y": 0,
+        "w": 1230,
+        "h": 1986,
+        "basis": "ink"
+      },
+      "luma": 245.6
+    },
+    "C04": {
+      "width": 1920,
+      "height": 2700,
+      "page": {
+        "x": 0,
+        "y": 162,
+        "w": 1920,
+        "h": 2160
+      },
+      "viewport": {
+        "x": 717,
+        "y": 0,
+        "w": 499,
+        "h": 1633,
+        "basis": "ink"
+      },
+      "luma": 254.3
+    }
+  },
+  "optional": {
+    "thanksSeq": {
+      "frames": [
+        "C/thanks-seq/t-000.png",
+        "C/thanks-seq/t-001.png",
+        "C/thanks-seq/t-002.png",
+        "C/thanks-seq/t-003.png",
+        "C/thanks-seq/t-004.png",
+        "C/thanks-seq/t-005.png",
+        "C/thanks-seq/t-006.png",
+        "C/thanks-seq/t-007.png",
+        "C/thanks-seq/t-008.png",
+        "C/thanks-seq/t-009.png",
+        "C/thanks-seq/t-010.png",
+        "C/thanks-seq/t-011.png",
+        "C/thanks-seq/t-012.png",
+        "C/thanks-seq/t-013.png",
+        "C/thanks-seq/t-014.png",
+        "C/thanks-seq/t-015.png"
+      ],
+      "width": 1920,
+      "height": 2700,
+      "luma": [
+        254.3,
+        254.3,
+        254.3,
+        254.3,
+        254.3,
+        254.3,
+        254.3,
+        254.3,
+        254.3,
+        254.3,
+        254.3,
+        254.3,
+        254.9,
+        240.3,
+        131.4,
+        131.4
+      ],
+      "viewport": {
+        "x": 39,
+        "y": 0,
+        "w": 1881,
+        "h": 2700,
+        "basis": "ink"
+      }
+    },
+    "fillSeq": {
+      "frames": [
+        "B/fill-seq/f-000.png",
+        "B/fill-seq/f-001.png",
+        "B/fill-seq/f-002.png",
+        "B/fill-seq/f-003.png",
+        "B/fill-seq/f-004.png",
+        "B/fill-seq/f-005.png",
+        "B/fill-seq/f-006.png",
+        "B/fill-seq/f-007.png",
+        "B/fill-seq/f-008.png",
+        "B/fill-seq/f-009.png",
+        "B/fill-seq/f-010.png",
+        "B/fill-seq/f-011.png",
+        "B/fill-seq/f-012.png",
+        "B/fill-seq/f-013.png",
+        "B/fill-seq/f-014.png",
+        "B/fill-seq/f-015.png",
+        "B/fill-seq/f-016.png",
+        "B/fill-seq/f-017.png",
+        "B/fill-seq/f-018.png",
+        "B/fill-seq/f-019.png",
+        "B/fill-seq/f-020.png",
+        "B/fill-seq/f-021.png",
+        "B/fill-seq/f-022.png",
+        "B/fill-seq/f-023.png",
+        "B/fill-seq/f-024.png",
+        "B/fill-seq/f-025.png",
+        "B/fill-seq/f-026.png",
+        "B/fill-seq/f-027.png",
+        "B/fill-seq/f-028.png",
+        "B/fill-seq/f-029.png",
+        "B/fill-seq/f-030.png",
+        "B/fill-seq/f-031.png",
+        "B/fill-seq/f-032.png",
+        "B/fill-seq/f-033.png",
+        "B/fill-seq/f-034.png",
+        "B/fill-seq/f-035.png",
+        "B/fill-seq/f-036.png",
+        "B/fill-seq/f-037.png",
+        "B/fill-seq/f-038.png",
+        "B/fill-seq/f-039.png",
+        "B/fill-seq/f-040.png",
+        "B/fill-seq/f-041.png",
+        "B/fill-seq/f-042.png",
+        "B/fill-seq/f-043.png",
+        "B/fill-seq/f-044.png",
+        "B/fill-seq/g-000.png",
+        "B/fill-seq/g-001.png",
+        "B/fill-seq/g-002.png",
+        "B/fill-seq/g-003.png",
+        "B/fill-seq/g-004.png",
+        "B/fill-seq/g-005.png",
+        "B/fill-seq/g-006.png",
+        "B/fill-seq/g-007.png",
+        "B/fill-seq/g-008.png",
+        "B/fill-seq/g-009.png"
+      ],
+      "width": 1920,
+      "height": 2700,
+      "luma": [
+        246,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246,
+        246,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246,
+        246,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        246.1,
+        146.9,
+        146.9,
+        146.9,
+        146.9,
+        143.6,
+        143.6,
+        143.6,
+        143.6,
+        143.6,
+        143.6
+      ],
+      "viewport": {
+        "x": 348,
+        "y": 0,
+        "w": 1230,
+        "h": 1877,
+        "basis": "ink"
+      },
+      "card": {
+        "frame": "B/fill-seq/f-044.png",
+        "width": 1920,
+        "height": 2700,
+        "page": {
+          "x": 367,
+          "y": 172,
+          "w": 1192,
+          "h": 1685
+        },
+        "luma": 246.1
+      }
+    },
+    "countdown": {
+      "frames": [
+        "C/countdown-seq/k-000.png",
+        "C/countdown-seq/k-001.png",
+        "C/countdown-seq/k-002.png",
+        "C/countdown-seq/k-003.png",
+        "C/countdown-seq/k-004.png",
+        "C/countdown-seq/k-005.png",
+        "C/countdown-seq/k-006.png",
+        "C/countdown-seq/k-007.png",
+        "C/countdown-seq/k-008.png",
+        "C/countdown-seq/k-009.png",
+        "C/countdown-seq/k-010.png",
+        "C/countdown-seq/k-011.png",
+        "C/countdown-seq/k-012.png",
+        "C/countdown-seq/k-013.png",
+        "C/countdown-seq/k-014.png",
+        "C/countdown-seq/k-015.png",
+        "C/countdown-seq/k-016.png",
+        "C/countdown-seq/k-017.png",
+        "C/countdown-seq/k-018.png",
+        "C/countdown-seq/k-019.png",
+        "C/countdown-seq/k-020.png",
+        "C/countdown-seq/k-021.png",
+        "C/countdown-seq/k-022.png",
+        "C/countdown-seq/k-023.png",
+        "C/countdown-seq/k-024.png",
+        "C/countdown-seq/k-025.png",
+        "C/countdown-seq/k-026.png",
+        "C/countdown-seq/k-027.png",
+        "C/countdown-seq/k-028.png",
+        "C/countdown-seq/k-029.png",
+        "C/countdown-seq/k-030.png",
+        "C/countdown-seq/k-031.png"
+      ],
+      "width": 1920,
+      "height": 2700,
+      "luma": [
+        253.5,
+        253.5,
+        253.5,
+        253.5,
+        253.5,
+        253.5,
+        253.5,
+        253.5,
+        253.5,
+        253.6,
+        253.6,
+        253.6,
+        253.5,
+        253.5,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6,
+        253.6
+      ],
+      "viewport": {
+        "x": 743,
+        "y": 0,
+        "w": 440,
+        "h": 1654,
+        "basis": "ink"
+      }
+    },
+    "report": {
+      "frames": [
+        "E/E02-report-ok.png"
+      ],
+      "width": 2880,
+      "height": 2052,
+      "luma": [
+        246.9
+      ],
+      "contentBottom": 1354,
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "w": 2578,
+        "h": 1885,
+        "basis": "ink"
+      }
+    },
+    "reportZoom": {
+      "frames": [
+        "E/E03-report-table-zoom.png"
+      ],
+      "width": 2224,
+      "height": 826,
+      "luma": [
+        248.1
+      ],
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "w": 2224,
+        "h": 816,
+        "basis": "ink"
+      }
+    }
+  },
+  "grade": {
+    "gen-06": {
+      "image": "gen-06.png",
+      "luma": 156.2,
+      "target": 235,
+      "brightness": 1.5,
+      "saturate": 1.04
+    }
+  }
+}
