@@ -49,6 +49,29 @@ const FADE = 12;
 const FIRST_LEN = Math.round(TOTAL * 0.55);
 const COUNTDOWN = countdownSeq();
 
+/**
+ * 🔴 화면 **정중앙에 뜨는 덮개**(카운트다운)의 채울 영역 — 측정 viewport 를 세로 가운데로 대칭시킨다.
+ *
+ * 왜(2026-09-23 레인 L2, 사용자 지적 「계속 작성하기 버튼이 화면 하단에 있다」):
+ *   measure-scenes 의 viewport 는 「y 는 항상 0(맨 위 막대를 살린다) ~ 마지막 잉크 행」이다.
+ *   서식처럼 위에서부터 차는 화면에는 맞지만, 래퍼 덮개(#ovIdle)는 CSS 로 **세로 가운데** 정렬이라
+ *   잉크가 가운데(y 1186~1634 / 2700)에만 있다. 그래서 viewport 가 {y 0, h 1654} 로 잡히고,
+ *   fitCrop 이 그 중심(y 827)에 맞춰 자르면 덮개 글·버튼이 잘린 화면의 아래 28% 에 몰린다
+ *   (버튼 중심 0.96 — 원본 캡처에서는 0.588 로 가운데였다).
+ *   원본은 가운데이므로 고칠 층은 래퍼가 아니라 이 합성이다.
+ *   고치는 법: viewport 의 **크기는 그대로** 두고 세로 중심만 캡처 중심으로 옮긴다 —
+ *   덮개가 가운데 정렬이라는 사실만 쓰고, 숫자를 손으로 박지 않는다(재촬영해도 그대로 맞는다).
+ *   🔴 「아래 끝을 중심에 대해 거울상으로 올려 위 끝을 삼기」(내용만 딱 감싸기)는 안 된다 —
+ *      영역이 608px 로 줄어 fitCrop 이 가로 기준으로 바뀌고 약 2.2배 확대돼, 제목 한 줄이
+ *      태블릿 화면 좌우를 넘쳐 잘렸다(스틸 v3l-fix-repeat 1차에서 확인). 배율은 v3 와 같아야 한다.
+ */
+const centeredOverlayArea = (vp: Rect | null | undefined, capHeight: number): Rect | null => {
+  if (!vp) return null;
+  const h = Math.min(vp.h, capHeight);
+  const y = Math.round(Math.min(Math.max(0, capHeight / 2 - h / 2), capHeight - h));
+  return { x: vp.x, y, w: vp.w, h };
+};
+
 const Visitor: React.FC<{
   gen: string;
   sceneNo: number;
@@ -108,7 +131,11 @@ export const Repeat: React.FC<{ mute?: boolean }> = ({ mute }) => {
     ? { width: seq.width, height: seq.height, viewport: seq.viewport }
     : capPortrait;
   const cdCap = COUNTDOWN.frames.length
-    ? { width: COUNTDOWN.width, height: COUNTDOWN.height, viewport: COUNTDOWN.viewport }
+    ? {
+        width: COUNTDOWN.width,
+        height: COUNTDOWN.height,
+        viewport: centeredOverlayArea(COUNTDOWN.viewport, COUNTDOWN.height),
+      }
     : capPortrait;
 
   /* 앞 컷: 감사 화면 → 새 서식 전환(있으면 연속 캡처, 없으면 감사 화면 한 장) */
