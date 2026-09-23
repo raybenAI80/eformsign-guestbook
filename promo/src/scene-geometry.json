@@ -1,6 +1,6 @@
 {
   "$comment": "실캡처 좌표 정본. 🔴 손으로 고치지 말고 `node tools/measure-scenes.mjs` 로 다시 잰다. 캡처는 같은 파일명으로 재촬영되므로 재촬영 뒤엔 반드시 재측정.",
-  "measuredAt": "2026-09-23T04:54:47.477Z",
+  "measuredAt": "2026-09-23T05:11:04.662Z",
   "method": "ffmpeg rgb24 원시 화소 스캔(색 술어 + 행 프로파일 + 최장 연속 구간)",
   "captures": {
     "A01": {
