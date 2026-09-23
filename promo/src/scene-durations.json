@@ -4,12 +4,12 @@
   "rate": "+0%",
   "leadSec": 0.3,
   "tailSec": 0.5,
-  "paddedFrames": 28,
+  "paddedFrames": 25,
   "totalFrames": 1800,
   "totalSec": 60,
   "ok": true,
   "notes": [
-    "총길이가 하한(60초)에 모자라 28프레임을 여운으로 고르게 더했다"
+    "총길이가 하한(60초)에 모자라 25프레임을 여운으로 고르게 더했다"
   ],
   "scenes": {
     "hook": {
@@ -26,15 +26,15 @@
       "minVisualFrames": 180,
       "voiceFrames": 235,
       "startFrame": 160,
-      "frames": 239,
-      "seconds": 7.967,
+      "frames": 238,
+      "seconds": 7.933,
       "driver": "voice"
     },
     "designer": {
       "narrationSec": 5.38,
       "minVisualFrames": 180,
       "voiceFrames": 186,
-      "startFrame": 399,
+      "startFrame": 398,
       "frames": 189,
       "seconds": 6.3,
       "driver": "voice"
@@ -43,36 +43,36 @@
       "narrationSec": 7.312,
       "minVisualFrames": 286,
       "voiceFrames": 244,
-      "startFrame": 588,
-      "frames": 290,
-      "seconds": 9.667,
+      "startFrame": 587,
+      "frames": 289,
+      "seconds": 9.633,
       "driver": "visual"
     },
     "repeat": {
       "narrationSec": 6.416,
       "minVisualFrames": 196,
       "voiceFrames": 217,
-      "startFrame": 878,
+      "startFrame": 876,
       "frames": 220,
       "seconds": 7.333,
       "driver": "voice"
     },
     "manage": {
-      "narrationSec": 8.765,
+      "narrationSec": 8.84,
       "minVisualFrames": 0,
-      "voiceFrames": 287,
-      "startFrame": 1098,
-      "frames": 291,
-      "seconds": 9.7,
+      "voiceFrames": 290,
+      "startFrame": 1096,
+      "frames": 294,
+      "seconds": 9.8,
       "driver": "voice"
     },
     "branch": {
       "narrationSec": 8.255,
       "minVisualFrames": 150,
       "voiceFrames": 272,
-      "startFrame": 1389,
-      "frames": 276,
-      "seconds": 9.2,
+      "startFrame": 1390,
+      "frames": 275,
+      "seconds": 9.167,
       "driver": "voice"
     },
     "cta": {

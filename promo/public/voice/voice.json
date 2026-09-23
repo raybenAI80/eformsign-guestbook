@@ -1,7 +1,7 @@
 {
   "voice": "ko-KR-InJoonNeural",
   "rate": "+0%",
-  "generatedAt": "2026-09-21T02:59:38.882Z",
+  "generatedAt": "2026-09-23T00:33:45.435Z",
   "leadIn": 0.35,
   "tailOut": 0.7,
   "scenes": {
@@ -51,13 +51,13 @@
       "rawSeconds": 8.184
     },
     "manage": {
-      "text": "옮겨 적는 일이 사라집니다. 검색하고, 피디에프로 열고, 리포트로 정리하는 것까지 이폼사인 안에서 끝납니다.",
-      "hash": "e7eed6942ba8",
-      "seconds": 8.765,
-      "bytes": 212013,
+      "text": "옮겨 적는 일이 사라집니다. 검색하고, 피디에프로 열고, 처리 이력을 확인하는 것까지 이폼사인 안에서 끝납니다.",
+      "hash": "fc434db5b2df",
+      "seconds": 8.84,
+      "bytes": 213741,
       "storyboardSec": 11,
-      "neededSec": 11.75,
-      "rawSeconds": 10.704
+      "neededSec": 11.78,
+      "rawSeconds": 10.728
     },
     "branch": {
       "text": "방명록은 시작일 뿐입니다. 계약서, 동의서, 신청서도 같은 방법으로 이폼사인에서 처리됩니다.",
@@ -87,5 +87,5 @@
     "lufs": -16,
     "truePeak": -1.5
   },
-  "postProcessedAt": "2026-09-21T02:59:59.438Z"
+  "postProcessedAt": "2026-09-23T00:33:57.135Z"
 }

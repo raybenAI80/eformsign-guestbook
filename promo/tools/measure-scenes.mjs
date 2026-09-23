@@ -703,15 +703,14 @@ const countdownSeq = seqFrames("C/countdown-seq");
 const fillSeqMeasured = seqFrames("B/fill-seq");
 const thanksMeasured = seqFrames("C/thanks-seq");
 const countdownUsed = countdownSeq.frames.length ? countdownSeq : single("C/C05-countdown.png");
-const reportUsed = { ...single("E/E02-report-ok.png"), ...(measureReportContent("E/E02-report-ok.png") ?? {}) };
 const withViewport = (seq) => (seq.frames.length ? { ...seq, viewport: measureSeqViewport(seq) } : seq);
 result.optional = {
   thanksSeq: withViewport(thanksMeasured),
   fillSeq: { ...withViewport(fillSeqMeasured), card: measureFillCard(fillSeqMeasured) },
   countdown: withViewport(countdownUsed),
-  /* 리포트(유료 선택 옵션) 실화면 — 데이터 화면 E02 가 정본, 표 확대는 E03 */
-  report: withViewport(reportUsed),
-  reportZoom: withViewport(single("E/E03-report-table-zoom.png")),
+  /* 🔴 리포트(E 계열)는 재지 않는다 — 2026-09-21 사용자 지시로 영상에서 뺐다.
+     방명록 상품에 따로 구현한 화면이라 이폼사인 홍보 영상에 넣지 않는다.
+     되살릴 일이 생기면 measureReportContent() 가 그대로 남아 있다. */
 };
 
 /* 생성 이미지 배경의 색보정 세기(장면이 쓴다) */
@@ -740,7 +739,7 @@ for (const [k, v] of Object.entries(result.captures)) {
   console.log(`  ${k} ${v.width}x${v.height} · ${parts.join(" · ")}`);
 }
 console.log(
-  `  선택 소재: thanks-seq ${result.optional.thanksSeq.frames.length}장(${result.optional.thanksSeq.height}px) · fill-seq ${result.optional.fillSeq.frames.length}장(${result.optional.fillSeq.height}px) · countdown ${result.optional.countdown.frames.length}장 · 리포트 ${result.optional.report.frames.length}장`,
+  `  선택 소재: thanks-seq ${result.optional.thanksSeq.frames.length}장(${result.optional.thanksSeq.height}px) · fill-seq ${result.optional.fillSeq.frames.length}장(${result.optional.fillSeq.height}px) · countdown ${result.optional.countdown.frames.length}장`,
 );
 
 /* 어떤 프레임이 밝은지(=제품이 지면을 어둡게 하지 않은 상태인지) 한눈에 */

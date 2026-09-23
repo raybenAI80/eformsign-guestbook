@@ -79,8 +79,6 @@ const OPTIONAL = geometry.optional as {
   thanksSeq: ShotSeq;
   fillSeq: ShotSeq;
   countdown: ShotSeq;
-  report: ShotSeq;
-  reportZoom: ShotSeq;
 };
 const EMPTY_SEQ: ShotSeq = { frames: [], width: 0, height: 0 };
 
@@ -157,13 +155,11 @@ export const thanksSeq = (): ShotSeq => OPTIONAL.thanksSeq ?? EMPTY_SEQ;
 export const fillSeq = (): ShotSeq => OPTIONAL.fillSeq ?? EMPTY_SEQ;
 /** 자리 이탈 카운트다운 덮개. 없으면 그 컷을 넣지 않는다 */
 export const countdownSeq = (): ShotSeq => OPTIONAL.countdown ?? EMPTY_SEQ;
-/**
- * 리포트(유료 **선택** 옵션) 실화면. 없으면 그 컷을 통째로 뺀다.
- * 2026-09-18 16:55 에 별도 레인이 E02(합계 카드+막대+표)를 확보해 컷이 켜졌다.
+/*
+ * 🔴 리포트(report.html, E 계열) 소재는 **영상에서 뺐다**(2026-09-21 사용자 지시) —
+ *    방명록 상품에 따로 구현한 화면이라 이폼사인 홍보 영상에 넣지 않는다.
+ *    캡처 파일 자체는 public/shots/E/ 에 남아 있으나 측정·장면 어디서도 쓰지 않는다.
  */
-export const reportSeq = (): ShotSeq => OPTIONAL.report ?? EMPTY_SEQ;
-/** 표 부위 확대본. 표를 크게 보여 줄 컷이 필요해지면 쓴다 */
-export const reportZoomSeq = (): ShotSeq => OPTIONAL.reportZoom ?? EMPTY_SEQ;
 
 /**
  * 시퀀스에서 **밝은 프레임만** 골라낸다.

@@ -9,12 +9,10 @@ import { scene, sceneFrames } from "../script";
 import { originFor } from "../geometry";
 import {
   SHOT_FILES,
-  cropTop,
   geo,
   grade,
   quadAspect,
   quadCentroid,
-  reportSeq,
   screenCrop,
   screenQuad,
   shotLayer,
@@ -26,12 +24,12 @@ import {
  *
  * 생성 이미지 ⑥(담당자 노트북, 화면은 비워 생성)의 화면 자리에 **문서함 실캡처**를
  * 원근 매핑하고, 카메라가 화면 쪽으로 밀고 들어간다(끝에는 글자가 읽힌다).
- * 컷: D01 목록 → D02 「방문자」 검색 결과 → D03 완료 문서 미리보기.
+ * 컷: D01 목록(우측 문서 상태·이력) → D02 「방문자」 검색 결과 → D03 완료 문서 미리보기.
  *
- * 🔴 리포트 컷은 **파일 존재로 분기**한다. 실화면이 없을 때는 그 컷을 통째로 빼고
- *    나머지 컷이 길이를 나눠 갖는다 — 없는 화면을 그려 넣지 않는다(기획서 10절 1·5).
- *    2026-09-18 16:55 에 E02(합계 카드+막대+표)가 확보돼 마지막 3초 컷이 켜졌다.
- *    리포트는 **유료 선택 옵션**이므로 각주(`script.ts` footnote)를 뗄 수 없다.
+ * 🔴 리포트 화면(report.html, E 계열)은 **이 영상에 넣지 않는다**(2026-09-21 사용자 지시).
+ *    리포트는 방명록 상품에 따로 구현한 화면이고 이폼사인 제품 화면이 아니다 —
+ *    이 장면은 이폼사인 안에서 끝나는 것만 보여 준다. 컷이 빠진 만큼 D01·D02·D03 이
+ *    길이를 나눠 갖는다. 각주(`script.ts` footnote)도 같이 없어졌다.
  */
 const S = scene("manage");
 const TOTAL = sceneFrames("manage");
@@ -55,7 +53,6 @@ export const Manage: React.FC<{ mute?: boolean }> = ({ mute }) => {
   const d01 = geo("D01") ?? { width: 2400, height: 1350 };
   const d02 = geo("D02");
   const d03 = geo("D03");
-  const report = reportSeq();
   const bg = grade("gen-06.png");
 
   /** 🔴 노트북 화면(1.58)과 문서함 캡처(1.78)는 비가 다르다 — 왼쪽(상태·제목·단계)을 살린다 */
@@ -113,31 +110,8 @@ export const Manage: React.FC<{ mute?: boolean }> = ({ mute }) => {
             key: "pdf",
             rel: SHOT_FILES.D03,
             cap: d03,
-            weight: 1,
+            weight: 1.1,
             align: "left" as const,
-          },
-        ]
-      : []),
-    ...(report.frames.length
-      ? [
-          {
-            key: "report",
-            rel: report.frames[0],
-            cap: { width: report.width, height: report.height, viewport: report.viewport },
-            weight: 0.85,
-            /* 합계 카드와 막대가 위쪽에 있다 — 위를 살려 자른다.
-               🔴 표 아래 3행은 서식 제목 규칙 **이전**에 만든 옛 문서라 항목 칸이 비어 있다.
-                  값이 든 행이 끝나는 높이(`contentBottom`, 측정값)까지만 잘라 그 행들을
-                  프레임에 넣지 않는다. 옛 문서는 지울 수도 기간으로 거를 수도 없다
-                  (옛 3건·새 3건이 같은 날짜다) — 리포트 도구는 기간·건수 필터가 없다. */
-            align: "top" as const,
-            crop: report.contentBottom
-              ? cropTop(
-                  { x: 0, y: 0, w: report.width, h: report.contentBottom },
-                  aspect,
-                  { width: report.width, height: report.height },
-                )
-              : undefined,
           },
         ]
       : []),
