@@ -28,7 +28,9 @@ const noViewAuth = (s) => { Object.assign(s.option, { use_before_view_auth: fals
 for (let k = 1; k <= n; k++) stepSettings.push(noViewAuth({ ...clone(p), seq: k + 1, step_group: k + 2, name: lay.stepNamePrefix + k }));
 stepSettings.push({ ...clone(done), seq: n + 2, step_group: 2 });
 const spec = [{ type: 'write', accessibleAll: true, stepName: w.name }];
-for (let k = 1; k <= n; k++) spec.push({ type: 'participant', accessibleAll: true, recipientMode: '', stepName: lay.stepNamePrefix + k });
+// v4: 자기 단계 행만 필수(성명·서명) = 플랫폼 step_settings[].input_control_option[].required (OZR REQUIRED 는 전송을 막지 않음 — vault ozr-ontology-pack)
+const req = (k) => (lay.requiredCols ?? []).map((col) => `${col} ${k}`.normalize('NFC'));
+for (let k = 1; k <= n; k++) spec.push({ type: 'participant', accessibleAll: true, recipientMode: '', stepName: lay.stepNamePrefix + k, ...(req(k).length ? { required: req(k) } : {}) });
 spec.push({ type: 'complete' });
 const res = await c.ozw.deployTemplateFile({
   fileBuffer: fs.readFileSync(arg('--ozr')), ext: 'ozr', name: arg('--name'), category: arg('--category'),
@@ -41,3 +43,11 @@ const res = await c.ozw.deployTemplateFile({
 const out = { ...res }; delete out.payload;
 if (process.argv.includes('--dry-run')) out.payloadSteps = res.payload?.config?.step_settings?.map((s) => `${s.type}:${s.name}:${s.option?.specified_recipient_type ?? '-'}`) ?? JSON.stringify(res.payload).slice(0, 400);
 console.log(JSON.stringify(out, null, 1));
+// --dump <file>: fresh GET of the managed template (step ico required / fields) -> .local only (contains IDs)
+if (arg('--dump') && !process.argv.includes('--dry-run')) {
+  const t = (await c.templates.list()).templates.find((x) => x.name === arg('--name'));
+  const g = t ? await c.templates.getManaged(t.form_id ?? t.id) : { error: 'not found' };
+  fs.writeFileSync(arg('--dump'), JSON.stringify(g, null, 1));
+  const f = g?.result?.form;
+  for (const st of f?.config?.step_settings ?? []) console.log('ico', st.type, st.name, (st.input_control_option ?? []).filter((x) => x.required).map((x) => x.name).join(',') || '-');
+}

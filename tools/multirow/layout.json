@@ -9,6 +9,11 @@
     {"key": "방문목적", "label": "방문 목적", "x0": 310, "x1": 450, "type": "text"},
     {"key": "서명", "label": "서명", "x0": 450, "x1": 555, "type": "signature"}
   ],
-  "hideMethodByRow": {"1": "visible", "2": "mask", "3": "visible"},
+  "hideMethodByRow": {"1": "visible", "2": "visible", "3": "visible"},
+  "coverLabel": true,
+  "coverStyleByRow": {"1": "opaque", "2": "opaque"},
+  "highlightOwnRow": true,
+  "requiredCols": ["성명", "서명"],
+  "ozrRequired": "static",
   "stepNamePrefix": "방문자 "
 }

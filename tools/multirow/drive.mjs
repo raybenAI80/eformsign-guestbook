@@ -1,6 +1,7 @@
 // Minimal CDP driver for the logged-in capture Chrome (never logs in / switches accounts).
 // node drive.mjs --port 9223 (--match <urlSubstr> | --new) --steps <steps.json>
-// steps: [{nav:url}|{wait:ms}|{evalFile:path,out?}|{shot:path}|{click:[x,y]}|{type:text}|{key:"Tab"}|{eval:js,out?:path}|{net:{dir,filter}}|{size:[w,h]}]
+// steps: [{nav:url}|{wait:ms}|{evalFile:path,out?}|{shot:path}|{click:[x,y]}|{type:text}|{key:"Tab"}|{eval:js,out?:path}|{net:{dir,filter}}|{size:[w,h]}|{drag:[[x,y],...]}]
+// {drag}: press at the first point, move through the rest, release (e.g. drawing on a signature pad)
 // {net} enables Network capture from that point on; response bodies whose URL matches filter are saved into dir.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -46,6 +47,14 @@ for (const s of steps) {
   if (s.nav) await send('Page.navigate', { url: s.nav });
   if (s.wait) await sleep(s.wait);
   if (s.click) await mouse(s.click[0], s.click[1]);
+  if (s.drag) {
+    const [p0, ...ps] = s.drag;
+    await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p0[0], y: p0[1] });
+    await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: p0[0], y: p0[1], button: 'left', clickCount: 1 });
+    for (const p of ps) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1], button: 'left', buttons: 1 }); await sleep(15); }
+    const pl = ps.at(-1) ?? p0;
+    await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pl[0], y: pl[1], button: 'left', clickCount: 1 });
+  }
   if (s.type) await send('Input.insertText', { text: s.type });
   if (s.key) { await send('Input.dispatchKeyEvent', { type: 'keyDown', key: s.key, code: s.key, windowsVirtualKeyCode: s.key === 'Tab' ? 9 : 13 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: s.key, code: s.key }); }
   if (s.evalFile) s.eval = fs.readFileSync(s.evalFile, 'utf8');

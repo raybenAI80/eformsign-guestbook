@@ -49,9 +49,10 @@ if (_nm === 'null' || _nm === 'undefined') _nm = '';
 var _pre = ${JSON.stringify(lay.stepNamePrefix)};
 var _cur = 0;
 if (_nm.indexOf(_pre) === 0) { _cur = parseInt(_nm.substring(_pre.length), 10); if (isNaN(_cur)) _cur = 0; }`;
-const inputJs = (row, method) => `try {
+const inputJs = (row, method, req) => `try {
 ${stepJs}
 var _row = ${row};
+${req ? "if (_cur !== 0) This.SetRequired(_cur === _row);" : ""}
 if (_cur === _row) { This.SetEnable(true); This.SetVisible(true); }
 else if (_cur !== 0 && Math.max(_row, _cur) === _cur) { This.SetEnable(false); ${method === 'visible' ? 'This.SetVisible(false);' : ''} }
 else if (_cur !== 0) { This.SetEnable(false); }
@@ -71,24 +72,55 @@ let injected = 0;
 xml = xml.replace(/<(OZIC[A-Z]+) ([^>]*?)FORMID="([^"]+) (\d+)"([^>]*?)(\/?)>/g, (all, tag, a, key, row, b, selfClose) => {
   const method = lay.hideMethodByRow[row] ?? 'visible';
   injected++;
-  const open = `<${tag} ${a}FORMID="${key} ${row}"${b}>`;
-  return selfClose ? `${open}${ev('OnBind', inputJs(Number(row), method))}</${tag}>` : `${open}${ev('OnBind', inputJs(Number(row), method))}`;
+  // v5: ozrRequired "static" -> REQUIRED="true" on requiredCols of every row (b1 probe); "own-row" -> plus OnBind SetRequired(own row only)
+  const reqAttr = lay.ozrRequired && (lay.requiredCols ?? []).includes(key) ? ' REQUIRED="true"' : '';
+  const open = `<${tag} ${a}FORMID="${key} ${row}"${b}${reqAttr}>`;
+  return selfClose ? `${open}${ev('OnBind', inputJs(Number(row), method, reqAttr !== '' && lay.ozrRequired === 'own-row'))}</${tag}>` : `${open}${ev('OnBind', inputJs(Number(row), method, reqAttr !== '' && lay.ozrRequired === 'own-row'))}`;
 });
-// mask labels + debug label appended to page 1 children
-const shape = (name, l, t, w, h, text, extra, js) => `<ONESHAPE NAME="${name}" LEFT="${l}" TOP="${t}" WIDTH="${w}" HEIGHT="${h}" BGCOLOR="${extra.bg}" TRANSPARENT="${extra.transparent}" BackgroundAlpha="255" DRAWLEFT="0" DRAWTOP="0" DRAWRIGHT="0" DRAWBOTTOM="0" FGCOLOR="${extra.fg}" FONTNAME="맑은 고딕" FONTSIZE="${extra.size}" FONTSTYLE="${extra.style}" HALIGN="${extra.halign}" VALIGN="1">${esc(text)}${ev('OnBind', js)}</ONESHAPE>`;
+// v4 (2026-09-28): cover labels 「작성 완료」 over previous rows + own-row highlight.
+// Completed PDF = print/export: it ignores display flags (script SetVisible AND static VISIBLE="false", both measured v3/v5)
+// but honours print flags -> cover/highlight shapes carry static NOPRINT="True" (never in the PDF); OnBind SetVisible drives the viewer.
+//   coverStyleByRow "opaque"     : grey filled box + text (PDF-safe via NOPRINT)
+//   coverStyleByRow "text-guard" : transparent, empty default text; OnBind SetText only while not complete (also PDF-safe without NOPRINT)
+const shape = (name, l, t, w, h, text, extra, js) => `<ONESHAPE NAME="${name}" LEFT="${l}" TOP="${t}" WIDTH="${w}" HEIGHT="${h}" BGCOLOR="${extra.bg}" TRANSPARENT="${extra.transparent}" BackgroundAlpha="255" DRAWLEFT="0" DRAWTOP="0" DRAWRIGHT="0" DRAWBOTTOM="0" FGCOLOR="${extra.fg}" FONTNAME="맑은 고딕" FONTSIZE="${extra.size}" FONTSTYLE="${extra.style}" HALIGN="${extra.halign}" VALIGN="1"${extra.hidden ? ' NOPRINT="True"' : ''}>${esc(text)}${ev('OnBind', js)}</ONESHAPE>`;
+const coverJs = (row, guard) => `try {
+${stepJs}
+var _row = ${row};
+var _show = _cur !== 0 && _cur !== _row && Math.max(_row, _cur) === _cur && _st !== 'complete';
+${guard ? "This.SetText(_show ? '작성 완료' : '');" : ''}
+This.SetVisible(_show);
+} catch (e) {}`;
+const hiJs = (row) => `try {
+${stepJs}
+This.SetVisible(_cur === ${row} && _st !== 'complete');
+} catch (e) {}`;
 const extraKids = [];
+const backKids = [];
+const rx0 = lay.cols[1].x0 + 1, rx1 = lay.cols[lay.cols.length - 1].x1 - 1;
 for (const [row, method] of Object.entries(lay.hideMethodByRow)) {
-  if (method !== 'mask') continue;
-  const x0 = lay.cols[1].x0 + 1, x1 = lay.cols[lay.cols.length - 1].x1 - 1;
-  extraKids.push(shape(`Mask${row}`, x0, rowTop(Number(row)) + 1, x1 - x0, lay.rowH - 2, '작성 완료',
+  if (method !== 'mask') continue; // v3 mask-label method (discarded: covers values in completed PDF)
+  extraKids.push(shape(`Mask${row}`, rx0, rowTop(Number(row)) + 1, rx1 - rx0, lay.rowH - 2, '작성 완료',
     { bg: -1, transparent: 'false', fg: -10066330, size: 12, style: 1, halign: 1 }, maskJs(Number(row))));
+}
+if (lay.coverLabel) {
+  for (let r = 1; r < lay.rows; r++) {
+    const guard = (lay.coverStyleByRow?.[r] ?? 'opaque') === 'text-guard';
+    extraKids.push(shape(`Cover${r}`, rx0, rowTop(r) + 1, rx1 - rx0, lay.rowH - 2, guard ? '' : '작성 완료',
+      { bg: guard ? -1 : -1118482, transparent: guard ? 'true' : 'false', fg: -10066330, size: 12, style: 1, halign: 1, hidden: true }, coverJs(r, guard)));
+  }
+}
+if (lay.highlightOwnRow) {
+  // light-yellow box behind the (transparent) inputs -> inserted as the first children of the page
+  for (let r = 1; r <= lay.rows; r++) backKids.push(shape(`Own${r}`, rx0, rowTop(r) + 1, rx1 - rx0, lay.rowH - 2, '',
+    { bg: -2878, transparent: 'false', fg: -16777216, size: 9, style: 0, halign: 0, hidden: true }, hiJs(r)));
 }
 const dbgTop = rowTop(lay.rows + 1) + 12;
 extraKids.push(shape('StepDebug', 40, dbgTop, 515, 16, 'step=?', { bg: -1, transparent: 'true', fg: -8355712, size: 8, style: 0, halign: 0 }, debugJs));
 const pageClose = xml.indexOf('</OZPDFPAGE>');
 if (pageClose < 0) throw new Error('no </OZPDFPAGE>');
 xml = xml.slice(0, pageClose) + extraKids.join('\r\n') + '\r\n' + xml.slice(pageClose);
-xml = xml.replace(/(<OZPDFPAGE NAME="PDFPage1"[^>]*?COUNT=")(\d+)(")/, (a, p, n, s) => p + (Number(n) + extraKids.length) + s);
+if (backKids.length) xml = xml.replace(/(<OZPDFPAGE NAME="PDFPage1"[^>]*>\r?\n)/, (a) => a + backKids.join('\r\n') + '\r\n');
+xml = xml.replace(/(<OZPDFPAGE NAME="PDFPage1"[^>]*?COUNT=")(\d+)(")/, (a, p, n, s) => p + (Number(n) + extraKids.length + backKids.length) + s);
 xml = xml.replace('<OZFORMPARAMS>\r\n</OZFORMPARAMS>', '<OZFORMPARAMS>\r\n<OZFORMPARAM FIELDNAME="document_step" VALUE=""/>\r\n<OZFORMPARAM FIELDNAME="document_step_name" VALUE=""/>\r\n</OZFORMPARAMS>');
 if (!xml.includes('FIELDNAME="document_step_name"')) throw new Error('OZFORMPARAMS injection failed');
 
@@ -103,4 +135,4 @@ const buf = m.wrapOzrWithResources(xml, [{ name: '1', data: fs.readFileSync(pdfP
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, buf);
 if (xmlPath) fs.writeFileSync(xmlPath, xml);
-console.log(JSON.stringify({ out: outPath, bytes: buf.length, fields: expected, onBindInjected: injected, extraShapes: extraKids.length, formIds: m.extractOzrFormIds(buf).length, coverage: built.coverage.pass }));
+console.log(JSON.stringify({ out: outPath, bytes: buf.length, fields: expected, onBindInjected: injected, extraShapes: extraKids.length + backKids.length, formIds: m.extractOzrFormIds(buf).length, coverage: built.coverage.pass }));
