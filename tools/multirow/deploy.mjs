@@ -2,6 +2,7 @@
 // Workflow = 시작 + 참여자 N (step names "방문자 1..N", recipient mode "문서 전송 시 지정 가능") + 완료.
 // Step shape source = an existing template that has a participant step (--shape-name, looked up by name at runtime).
 // Usage: node deploy.mjs --ozr <f.ozr> --name "<template name>" --shape-name "<source template name>" [--category 키오스크] [--skip-send-popup] [--dry-run]
+//        [--layout tools/multirow/layout-product.json --variant A|B|P]  (participant step count = layout rows)
 // --skip-send-popup: form.quick_processing=true (콘솔 일반 설정 > 문서 설정 「문서 전송 시 팝업 생략」; 임베딩 가이드 template_option 표의 같은 이름 필드).
 //   deployTemplateFile hardcodes quick_processing:false -> after create: GET form -> set flag -> save (create-shape auth) -> release again.
 // Settings-only mode (no redeploy): node deploy.mjs --apply-to "<template name>" [--skip-send-popup] [--outsider-complete-mail-off] [--dump-before f] [--dump <f>]
@@ -13,7 +14,8 @@
 import fs from 'node:fs';
 import { client, core } from './env.mjs';
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
-const lay = JSON.parse(fs.readFileSync(new URL('./layout.json', import.meta.url), 'utf8'));
+import { loadLayout } from './layout.mjs';
+const lay = loadLayout(); // --layout layout-product.json --variant A|B|P (default layout.json: 3-row probe)
 const c = await client();
 const has = (k) => process.argv.includes(k);
 // mutate helpers (in place on a form object)

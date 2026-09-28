@@ -1,0 +1,57 @@
+{
+  "_comment": "상품용 누적형 방명록 디자인 파라미터. common + variants.<id> 를 얕게 병합(variants 값 우선). build.mjs/deploy.mjs --layout tools/multirow/layout-product.json --variant A|B|P. 좌표 단위 pt(A4 595x842). 색은 #RRGGBB.",
+  "common": {
+    "design": true,
+    "pageW": 595, "pageH": 842,
+    "title": "방명록",
+    "subtitle": "방문해 주셔서 감사합니다. 차례대로 한 줄씩 적어 주세요.",
+    "privacyNote": "적어 주신 성명·연락처는 방문 확인에만 쓰며, 보관 기간이 지나면 파기합니다.",
+    "font": "C:/Windows/Fonts/malgun.ttf",
+    "fontBold": "C:/Windows/Fonts/malgunbd.ttf",
+    "ozFont": "맑은 고딕",
+    "colors": {
+      "title": "#1F2A44", "subtitle": "#5B6678", "accent": "#2F6FDE",
+      "headerBg": "#EEF2F7", "headerText": "#334155",
+      "grid": "#C9D1DC", "outer": "#8A97A8",
+      "zebra": "#F8FAFC", "number": "#64748B", "note": "#8A94A3",
+      "ownBorder": "#2F6FDE", "ownFill": "#EAF2FF",
+      "coverBg": "#EEF0F3", "coverText": "#8A94A3"
+    },
+    "marginX": 36,
+    "titleY": 60, "titleSize": 22, "subtitleY": 80, "subtitleSize": 10, "accentY": 90,
+    "headerTop": 98, "headerH": 24, "headerSize": 10,
+    "noteY": 818, "noteSize": 8,
+    "cols": [
+      {"key": "no", "label": "번호", "w": 34},
+      {"key": "성명", "label": "성명", "w": 110, "type": "text"},
+      {"key": "연락처", "label": "연락처", "w": 125, "type": "text"},
+      {"key": "방문목적", "label": "방문 목적", "w": 140, "type": "text"},
+      {"key": "서명", "label": "서명", "w": 114, "type": "signature"}
+    ],
+    "textInsetX": 6, "textInsetY": 2, "signInset": 3,
+    "signIconSize": 0,
+    "hideMethodByRow": {},
+    "coverLabel": true,
+    "highlightOwnRow": true,
+    "stepDebug": false,
+    "requiredCols": ["성명", "서명"],
+    "ozrRequired": "static",
+    "stepNamePrefix": "방문자 "
+  },
+  "variants": {
+    "A": {
+      "_comment": "20행 1페이지(A4 세로)",
+      "rows": 20, "rowsPerPage": 20, "rowH": 34, "inputSize": 11, "numberSize": 10, "coverSize": 11
+    },
+    "B": {
+      "_comment": "10행 x 2페이지",
+      "rows": 20, "rowsPerPage": 10, "rowH": 66, "headerH": 26, "inputSize": 13, "numberSize": 12, "coverSize": 13
+    },
+    "P": {
+      "_comment": "서명칸 빈 자리표시(펜) 아이콘 실측 프로브. 1행=서명(대조), 2행 ICONSIZE=0, 3행 ICONSIZE=1, 4행 기본 12",
+      "title": "방명록 (서명칸 아이콘 실측)",
+      "rows": 4, "rowsPerPage": 4, "rowH": 66, "inputSize": 13, "numberSize": 12, "coverSize": 13,
+      "signIconSizeByRow": {"1": 12, "2": 0, "3": 1, "4": 12}
+    }
+  }
+}

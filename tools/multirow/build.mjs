@@ -5,36 +5,49 @@
 //    previous rows hidden by SetVisible(false) or covered by a mask label, per layout.hideMethodByRow)
 //  - add mask labels ("작성 완료") and a printed debug label showing the step params
 // Usage: EFORMSIGN_CORE_DIR=... node build.mjs --pdf <bg.pdf> --out <f.ozr> [--xml <f.xml>]
+// Product design (2026-09-28): --layout tools/multirow/layout-product.json --variant A|B|P
+//   -> background from make-pdf-product.py (always regenerated, embedded 맑은 고딕 TTF), N pages (rowsPerPage),
+//      text inputs resized to fill the cell (core builder caps text boxes at 15pt), signpad ICONSIZE per row,
+//      own-row highlight = border-colour box + per-cell fills (both NOPRINT), themed 「작성 완료」 cover, no StepDebug.
+//   The 3-row probe (default layout.json) output is unchanged.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { core } from './env.mjs';
+import { loadLayout, rowPage, rowTop as rowTopOf } from './layout.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
-const lay = JSON.parse(fs.readFileSync(path.join(here, 'layout.json'), 'utf8'));
+const lay = loadLayout();
 const pdfPath = arg('--pdf');
 const outPath = arg('--out');
 const xmlPath = arg('--xml');
 if (!pdfPath || !outPath) throw new Error('--pdf and --out required');
-if (!fs.existsSync(pdfPath)) execFileSync('python', [path.join(here, 'make-pdf.py'), path.join(here, 'layout.json'), pdfPath], { stdio: 'inherit' });
+if (lay.design) {
+  const resolved = outPath.replace(/\.ozr$/i, '') + '.layout.json';
+  fs.mkdirSync(path.dirname(resolved), { recursive: true });
+  fs.writeFileSync(resolved, JSON.stringify(lay, null, 1));
+  execFileSync('python', [path.join(here, 'make-pdf-product.py'), resolved, pdfPath], { stdio: 'inherit' });
+} else if (!fs.existsSync(pdfPath)) execFileSync('python', [path.join(here, 'make-pdf.py'), path.join(here, 'layout.json'), pdfPath], { stdio: 'inherit' });
 const m = await core();
 
 const fid = (key, row) => `${key} ${row}`;
-const rowTop = (i) => lay.headerTop + lay.headerH + (i - 1) * lay.rowH;
+const rowTop = (i) => rowTopOf(lay, i);
 const fields = [];
 for (let r = 1; r <= lay.rows; r++) {
   for (const c of lay.cols.filter((c) => c.type)) {
     const top = rowTop(r);
+    const si = lay.signInset ?? 6;
     const bbox = c.type === 'signature'
-      ? [c.x0 + 6, top + 6, c.x1 - 6, top + lay.rowH - 6]
+      ? [c.x0 + si, top + si, c.x1 - si, top + lay.rowH - si]
       : [c.x0 + 3, top + lay.rowH / 2 - 11, c.x1 - 3, top + lay.rowH / 2 + 11];
-    fields.push({ id: fid(c.key, r), page: 1, bbox, type: c.type === 'signature' ? 'signature' : 'text' });
+    fields.push({ id: fid(c.key, r), page: rowPage(lay, r), bbox, type: c.type === 'signature' ? 'signature' : 'text' });
   }
 }
 const built = await m.buildPdfBackedOzr({
-  pdf: fs.readFileSync(pdfPath), pageCount: 1, sectionName: '방명록', fields,
+  pdf: fs.readFileSync(pdfPath), pageCount: lay.pages, sectionName: '방명록', fields,
+  ...(lay.ozFont ? { fontName: lay.ozFont } : {}),
   participants: ['발송인'],
 });
 let xml = built.xml;
@@ -95,33 +108,79 @@ const hiJs = (row) => `try {
 ${stepJs}
 This.SetVisible(_cur === ${row} && _st !== 'complete');
 } catch (e) {}`;
-const extraKids = [];
-const backKids = [];
+// shapes per page (1-based). Old probe = page 1 only.
+const extraByPage = new Map(); const backByPage = new Map();
+const put = (map, pg, x) => { if (!map.has(pg)) map.set(pg, []); map.get(pg).push(x); };
+const extraKids = { push: (x, pg = 1) => put(extraByPage, pg, x) };
+const backKids = { push: (x, pg = 1) => put(backByPage, pg, x) };
+// #RRGGBB -> OZ signed ARGB int (opaque)
+const ozc = (h) => (0xff000000 | parseInt(h.slice(1), 16)) | 0;
 const rx0 = lay.cols[1].x0 + 1, rx1 = lay.cols[lay.cols.length - 1].x1 - 1;
-for (const [row, method] of Object.entries(lay.hideMethodByRow)) {
-  if (method !== 'mask') continue; // v3 mask-label method (discarded: covers values in completed PDF)
-  extraKids.push(shape(`Mask${row}`, rx0, rowTop(Number(row)) + 1, rx1 - rx0, lay.rowH - 2, '작성 완료',
-    { bg: -1, transparent: 'false', fg: -10066330, size: 12, style: 1, halign: 1 }, maskJs(Number(row))));
-}
-if (lay.coverLabel) {
-  for (let r = 1; r < lay.rows; r++) {
-    const guard = (lay.coverStyleByRow?.[r] ?? 'opaque') === 'text-guard';
-    extraKids.push(shape(`Cover${r}`, rx0, rowTop(r) + 1, rx1 - rx0, lay.rowH - 2, guard ? '' : '작성 완료',
-      { bg: guard ? -1 : -1118482, transparent: guard ? 'true' : 'false', fg: -10066330, size: 12, style: 1, halign: 0, valign: 0, hidden: true }, coverJs(r, guard)));
+if (!lay.design) {
+  for (const [row, method] of Object.entries(lay.hideMethodByRow)) {
+    if (method !== 'mask') continue; // v3 mask-label method (discarded: covers values in completed PDF)
+    extraKids.push(shape(`Mask${row}`, rx0, rowTop(Number(row)) + 1, rx1 - rx0, lay.rowH - 2, '작성 완료',
+      { bg: -1, transparent: 'false', fg: -10066330, size: 12, style: 1, halign: 1 }, maskJs(Number(row))));
+  }
+  if (lay.coverLabel) {
+    for (let r = 1; r < lay.rows; r++) {
+      const guard = (lay.coverStyleByRow?.[r] ?? 'opaque') === 'text-guard';
+      extraKids.push(shape(`Cover${r}`, rx0, rowTop(r) + 1, rx1 - rx0, lay.rowH - 2, guard ? '' : '작성 완료',
+        { bg: guard ? -1 : -1118482, transparent: guard ? 'true' : 'false', fg: -10066330, size: 12, style: 1, halign: 0, valign: 0, hidden: true }, coverJs(r, guard)));
+    }
+  }
+  if (lay.highlightOwnRow) {
+    // light-yellow box behind the (transparent) inputs -> inserted as the first children of the page
+    for (let r = 1; r <= lay.rows; r++) backKids.push(shape(`Own${r}`, rx0, rowTop(r) + 1, rx1 - rx0, lay.rowH - 2, '',
+      { bg: -2878, transparent: 'false', fg: -16777216, size: 9, style: 0, halign: 0, hidden: true }, hiJs(r)));
+  }
+  const dbgTop = lay.headerTop + lay.headerH + lay.rows * lay.rowH + 12;
+  extraKids.push(shape('StepDebug', 40, dbgTop, 515, 16, 'step=?', { bg: -1, transparent: 'true', fg: -8355712, size: 8, style: 0, halign: 0 }, debugJs));
+} else {
+  const C = lay.colors; const X0 = lay.cols[0].x0, X1 = lay.cols[lay.cols.length - 1].x1;
+  for (let r = 1; r <= lay.rows; r++) {
+    const pg = rowPage(lay, r); const t = rowTop(r);
+    if (lay.coverLabel && r < lay.rows) extraKids.push(shape(`Cover${r}`, rx0, t + 1, rx1 - rx0, lay.rowH - 2, '작성 완료',
+      { bg: ozc(C.coverBg), transparent: 'false', fg: ozc(C.coverText), size: lay.coverSize, style: 1, halign: 0, valign: 0, hidden: true }, coverJs(r, false)), pg);
+    if (lay.highlightOwnRow) {
+      // bold outline = accent box under the whole row; per-cell light fills leave 1.6pt outer / 0.8pt inner gaps showing it
+      backKids.push(shape(`OwnB${r}`, X0, t, X1 - X0, lay.rowH, '', { bg: ozc(C.ownBorder), transparent: 'false', fg: -16777216, size: 9, style: 0, halign: 0, hidden: true }, hiJs(r)), pg);
+      lay.cols.forEach((c, i) => {
+        const l = c.x0 + (i === 0 ? 1.8 : 0.4), rr = c.x1 - (i === lay.cols.length - 1 ? 1.8 : 0.4);
+        backKids.push(shape(`Own${r}c${i}`, +l.toFixed(2), t + 1.8, +(rr - l).toFixed(2), lay.rowH - 3.6, '', { bg: ozc(C.ownFill), transparent: 'false', fg: -16777216, size: 9, style: 0, halign: 0, hidden: true }, hiJs(r)), pg);
+      });
+    }
+  }
+  if (lay.highlightOwnRow) {
+    // own-row number is drawn in the PDF background and would be covered by the fills -> NOPRINT accent number on top
+    for (let r = 1; r <= lay.rows; r++) extraKids.push(shape(`OwnNo${r}`, lay.cols[0].x0 + 2, rowTop(r) + 2, lay.cols[0].w - 4, lay.rowH - 4, String(r),
+      { bg: -1, transparent: 'true', fg: ozc(C.ownBorder), size: lay.numberSize, style: 1, halign: 0, valign: 0, hidden: true }, hiJs(r)), rowPage(lay, r));
   }
 }
-if (lay.highlightOwnRow) {
-  // light-yellow box behind the (transparent) inputs -> inserted as the first children of the page
-  for (let r = 1; r <= lay.rows; r++) backKids.push(shape(`Own${r}`, rx0, rowTop(r) + 1, rx1 - rx0, lay.rowH - 2, '',
-    { bg: -2878, transparent: 'false', fg: -16777216, size: 9, style: 0, halign: 0, hidden: true }, hiJs(r)));
+// design: text inputs fill the cell (core caps height at 15pt / font 10); signpad ICONSIZE per row
+if (lay.design) {
+  xml = xml.replace(/<OZICTEXTBOX ([^>]*?)FORMID="([^"]+) (\d+)"([^>]*)>/g, (all, a, key, row, b) => {
+    const c = lay.cols.find((x) => x.key === key); const t = rowTop(Number(row));
+    const geo = { LEFT: c.x0 + lay.textInsetX, TOP: t + lay.textInsetY, WIDTH: c.w - 2 * lay.textInsetX, HEIGHT: lay.rowH - 2 * lay.textInsetY, FONTSIZE: lay.inputSize };
+    let tag = `<OZICTEXTBOX ${a}FORMID="${key} ${row}"${b}>`;
+    for (const [k, v] of Object.entries(geo)) tag = tag.replace(new RegExp(` ${k}="[^"]*"`), ` ${k}="${+Number(v).toFixed(2)}"`);
+    return tag;
+  });
+  xml = xml.replace(/<OZICSIGNPAD ([^>]*?)FORMID="([^"]+) (\d+)"([^>]*?)ICONSIZE="\d+"/g, (all, a, key, row, b) =>
+    `<OZICSIGNPAD ${a}FORMID="${key} ${row}"${b}ICONSIZE="${lay.signIconSizeByRow?.[row] ?? lay.signIconSize}"`);
 }
-const dbgTop = rowTop(lay.rows + 1) + 12;
-extraKids.push(shape('StepDebug', 40, dbgTop, 515, 16, 'step=?', { bg: -1, transparent: 'true', fg: -8355712, size: 8, style: 0, halign: 0 }, debugJs));
-const pageClose = xml.indexOf('</OZPDFPAGE>');
-if (pageClose < 0) throw new Error('no </OZPDFPAGE>');
-xml = xml.slice(0, pageClose) + extraKids.join('\r\n') + '\r\n' + xml.slice(pageClose);
-if (backKids.length) xml = xml.replace(/(<OZPDFPAGE NAME="PDFPage1"[^>]*>\r?\n)/, (a) => a + backKids.join('\r\n') + '\r\n');
-xml = xml.replace(/(<OZPDFPAGE NAME="PDFPage1"[^>]*?COUNT=")(\d+)(")/, (a, p, n, s) => p + (Number(n) + extraKids.length + backKids.length) + s);
+let nExtra = 0;
+for (let pg = 1; pg <= lay.pages; pg++) {
+  const ex = extraByPage.get(pg) ?? []; const bk = backByPage.get(pg) ?? [];
+  if (!ex.length && !bk.length) continue;
+  const openRe = new RegExp(`<OZPDFPAGE NAME="PDFPage${pg}"[^>]*>\r?\n`);
+  const om = openRe.exec(xml); if (!om) throw new Error('no PDFPage' + pg);
+  const close = xml.indexOf('</OZPDFPAGE>', om.index); if (close < 0) throw new Error('no </OZPDFPAGE> for page ' + pg);
+  xml = xml.slice(0, close) + ex.join('\r\n') + (ex.length ? '\r\n' : '') + xml.slice(close);
+  if (bk.length) xml = xml.slice(0, om.index + om[0].length) + bk.join('\r\n') + '\r\n' + xml.slice(om.index + om[0].length);
+  xml = xml.replace(new RegExp(`(<OZPDFPAGE NAME="PDFPage${pg}"[^>]*?COUNT=")(\\d+)(")`), (a, p, n, s) => p + (Number(n) + ex.length + bk.length) + s);
+  nExtra += ex.length + bk.length;
+}
 xml = xml.replace('<OZFORMPARAMS>\r\n</OZFORMPARAMS>', '<OZFORMPARAMS>\r\n<OZFORMPARAM FIELDNAME="document_step" VALUE=""/>\r\n<OZFORMPARAM FIELDNAME="document_step_name" VALUE=""/>\r\n</OZFORMPARAMS>');
 if (!xml.includes('FIELDNAME="document_step_name"')) throw new Error('OZFORMPARAMS injection failed');
 
@@ -136,4 +195,4 @@ const buf = m.wrapOzrWithResources(xml, [{ name: '1', data: fs.readFileSync(pdfP
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, buf);
 if (xmlPath) fs.writeFileSync(xmlPath, xml);
-console.log(JSON.stringify({ out: outPath, bytes: buf.length, fields: expected, onBindInjected: injected, extraShapes: extraKids.length + backKids.length, formIds: m.extractOzrFormIds(buf).length, coverage: built.coverage.pass }));
+console.log(JSON.stringify({ out: outPath, bytes: buf.length, fields: expected, onBindInjected: injected, extraShapes: nExtra, pages: lay.pages, formIds: m.extractOzrFormIds(buf).length, coverage: built.coverage.pass }));

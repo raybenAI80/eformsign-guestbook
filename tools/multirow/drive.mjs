@@ -1,6 +1,6 @@
 // Minimal CDP driver for the logged-in capture Chrome (never logs in / switches accounts).
 // node drive.mjs --port 9223 (--match <urlSubstr> | --new) --steps <steps.json>
-// steps: [{nav:url}|{wait:ms}|{evalFile:path,out?}|{shot:path}|{click:[x,y]}|{type:text}|{key:"Tab"}|{eval:js,out?:path}|{net:{dir,filter}}|{size:[w,h]}|{drag:[[x,y],...]}]
+// steps: [{device:{size,mobile,dpr,ua}}|{touchDrag:[[x,y],...]}|{tap:[x,y]}|{nav:url}|{wait:ms}|{evalFile:path,out?}|{shot:path}|{click:[x,y]}|{type:text}|{key:"Tab"}|{eval:js,out?:path}|{net:{dir,filter}}|{size:[w,h]}|{drag:[[x,y],...]}]
 // {clickIf:{re,at:[x,y]}}: click only if the top document's innerText matches regex re (e.g. a 문서 전송 dialog that
 //   quick_processing may or may not show) -> prints CLICKIF hit|miss. Top frame only (not cross-origin iframes).
 // {drag}: press at the first point, move through the rest, release (e.g. drawing on a signature pad)
@@ -45,6 +45,12 @@ const mouse = async (x, y) => {
 };
 for (const s of steps) {
   if (s.size) await send('Emulation.setDeviceMetricsOverride', { width: s.size[0], height: s.size[1], deviceScaleFactor: 1, mobile: false });
+  // {device:{size:[w,h], mobile:true, dpr:2, ua:"..."}}: tablet emulation (viewport + UA + touch) — eformsign picks the mobile viewer by UA
+  if (s.device) {
+    await send('Emulation.setDeviceMetricsOverride', { width: s.device.size[0], height: s.device.size[1], deviceScaleFactor: s.device.dpr ?? 1, mobile: s.device.mobile !== false });
+    if (s.device.ua) await send('Emulation.setUserAgentOverride', { userAgent: s.device.ua });
+    await send('Emulation.setTouchEmulationEnabled', { enabled: s.device.mobile !== false, maxTouchPoints: 5 });
+  }
   if (s.net) { fs.mkdirSync(s.net.dir, { recursive: true }); net = s.net; await send('Network.enable', { maxResourceBufferSize: 50e6, maxTotalBufferSize: 200e6 }); }
   if (s.nav) await send('Page.navigate', { url: s.nav });
   if (s.wait) await sleep(s.wait);
@@ -57,6 +63,14 @@ for (const s of steps) {
     const pl = ps.at(-1) ?? p0;
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pl[0], y: pl[1], button: 'left', clickCount: 1 });
   }
+  // {touchDrag:[[x,y],...]}: touch stroke (mobile viewer signature pad ignores mouse drags under touch emulation)
+  if (s.touchDrag) {
+    const [p0, ...ps] = s.touchDrag;
+    await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p0[0], y: p0[1] }] });
+    for (const p of ps) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: p[0], y: p[1] }] }); await sleep(15); }
+    await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  }
+  if (s.tap) { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: s.tap[0], y: s.tap[1] }] }); await sleep(60); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); }
   if (s.clickIf) {
     const r = await send('Runtime.evaluate', { expression: `new RegExp(${JSON.stringify(s.clickIf.re)}).test(document.body.innerText)`, returnByValue: true });
     const hit = r.result?.value === true; console.log('CLICKIF', hit ? 'hit' : 'miss', s.clickIf.re);
