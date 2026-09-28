@@ -260,6 +260,9 @@
   if (q.get('template')) C.templateId = q.get('template');
   if (q.get('company')) C.companyId = q.get('company');
   if (q.get('debug')) C.debug = q.get('debug') !== '0';
+  if (q.get('docmode')) C.docMode = q.get('docmode');
+  // 누적형(한 장에 N명, 서버 포함 옵션): 회사·서식·문서·단계 토큰을 /api/multirow 가 정해 준다.
+  var MULTI = C.docMode === 'multirow';
   if (C.mode !== 'immediate' && C.mode !== 'thanks') C.mode = 'thanks';
   if (!(C.thanksSeconds > 0)) C.thanksSeconds = 4;
   // 무응답 리셋: 입력 시작 전(idle) / 입력 중 이탈(abandon) 두 기준을 따로 둔다.
@@ -326,7 +329,7 @@
   }
 
   // ---------- 상태 ----------
-  var state = { session: 0, phase: 'boot', docs: [], formReady: false, loads: 0, submits: 0 };
+  var state = { session: 0, phase: 'boot', docs: [], formReady: false, loads: 0, submits: 0, mr: null, lastDoc: '' };
   window.__kioskState = state;
 
   function show(which) {
@@ -528,8 +531,20 @@
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
 
-  function buildOption() {
-    var opt = {
+  function buildOption(mr) {
+    var opt = mr ? {
+      // 누적형: 이미 만들어진 문서의 현재 단계를 외부 수신자로 연다(mode 02 + external_token).
+      company: { id: mr.embed.company.id, country_code: C.countryCode || 'kr' },
+      user: mr.embed.user,
+      mode: mr.embed.mode,
+      layout: {
+        lang_code: C.langCode || 'ko',
+        header: C.showHeader !== false,
+        // 🔴 외부 수신자로 받은 문서(mode 02)에서 hide_request_popup:true 면 「문서 전송」 확인창이
+        //    숨겨진 채 전송이 멈춘다(오류·콜백 없음, 2026-09-28 실측). 누적형은 항상 false.
+        hide_request_popup: false
+      }
+    } : {
       company: { id: C.companyId, country_code: C.countryCode || 'kr' },
       user: { type: '02', external_user_info: { name: C.visitorName || '작성자' } },
       mode: { type: '01', template_id: C.templateId },
@@ -539,7 +554,7 @@
         hide_request_popup: C.hideRequestPopup === true
       }
     };
-    if (C.prefill && C.prefill.length) {
+    if (!mr && C.prefill && C.prefill.length) {
       opt.prefill = {
         fields: C.prefill.map(function (f) {
           var o = { id: f.id, value: resolveValue(f.value) };
@@ -596,8 +611,41 @@
     idle.inFrame = false;            // 포커스 진입 판정도 초기화한다
     armIdle('session-start');
 
-    var opt = buildOption();
-    log('option', opt);
+    if (MULTI) {
+      // 🔴 임시 저장이 없다 — 유휴 리셋·다시 시작도 같은 호출로 "지금 단계"를 처음부터 다시 연다.
+      fetchMultirow(state.lastDoc).then(function (mr) {
+        if (my !== state.session) return;
+        state.mr = mr;
+        state.lastDoc = mr.document_id;
+        log('multirow', { step_no: mr.step_no, step_name: mr.step_name, created: mr.created, rows: mr.rows, trace: mr.trace });
+        openEmbed(my, buildOption(mr));
+      }, function (err) {
+        if (my !== state.session) return;
+        clearTimeout(loadWatchTimer);
+        onError({ code: 'MULTIROW', message: err.message, hint: err.hint });
+      });
+      return;
+    }
+    openEmbed(my, buildOption());
+  }
+
+  // 누적형: 서버가 지금 열 문서·단계를 정해 준다. last = 직전에 쓰던 문서(완료 직후 목록 반영 지연 대비).
+  function fetchMultirow(last) {
+    var url = '/api/multirow' + (last ? '?last=' + encodeURIComponent(last) : '');
+    return fetch(url, { cache: 'no-store', credentials: 'same-origin' }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (b) {
+        if (r.ok && b && b.ok && b.token_id) return b;
+        var e = new Error((b && b.message) || ('HTTP ' + r.status));
+        e.hint = r.status === 404 ? '누적형 옵션이 꺼져 있습니다(KIOSK_MULTIROW_ENABLED).'
+          : (b && b.reason === 'missing_env') ? '빠진 설정값: ' + (b.missing || []).join(', ')
+          : '관리자에게 알려 주세요.';
+        throw e;
+      });
+    });
+  }
+
+  function openEmbed(my, opt) {
+    log('option', MULTI ? { mode: opt.mode && opt.mode.type, user: opt.user && opt.user.type } : opt);
 
     try {
       var efs = new EformSignDocument();
@@ -629,6 +677,7 @@
     state.formReady = false;
     if (res && res.document_id) state.docs.push(res.document_id);
     else if (res && res.message && res.message.document_id) state.docs.push(res.message.document_id);
+    else if (MULTI && state.mr && state.mr.document_id) state.docs.push(state.mr.document_id);
     window.__kioskDocs = state.docs;
     armIdle('submit');
 
@@ -642,7 +691,8 @@
   var submittedForSession = -1;
   function onSubmitted(info) {
     if (submittedForSession === state.session) return;
-    var docId = (info && info.document_id) || (info && info.message && info.message.document_id) || '';
+    var docId = (info && info.document_id) || (info && info.message && info.message.document_id)
+      || (MULTI && state.mr && state.mr.document_id) || '';
     if (!docId) {
       log('문서 번호 없는 제출 신호 — 감사 화면 없이 새 작성 화면으로', info);
       submittedForSession = state.session;
@@ -660,13 +710,20 @@
 
   function onError(res) {
     log('error_callback', res);
-    els.errHint.textContent = '관리자에게 알려 주세요.';
+    els.errHint.textContent = (res && res.hint) || '관리자에게 알려 주세요.';
     els.errBox.textContent = JSON.stringify(res, null, 2);
     show('error');
   }
 
   // 서식은 불러오는데 작성 화면이 끝내 뜨지 않는 경우 = 서식 설정 문제일 가능성이 가장 높다.
   function showSetupHint() {
+    if (MULTI) {
+      els.errHint.textContent = '담당자 확인 사항: 누적형 서식의 방문자 단계에서 본인확인·인증서 전자서명이 꺼져 있는지, '
+        + '서식을 고친 뒤 다시 발행했는지 확인해 주세요.';
+      els.errBox.textContent = '누적형 ' + ((state.mr && state.mr.step_name) || '');
+      show('error');
+      return;
+    }
     els.errHint.textContent =
       '담당자 확인 사항: 이폼사인에서 이 서식을 열고 「URL로 문서 생성 허용」이 켜져 있는지, '
       + '서식을 고친 뒤 다시 발행했는지 확인해 주세요.';

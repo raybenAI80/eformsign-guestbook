@@ -144,7 +144,7 @@ python -m http.server 8099 --bind 127.0.0.1
   훑어 금칙어를 검출합니다(괄호 안 원어와 `data-term-ok` 요소는 제외). HTML(`setup.html` 등) 뿐 아니라
   고객용 안내 문서(md)도 검사 대상입니다 — `--md <파일...>` 로 지정한 md 파일을, 또는
   `--docs` 로 `docs/README.md · docs/vercel-signup-guide.md · docs/report-option.md ·
-  docs/after-form-change.md` 4종을 한꺼번에 검사합니다.
+  docs/after-form-change.md · docs/multirow-option.md` 5종을 한꺼번에 검사합니다.
 - 한 화면 = 할 일 하나 = 강조 버튼 하나. 나머지 버튼은 작고 회색.
 - 각 단계에 실제 화면 그림 + 눌러야 할 자리 빨간 박스. 로그인 뒤 화면은
   `docs/img/post-login-captures.json` 이 들어오면 자동으로 붙고, 없으면 「화면 그림 준비 중」 자리표시자와
@@ -251,6 +251,7 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 | `KIOSK_ABANDON_SECONDS` | `abandonResetSeconds` |
 | `KIOSK_COUNTDOWN_SECONDS` | `countdownSeconds` |
 | `KIOSK_SHOW_HEADER` / `KIOSK_HIDE_REQUEST_POPUP` / `KIOSK_DEBUG` | 각 동명 설정 |
+| `KIOSK_DOC_MODE` | `docMode` (`single` / `multirow`). `KIOSK_MULTIROW_ENABLED=true` 면 따로 안 넣어도 `multirow` |
 
 값이 형식에 맞지 않으면 빌드가 **실패**하고 어떤 변수가 잘못됐는지 알려 줍니다
 (예: `KIOSK_MODE` 에 `immediate`/`thanks` 가 아닌 값).
@@ -297,6 +298,40 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 🔴 다만 **개인정보가 담긴 항목 값은 기본으로 싣지 않습니다.** 기본 리포트에 담기는 것은
 문서명·서식명·완료일·처리시간(분)과 **어떤 항목이 있었는지**까지입니다.
 값까지 필요하면 `KIOSK_REPORT_FIELD_VALUES=on` 을 넣어 켭니다.
+
+---
+
+## 한 장에 여러 명 받기 (누적형, 서버 포함 옵션)
+
+종이 방명록처럼 **문서 한 장에 방문자 N명이 차례로 한 줄씩** 적고, 앞 줄은 다음 사람에게 가리는 선택 기능입니다.
+다음 방문자가 같은 문서의 다음 단계를 열려면 외부 처리 토큰이 필요해 **이폼사인 API 키를 쥔 서버 함수**
+(`api/multirow.mjs`)를 씁니다 — 리포트 옵션과 같은 방식(고객 Vercel + 환경변수)이고 **기본은 꺼져 있습니다**
+(`KIOSK_MULTIROW_ENABLED=true` 가 아니면 `404`, API 호출 0).
+고객용 설명·서식 체크리스트·「안 돼요」 = [`docs/multirow-option.md`](docs/multirow-option.md).
+
+- **상태 저장소가 없습니다.** 부를 때마다 서식 ID 로 진행 중 문서를 이폼사인 문서 목록에서 찾고, 없거나 끝났으면
+  새 장을 만듭니다. 새 장의 수신자는 서식의 방문자(참여자) 단계 수만큼 **자리표시 외부 수신자**
+  (`KIOSK_MULTIROW_EMAIL` 를 `+v<k>` 로 갈라 쓴 주소, 알림 끔)로 채웁니다.
+- 화면(`index.html`, `docMode:'multirow'`)은 `/api/multirow` 가 준 `token_id` 로 임베딩
+  `mode.type "02"` + `user.type "02"` + `external_token` 을 엽니다. 전송 콜백 → 직전 `document_id` 를
+  `?last=` 로 넘겨 다시 부르면 다음 단계(또는 완료 시 새 장)가 옵니다. 유휴 리셋도 같은 호출입니다.
+- 응답에는 `token_id`(그 단계 1회용)와 회사·서식·문서 ID 만 싣고 API 키·개인키·액세스 토큰은 싣지 않습니다.
+  CORS 헤더를 주지 않고, 다른 사이트에서 온 요청(`Origin`·`Sec-Fetch-Site`)은 `403` 입니다.
+- 🔴 누적형에서는 `hide_request_popup` 을 항상 `false` 로 엽니다 — `true` 면 외부 수신자 문서의
+  「문서 전송」 확인창이 숨겨진 채 전송이 멈춥니다(오류·콜백 없음, 2026-09-28 실측).
+
+| 환경변수 | 뜻 |
+|---|---|
+| `KIOSK_MULTIROW_ENABLED` | `true` 여야 동작. 빌드도 이 값을 보고 화면을 `multirow` 로 바꿉니다 |
+| `EFORMSIGN_API_KEY` / `EFORMSIGN_PRIVATE_KEY` / `EFORMSIGN_MEMBER_ID` | 리포트 옵션과 같은 자격 |
+| `KIOSK_MULTIROW_FORM_ID` | 누적형 서식 ID (없으면 `KIOSK_FORM_ID`) |
+| `KIOSK_MULTIROW_EMAIL` | 자리표시 수신자용 고객 이메일 하나 |
+| `KIOSK_MULTIROW_ROWS` | (선택) 서식을 못 읽을 때만 쓰는 예비 칸 수. 기본 20 |
+| `KIOSK_MULTIROW_VALID_DAYS` | (선택) 방문자 단계 기한(일, 1~50). 기본 50 — 안 주면 이폼사인 기본은 7일 |
+| `KIOSK_MULTIROW_DOC_NAME` / `KIOSK_TIMEZONE` | (선택) 문서 이름 앞부분(기본 `방명록`) / 이름에 붙는 시각 기준(기본 `Asia/Seoul`) |
+
+로컬 검증: `node --env-file=.local/report.env tools/multirow-option/probe.mjs --template-name "<서식 이름>" plan|call|doc|serve`,
+판정 로직 단위 검사 `node tools/multirow-option/test-lib.mjs`.
 
 ---
 
@@ -375,16 +410,18 @@ setup.html          설정 마법사 (정적, 서버 없음)
 report.html         완료 문서 리포트 화면 (정적, /api/report 를 표로 그린다)
 config.js           설정 파일
 build.mjs           환경변수(KIOSK_CONFIG 우선) → public/config.js 생성 (의존성 0)
-tools/check-plain-language.mjs  화면 문안 금칙어 게이트 (--md, --docs 로 고객용 md 4종도 검사)
+tools/check-plain-language.mjs  화면 문안 금칙어 게이트 (--md, --docs 로 고객용 md 5종도 검사)
 tools/verify-origin.mjs         고객 자체 도메인(비-vercel·비-localhost) 에서도 임베딩이 열리는지 실증
 tools/serve-https.mjs           verify-origin 용 로컬 HTTPS 정적 서버 (nip.io 등 와일드카드 루프백 호스트)
 tools/report-preview.mjs        report.html 로컬 미리보기 (--state ok|empty|disabled|unauthorized|error, 키 불필요)
-tools/check-a11y.mjs            접근성 게이트 (axe-core, 펼침 모드 + setup.html 카드 16장 전수)
-tools/walkthrough-setup.mjs     setup.html 카드 마법사 16장 워크스루 재생성 (텍스트+axe+375/768 스크린샷)
+tools/check-a11y.mjs            접근성 게이트 (axe-core, 펼침 모드 + setup.html 카드 17장 전수)
+tools/walkthrough-setup.mjs     setup.html 카드 마법사 17장 워크스루 재생성 (텍스트+axe+375/768 스크린샷)
 vercel.json         빌드·캐시·보안 헤더
 vercel.report.json  리포트 옵션용 crons 조각 (기본 미적용)
 api/report.mjs      완료 문서 리포트 (유료 옵션, 기본 꺼짐)
-api/lib/            리포트용 최소 이폼사인 클라이언트 (사내 SDK 에서 옮겨 옴)
+api/multirow.mjs    한 장에 여러 명(누적형) — 지금 열 문서·단계 토큰 (서버 포함 옵션, 기본 꺼짐)
+api/lib/            리포트·누적형용 최소 이폼사인 클라이언트 (사내 SDK 에서 옮겨 옴)
+tools/multirow-option/  누적형 로컬 검증(probe.mjs: plan·call·doc·create·serve) · 판정 단위 검사(test-lib.mjs)
 assets/             로고 등
 tools/              래퍼 검증 도구
 docs/               가입·도메인 안내

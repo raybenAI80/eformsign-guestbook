@@ -765,8 +765,52 @@
         </div>
       </div>
 
+      <div class="sub" id="subMultirow" data-sub="multirow">
+        <h3 class="subHeadWrap"><button class="subHead" type="button" aria-expanded="false" aria-controls="subMultirowBody"><span class="subNo" aria-hidden="true">7</span><span class="subTitle">한 장에 여러 명 받기 (선택)</span></button></h3>
+        <div class="subBody" id="subMultirowBody">
+          <p>종이 방명록처럼 <b>문서 한 장에 방문자 여러 명이</b><br>
+             차례로 한 줄씩 적게 하는 선택 기능입니다.<br>
+             앞사람이 적은 줄은 다음 사람에게 가려집니다.<br>
+             쓰지 않으면 그냥 넘어가세요.</p>
+          <div class="checkline">
+            <input type="checkbox" id="fMultirow">
+            <label for="fMultirow">이 기능을 쓰겠습니다</label>
+          </div>
+          <div id="multirowBody" hidden>
+            <p style="margin-top:10px">이 기능은 다음 방문자가 같은 문서를 이어서 열어야 해서<br>
+               이폼사인 <span class="nb">API 키</span>가 필요합니다.<br>
+               대표 관리자만 발급할 수 있습니다.<br>
+               <b>[커넥트] &gt; [API / Webhook] &gt; [API 키 관리]</b><br>
+               키는 <span class="nb">Vercel</span> 쪽에만 저장됩니다.</p>
+            <p>서식은 여러 명용으로 따로 만든 것이어야 합니다.<br>
+               단계가 <b>시작 &gt; 방문자 1 … 방문자 N &gt; 완료</b> 모양이고,<br>
+               방문자 단계마다 본인확인·인증서 전자서명·외부 완료 알림을 꺼 둡니다.<br>
+               자세한 순서는 설명서 <code data-term-ok>docs/multirow-option.md</code>에 있습니다.</p>
+            <p>한 장에 받는 사람 수는 따로 적지 않습니다.<br>
+               서식의 방문자 단계 수가 곧 한 장의 칸 수입니다<br>
+               (<span class="nb">최대 30명</span>). 칸이 다 차면 다음 방문자부터 새 장이 열립니다.</p>
+            <p>아래 이름들을 <span class="nb">Vercel</span> 프로젝트의
+               <b>Settings &gt; Environment Variables</b> 화면에 넣고
+               <span class="nb"><b data-term-ok>Redeploy</b>를</span> 누르세요.<br>
+               서식 번호는 1단계에서 읽은 값을 채워 두었습니다.<br>
+               여러 명용 서식이 다른 서식이면 그 서식의 번호로 바꿉니다.</p>
+            <div class="row">
+              <button class="btn secondary" id="btnCopyMultirowEnv" type="button">이름 목록 복사</button>
+            </div>
+            <pre class="code" id="multirowEnvList"></pre>
+            <p class="hint">받는 사람 메일 칸에는 담당자 메일 주소 하나를 적습니다.<br>
+               방문자에게 메일이 가지 않도록 알림은 끈 채로 문서를 만듭니다.<br>
+               전송 창에 이 주소가 보이므로 방명록 전용 주소를 권합니다.</p>
+          </div>
+          <div class="row">
+            <button class="btn big" type="button" data-done="multirow">다음으로</button>
+          </div>
+          <div class="troubleWrap" data-trouble="multirow"></div>
+        </div>
+      </div>
+
       <div class="sub" id="subTablet" data-sub="tablet">
-        <h3 class="subHeadWrap"><button class="subHead" type="button" aria-expanded="false" aria-controls="subTabletBody"><span class="subNo" aria-hidden="true">7</span><span class="subTitle">태블릿에 띄우기</span></button></h3>
+        <h3 class="subHeadWrap"><button class="subHead" type="button" aria-expanded="false" aria-controls="subTabletBody"><span class="subNo" aria-hidden="true">8</span><span class="subTitle">태블릿에 띄우기</span></button></h3>
         <div class="subBody" id="subTabletBody">
           <p>방명록 주소를 태블릿에서 열고, 다른 화면으로 못 빠져나가게 잠그면 끝입니다.
              쓰는 기기를 고르세요.</p>
@@ -914,7 +958,7 @@
     mode: 'thanks', thanksSeconds: 5,
     idleResetSeconds: 120, abandonResetSeconds: 180, countdownSeconds: 5,
     // ⑥ 설치 진행 상태 (🔴 비밀값은 여기에 넣지 않는다 — 브라우저에 남는다)
-    deployPath: '', deployDone: {}, deployedUrl: '', reportEnabled: false, tabletTab: 'android',
+    deployPath: '', deployDone: {}, deployedUrl: '', reportEnabled: false, multirowEnabled: false, tabletTab: 'android',
     trouble: {},
     // 지금 보고 있는 카드 번호(0부터). 새로 고쳐도 보던 자리로 돌아온다.
     cardIdx: 0
@@ -1567,6 +1611,16 @@
       { label: '이 기능이 꼭 필요한지 모르겠습니다',
         answer: '지금은 건너뛰어도 됩니다. 나중에 언제든 켤 수 있습니다.' }
     ],
+    multirow: [
+      { label: '「누적형 옵션이 꺼져 있습니다」라고 나옵니다',
+        answer: 'KIOSK_MULTIROW_ENABLED=true 줄이 빠졌거나, 값을 넣은 뒤 Redeploy를 누르지 않은 것입니다.' },
+      { label: '「설정값이 비어 있습니다」라고 나옵니다',
+        answer: '화면에 적힌 이름의 줄이 빠진 것입니다. 이름 목록을 다시 복사해 빠진 줄을 넣고 Redeploy를 누르세요.' },
+      { label: '작성 화면 대신 본인확인이나 인증서 화면이 뜹니다',
+        answer: '서식의 방문자 단계마다 본인확인과 인증서 전자서명을 끄고 서식을 다시 내보내세요.' },
+      { label: '앞사람이 적은 줄이 보입니다',
+        answer: '서식을 여러 명용으로 만들 때 앞 줄을 가리는 설정이 빠진 것입니다. 서식을 만든 담당자에게 알려 주세요.' }
+    ],
     tablet: [
       { label: '태블릿에서 주소를 입력하기 어렵습니다',
         answer: '위의 네모 코드를 태블릿 카메라로 찍으면 주소가 바로 열립니다.' },
@@ -1775,13 +1829,13 @@
 
   // ---------- ⑥ 설치 ----------
   var SUBS = {
-    vercel: ['gh', 'vercel', 'copy', 'deploy', 'deploy2', 'deploy3', 'url', 'report', 'tablet'],
+    vercel: ['gh', 'vercel', 'copy', 'deploy', 'deploy2', 'deploy3', 'url', 'report', 'multirow', 'tablet'],
     self: ['zip', 'upload', 'selfurl']
   };
   var SUB_EL = {
     gh: 'subGh', vercel: 'subVercel', copy: 'subCopy',
     deploy: 'subDeploy', deploy2: 'subDeploy2', deploy3: 'subDeploy3', url: 'subUrl',
-    report: 'subReport', tablet: 'subTablet',
+    report: 'subReport', multirow: 'subMultirow', tablet: 'subTablet',
     zip: 'subZip', upload: 'subUpload', selfurl: 'subSelfUrl'
   };
   var REPORT_ENV_TEXT = [
@@ -1796,6 +1850,18 @@
     'REPORT_TO_EMAIL=<요약을 받을 메일 주소>'
   ].join('\n');
 
+  // 한 장에 여러 명(누적형) — 서식 번호는 1단계에서 읽은 값으로 채운다. 화면은 KIOSK_MULTIROW_ENABLED 만 보고 저절로 바뀐다.
+  function multirowEnvText() {
+    return [
+      'KIOSK_MULTIROW_ENABLED=true',
+      'EFORMSIGN_API_KEY=<이폼사인에서 받은 API 키>',
+      'EFORMSIGN_PRIVATE_KEY=<API 키와 함께 받은 개인키>',
+      'EFORMSIGN_MEMBER_ID=<이폼사인 로그인 메일 주소>',
+      'KIOSK_MULTIROW_FORM_ID=' + (state.templateId || '<여러 명용 서식 번호>'),
+      'KIOSK_MULTIROW_EMAIL=<담당자 메일 주소 하나>'
+    ].join('\n');
+  }
+
   function subList() { return SUBS[state.deployPath] || []; }
   function isDone(k) { return !!(state.deployDone && state.deployDone[k]); }
   function markDone(k) {
@@ -1806,6 +1872,7 @@
 
   function renderDeploy() {
     var list = subList();
+    if ($('multirowEnvList')) $('multirowEnvList').textContent = multirowEnvText();
     $('step6').hidden = !state.deployPath;
     $('pathVercelBody').hidden = state.deployPath !== 'vercel';
     $('pathSelfBody').hidden = state.deployPath !== 'self';
@@ -2018,6 +2085,17 @@
   $('btnSecretNew').addEventListener('click', newSecret);
   $('btnSecretCopy').addEventListener('click', function () { copyText(secretValue); });
   $('btnCopyReportEnv').addEventListener('click', function () { copyText(REPORT_ENV_TEXT); });
+
+  function renderMultirow() {
+    $('fMultirow').checked = !!state.multirowEnabled;
+    $('multirowBody').hidden = !state.multirowEnabled;
+    $('multirowEnvList').textContent = multirowEnvText();
+  }
+  $('fMultirow').addEventListener('change', function () {
+    state.multirowEnabled = $('fMultirow').checked;
+    save(); renderMultirow();
+  });
+  $('btnCopyMultirowEnv').addEventListener('click', function () { copyText(multirowEnvText()); });
 
   // 태블릿 안내
   var TAB_ORDER = ['android', 'ipad', 'windows'];
@@ -2327,6 +2405,7 @@
   showParsed();
   renderLogoBranch();
   renderReport();
+  renderMultirow();
   renderTablet();
   renderTrouble();
   renderDeploy();

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * setup.html 카드 마법사(16장) 워크스루 재생성 도구
+ * setup.html 카드 마법사(17장) 워크스루 재생성 도구
  *
  *   node tools/walkthrough-setup.mjs [--port 8399] [--cdp 9273] [--out-dir evidence/setup-cards] [--keep]
  *   (--port = 정적 서버 포트, --cdp = 헤드리스 크롬 원격 디버깅 포트)
@@ -8,7 +8,7 @@
  * 무엇을 하나:
  *   1) 이 폴더를 임시 정적 서버로 띄우고, 헤드리스 크롬(CDP)으로 setup.html 을 연다.
  *   2) 1단계 주소를 채워 서식 파싱(company/template)까지 마치고, 설치 방법을 「Vercel」로
- *      골라 카드 16장(BASE_CARDS 7 + SUBS.vercel 9)이 모두 나타나게 한다.
+ *      골라 카드 17장(BASE_CARDS 7 + SUBS.vercel 10)이 모두 나타나게 한다.
  *   3) window.__setupShowCard(i) 로 카드를 하나씩 직접 넘기며(게이팅 우회, 순수 표시 검사용)
  *      매 카드마다 axe-core 를 돌리고 표시 텍스트를 뽑는다.
  *   4) 375px·768px 두 폭으로 카드마다 스크린샷을 찍는다.
@@ -40,10 +40,10 @@ const OUT_DIR = path.resolve(ROOT, arg('out-dir', 'evidence/setup-cards'));
 const AXE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.2/axe.min.js';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// 카드 16장 — setup.html 의 cardList()(BASE_CARDS 7 + SUBS.vercel 9)와 순서를 맞춘다.
+// 카드 17장 — setup.html 의 cardList()(BASE_CARDS 7 + SUBS.vercel 10)와 순서를 맞춘다.
 const CARD_LABELS = [
   '01-step1', '02-step2', '03-step3', '04-step3b', '05-step4', '06-step4b', '07-step5',
-  '08-gh', '09-vercel', '10-copy', '11-deploy', '12-deploy2', '13-deploy3', '14-url', '15-report', '16-tablet'
+  '08-gh', '09-vercel', '10-copy', '11-deploy', '12-deploy2', '13-deploy3', '14-url', '15-report', '16-multirow', '17-tablet'
 ];
 const WIDTHS = [375, 768];
 

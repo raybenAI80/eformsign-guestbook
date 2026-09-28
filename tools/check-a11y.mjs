@@ -7,7 +7,7 @@
  * 베이스주소를 주지 않으면 이 폴더를 임시 웹 서버(기본 8399)로 띄워 검사한다.
  * 검사 대상
  *   1) setup.html — 6단계까지 모두 펼친 상태(설정을 미리 채워 넣고 설치 단계를 연다)
- *   2) setup.html — 카드 모드(기본 화면) 16장을 한 장씩 axe로 전수 검사
+ *   2) setup.html — 카드 모드(기본 화면) 17장을 한 장씩 axe로 전수 검사
  *      (카드 모드 전용 CSS/구조는 펼침 모드 검사가 타지 않으므로 별도 필요, 2026-09-16)
  *   3) index.html — 방명록 래퍼. 카운트다운 덮개를 띄운 상태도 함께 본다.
  *
@@ -132,13 +132,13 @@ async function auditPage(port, url, axeSrc, prepare, label) {
   } finally { await pg.close(); }
 }
 
-// ── 카드 모드 전수 검사 (setup.html, 카드 16장을 한 장씩 axe) ──────────────
+// ── 카드 모드 전수 검사 (setup.html, 카드 17장을 한 장씩 axe) ──────────────
 // 🔴 펼침 모드(PREP_SETUP)만 검사하면 body.cardMode 전용 CSS/구조(예: 카드 모드에서만
 // 숨는 h3.subHeadWrap)를 안 타서 빈 헤딩 같은 결함을 놓친다(2026-09-16 실증).
-// 카드 순서는 setup.html 의 cardList()(BASE_CARDS 7 + SUBS.vercel 9 = 16장)와 맞춘다.
+// 카드 순서는 setup.html 의 cardList()(BASE_CARDS 7 + SUBS.vercel 10 = 17장)와 맞춘다.
 const SETUP_CARD_LABELS = [
   'step1', 'step2', 'step3', 'step3b', 'step4', 'step4b', 'step5',
-  'sub-gh', 'sub-vercel', 'sub-copy', 'sub-deploy', 'sub-deploy2', 'sub-deploy3', 'sub-url', 'sub-report', 'sub-tablet'
+  'sub-gh', 'sub-vercel', 'sub-copy', 'sub-deploy', 'sub-deploy2', 'sub-deploy3', 'sub-url', 'sub-report', 'sub-multirow', 'sub-tablet'
 ];
 const PREP_SETUP_CARDS = `(function () {
   try { localStorage.removeItem('kiosk-setup-v2'); } catch (e) {}

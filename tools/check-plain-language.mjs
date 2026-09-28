@@ -4,7 +4,7 @@
  *
  *   node tools/check-plain-language.mjs setup.html
  *   node tools/check-plain-language.mjs --md docs/README.md docs/vercel-signup-guide.md
- *   node tools/check-plain-language.mjs --docs        (고객용 md 4종을 한꺼번에)
+ *   node tools/check-plain-language.mjs --docs        (고객용 md 5종을 한꺼번에)
  *
  * 확장자가 .md 면 자동으로 글(markdown) 모드로 본다. 글 모드에서 검사하지 않는 곳:
  *   울타리 코드 블록(```) · 인라인 코드(`...`) · 주석(<!-- -->) · 링크와 그림의 주소 ·
@@ -53,12 +53,13 @@ const BANNED_MD = [
   [/API\s*키/gi, 'API 키', '연결 열쇠(API 키)'],
 ];
 
-/** --docs 로 한꺼번에 검사하는 고객용 문서 4종 */
+/** --docs 로 한꺼번에 검사하는 고객용 문서 5종 */
 const CUSTOMER_DOCS = [
   'docs/README.md',
   'docs/vercel-signup-guide.md',
   'docs/report-option.md',
   'docs/after-form-change.md',
+  'docs/multirow-option.md',
 ];
 
 /** 조사 목록 — 긴 것부터 (앞의 대안이 먼저 맞는다) */
