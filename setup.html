@@ -789,6 +789,29 @@
             <p>한 장에 받는 사람 수는 따로 적지 않습니다.<br>
                서식의 방문자 단계 수가 곧 한 장의 칸 수입니다<br>
                (<span class="nb">최대 30명</span>). 칸이 다 차면 다음 방문자부터 새 장이 열립니다.</p>
+            <p><b>기본 방명록 서식</b>을 쓰면 새 장을 열 때<br>
+               맨 위 칸을 미리 채워 둘 수 있습니다.<br>
+               방문자는 이 칸을 고칠 수 없습니다.</p>
+            <div class="grid2">
+              <div>
+                <label class="field" for="fMrOrg">기관 이름</label>
+                <input type="text" id="fMrOrg" placeholder="예: 포시에스 본사">
+              </div>
+              <div>
+                <label class="field" for="fMrDept">부서·장소</label>
+                <input type="text" id="fMrDept" placeholder="예: 1층 안내데스크">
+              </div>
+            </div>
+            <div class="checkline">
+              <input type="checkbox" id="fMrDate">
+              <label for="fMrDate">방문일에 새 장을 연 날짜를 적습니다</label>
+            </div>
+            <div class="checkline">
+              <input type="checkbox" id="fMrSheet">
+              <label for="fMrSheet">장 번호에 그날 몇 번째 장인지 적습니다</label>
+            </div>
+            <p class="hint">비워 둔 칸에는 서식에 정해 둔 문구가 그대로 남습니다.<br>
+               방문 시각은 방문자가 줄을 열 때 저절로 적힙니다.</p>
             <p>아래 이름들을 <span class="nb">Vercel</span> 프로젝트의
                <b>Settings &gt; Environment Variables</b> 화면에 넣고
                <span class="nb"><b data-term-ok>Redeploy</b>를</span> 누르세요.<br>
@@ -959,6 +982,8 @@
     idleResetSeconds: 120, abandonResetSeconds: 180, countdownSeconds: 5,
     // ⑥ 설치 진행 상태 (🔴 비밀값은 여기에 넣지 않는다 — 브라우저에 남는다)
     deployPath: '', deployDone: {}, deployedUrl: '', reportEnabled: false, multirowEnabled: false, tabletTab: 'android',
+    // ⑦ 한 장에 여러 명 — 기본 서식 머리 칸(새 장을 열 때 서버가 채운다)
+    multirowOrgName: '', multirowDept: '', multirowAutoDate: true, multirowAutoSheet: true,
     trouble: {},
     // 지금 보고 있는 카드 번호(0부터). 새로 고쳐도 보던 자리로 돌아온다.
     cardIdx: 0
@@ -1859,7 +1884,13 @@
       'EFORMSIGN_MEMBER_ID=<이폼사인 로그인 메일 주소>',
       'KIOSK_MULTIROW_FORM_ID=' + (state.templateId || '<여러 명용 서식 번호>'),
       'KIOSK_MULTIROW_EMAIL=<담당자 메일 주소 하나>'
-    ].join('\n');
+    ].concat(
+      // 기본 서식 머리 칸 — 비운 항목은 줄 자체를 넣지 않는다(서버는 설정한 것만 채운다)
+      String(state.multirowOrgName || '').trim() ? ['KIOSK_MULTIROW_ORG_NAME=' + String(state.multirowOrgName).trim()] : [],
+      String(state.multirowDept || '').trim() ? ['KIOSK_MULTIROW_DEPT=' + String(state.multirowDept).trim()] : [],
+      state.multirowAutoDate ? ['KIOSK_MULTIROW_DATE=auto'] : [],
+      state.multirowAutoSheet ? ['KIOSK_MULTIROW_SHEET_NO=auto'] : []
+    ).join('\n');
   }
 
   function subList() { return SUBS[state.deployPath] || []; }
@@ -2089,8 +2120,21 @@
   function renderMultirow() {
     $('fMultirow').checked = !!state.multirowEnabled;
     $('multirowBody').hidden = !state.multirowEnabled;
+    $('fMrOrg').value = state.multirowOrgName || '';
+    $('fMrDept').value = state.multirowDept || '';
+    $('fMrDate').checked = !!state.multirowAutoDate;
+    $('fMrSheet').checked = !!state.multirowAutoSheet;
     $('multirowEnvList').textContent = multirowEnvText();
   }
+  function pullMultirowHeader() {
+    state.multirowOrgName = $('fMrOrg').value;
+    state.multirowDept = $('fMrDept').value;
+    state.multirowAutoDate = $('fMrDate').checked;
+    state.multirowAutoSheet = $('fMrSheet').checked;
+    save(); $('multirowEnvList').textContent = multirowEnvText();
+  }
+  ['fMrOrg', 'fMrDept'].forEach(function (id) { $(id).addEventListener('input', pullMultirowHeader); });
+  ['fMrDate', 'fMrSheet'].forEach(function (id) { $(id).addEventListener('change', pullMultirowHeader); });
   $('fMultirow').addEventListener('change', function () {
     state.multirowEnabled = $('fMultirow').checked;
     save(); renderMultirow();

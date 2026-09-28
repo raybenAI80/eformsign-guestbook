@@ -15,7 +15,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { core } from './env.mjs';
-import { loadLayout, rowPage, rowTop as rowTopOf } from './layout.mjs';
+import { loadLayout, rowPage, rowTop as rowTopOf, purposeItems } from './layout.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
@@ -44,9 +44,7 @@ if (lay.style === 'reception') {
     for (const c of lay.cols.filter((c) => c.type)) {
       colTypeByKey.set(c.key, c.type);
       if (c.type === 'purpose') {
-        const items = c.options.map((lab, k) => [lab, c.x0 + g.itemX0 + k * g.itemDX + g.boxDX, top + g.topCY]);
-        items.push([c.otherLabel, c.x0 + g.otherBoxDX, top + g.botCY]);
-        for (const [lab, cx, cy] of items) {
+        for (const [lab, cx, cy] of purposeItems(lay, c, top)) {
           colTypeByKey.set(`${c.key}_${lab}`, 'check');
           fields.push({ id: fid(`${c.key}_${lab}`, r), page: rowPage(lay, r), type: 'checkbox', bbox: [cx - g.touch / 2, cy - g.touch / 2, cx + g.touch / 2, cy + g.touch / 2] });
         }
@@ -227,9 +225,8 @@ if (!lay.design) {
     const g = lay.purposeGeo;
     for (let r = 1; r <= lay.rows; r++) {
       const t = rowTop(r);
-      const items = pcol.options.map((lab, k) => [lab, pcol.x0 + g.itemX0 + k * g.itemDX + g.boxDX, t + g.topCY]);
-      items.push([pcol.otherLabel, pcol.x0 + g.otherBoxDX, t + g.botCY]);
-      items.forEach(([lab, cx, cy], k) => extraKids.push(shape(`OwnOpt${r}_${k}`, +(cx + g.box / 2 + g.labelGap - 5).toFixed(2), +(cy - 8).toFixed(2), 26, 16, lab,
+      // v5 (inline): label shape ends where the next option's checkbox component starts (cx + itemDX - touch/2)
+      purposeItems(lay, pcol, t).forEach(([lab, cx, cy], k) => extraKids.push(shape(`OwnOpt${r}_${k}`, +(cx + g.box / 2 + g.labelGap - 5).toFixed(2), +(cy - 8).toFixed(2), g.inline ? +(g.itemDX - g.touch / 2 - g.box / 2 - g.labelGap + 5).toFixed(2) : 26, 16, lab,
         { bg: -1, transparent: 'true', fg: ozc(C.optLabel), size: g.labelSize, style: 0, halign: 1, valign: 0, hidden: true }, hiJs(r)), rowPage(lay, r)));
     }
   }

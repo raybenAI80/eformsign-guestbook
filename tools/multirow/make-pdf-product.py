@@ -59,12 +59,20 @@ def reception(pg):
         text(pg, (cols[0]['x0'] + cols[0]['x1']) / 2, t + rh / 2 + lay['numberSize'] * 0.36, str(i + 1), lay['numberSize'], C['number'], align='center')
         if pc and g:
             X = pc['x0']; bs = g['box']
-            items = [(X + g['itemX0'] + k * g['itemDX'] + g['boxDX'], t + g['topCY'], lab) for k, lab in enumerate(pc['options'])]
-            items.append((X + g['otherBoxDX'], t + g['botCY'], pc['otherLabel']))
+            # v5 inline: options + other on one top line (same formula as layout.mjs purposeItems)
+            labs = pc['options'] + ([pc['otherLabel']] if g.get('inline') else [])
+            items = [(X + g['itemX0'] + k * g['itemDX'] + g['boxDX'], t + g['topCY'], lab) for k, lab in enumerate(labs)]
+            if not g.get('inline'):
+                items.append((X + g['otherBoxDX'], t + g['botCY'], pc['otherLabel']))
             for cx, cy, lab in items:
-                pg.draw_rect(fitz.Rect(cx - bs / 2, cy - bs / 2, cx + bs / 2, cy + bs / 2), color=rgb(C['optBox']), width=0.7)
+                # printBox false (v5): the OZ checkbox draws its own box at the component centre -> printing one here doubles the border
+                if g.get('printBox', True):
+                    pg.draw_rect(fitz.Rect(cx - bs / 2, cy - bs / 2, cx + bs / 2, cy + bs / 2), color=rgb(C['optBox']), width=0.7)
                 text(pg, cx + bs / 2 + g['labelGap'] - 4, cy + g['labelSize'] * 0.36, lab, g['labelSize'], C['optLabel'])
             ot = g['otherText']
+            if g.get('otherHint'):
+                hs = g.get('otherHintSize', 7)
+                text(pg, X + g['itemX0'], t + ot[3] - 3, g['otherHint'], hs, C['optLabel'])
             pg.draw_line((X + ot[0], t + ot[3]), (X + ot[2], t + ot[3]), color=rgb(C['grid']), width=0.6)
     text(pg, x0, lay['noteY'], lay['privacyNote'], lay['noteSize'], C['note'])
 

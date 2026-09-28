@@ -20,6 +20,11 @@
  *   KIOSK_MULTIROW_DOC_NAME=방명록  (선택) 문서 이름 앞부분. 뒤에 만든 날짜·시각이 붙는다
  *   KIOSK_MULTIROW_VISITOR_PREFIX="방문자 "  (선택) 자리표시 수신자 이름 앞부분
  *   KIOSK_MULTIROW_SPLIT_EMAIL=on   (선택) off 면 +v<k> 없이 같은 주소를 그대로 쓴다(실측 전 — 권장 안 함)
+ *   ── 상품 기본 서식(D안) 머리 칸 — 새 장을 만들 때 문서에 미리 채운다(설정한 것만 보낸다) ──
+ *   KIOSK_MULTIROW_ORG_NAME=포시에스 본사   (선택) 「기관명」 칸
+ *   KIOSK_MULTIROW_DEPT=1층 안내데스크     (선택) 「부서」 칸
+ *   KIOSK_MULTIROW_DATE=auto               (선택) 「방문일」 칸 = 새 장을 연 날(고객 시간대). off/빈칸 = 안 채움
+ *   KIOSK_MULTIROW_SHEET_NO=auto           (선택) 「장번호」 칸 = 그날 몇 번째 장인지(문서 목록 기준). off/빈칸 = 안 채움
  *
  * 호출
  *   GET /api/multirow            → 지금 열 단계
@@ -32,7 +37,7 @@
  * 문서의 created_date 가 오늘(고객 시간대)이 아니면 그 문서를 그대로 둔 채 새 문서를 만든다.
  * 남은 빈 단계는 관리자가 문서 관리에서 정리한다. docs/multirow-option.md 「하루 단위 새 장」 참조.
  */
-import { resolveMultirowStep } from './lib/eformsign-multirow.mjs';
+import { resolveMultirowStep, headerFromEnv } from './lib/eformsign-multirow.mjs';
 
 const json = (res, status, body) => {
   res.statusCode = status;
@@ -101,6 +106,7 @@ export default async function handler(req, res) {
       lastDocumentId: last,
       timeZone: env.KIOSK_TIMEZONE || 'Asia/Seoul',
       validDays: Number(env.KIOSK_MULTIROW_VALID_DAYS) || 50,
+      header: headerFromEnv(env),
     });
     if (r.warnings.length) console.warn('[multirow] 서식 설정 확인 필요:', r.warnings.join(', '));
     if (r.log.some((s) => s.startsWith('extra_open:'))) console.warn('[multirow] 진행 중 문서가 여러 건입니다 — 가장 최근 1건만 씁니다.', r.log.join(' '));

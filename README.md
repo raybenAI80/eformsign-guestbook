@@ -329,6 +329,8 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 | `KIOSK_MULTIROW_ROWS` | (선택) 서식을 못 읽을 때만 쓰는 예비 칸 수. 기본 20 |
 | `KIOSK_MULTIROW_VALID_DAYS` | (선택) 방문자 단계 기한(일, 1~50). 기본 50 — 안 주면 이폼사인 기본은 7일 |
 | `KIOSK_MULTIROW_DOC_NAME` / `KIOSK_TIMEZONE` | (선택) 문서 이름 앞부분(기본 `방명록`) / 이름에 붙는 시각 기준(기본 `Asia/Seoul`) |
+| `KIOSK_MULTIROW_ORG_NAME` / `KIOSK_MULTIROW_DEPT` | (선택) 기본 서식(D안) 머리 칸 「기관명」·「부서」 값. 새 장을 만들 때 문서 생성 요청 `document.fields` 로 채운다. 비우면 안 보냄 |
+| `KIOSK_MULTIROW_DATE` / `KIOSK_MULTIROW_SHEET_NO` | (선택) `auto` 면 「방문일」= 새 장을 연 날(`KIOSK_TIMEZONE`), 「장번호」= 그날 몇 번째 장인지(문서 목록 기준 `N장`). 그 밖의 값이면 안 보냄 |
 
 로컬 검증: `node --env-file=.local/report.env tools/multirow-option/probe.mjs --template-name "<서식 이름>" plan|call|doc|serve`,
 판정 로직 단위 검사 `node tools/multirow-option/test-lib.mjs`.

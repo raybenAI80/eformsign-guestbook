@@ -98,8 +98,64 @@ export function readTemplatePlan(tpl) {
   return { stepNames: steps.map((x) => x.name || ''), warnings: [...new Set(warnings.map((w) => w.replace(/:.*/, '')))] };
 }
 
-/** 새 장: 참여자 N 단계에 자리표시 외부 수신자를 넣어 문서를 만든다. */
-export function buildCreateBody({ rows, email, visitorPrefix = '방문자 ', documentName, splitEmail = true, stepNames = [], validDays = 50 }) {
+/**
+ * 상품 기본 서식(D안)의 머리 칸 4개 — 새 장을 만들 때 문서 생성 요청 document.fields 로 채운다.
+ * (2026-09-28 실측: 읽기 전용 칸에도 값이 들어가고 화면·완료 PDF 에 남는다 — 볼트
+ *  claim:eformsign-document-create-field-value-injection-2026-09-28)
+ * 🔴 설정한 값만 싣는다. 아무것도 설정하지 않으면 fields 를 보내지 않아 기존 서식·기존 배포는 그대로다.
+ */
+export const HEADER_FIELD_IDS = { orgName: '기관명', dept: '부서', date: '방문일', sheetNo: '장번호' };
+const WEEK_KO = ['일', '월', '화', '수', '목', '금', '토'];
+
+/** 「2026. 9. 28. (월)」 — 서버(Vercel)는 UTC 라 고객 시간대로 바꿔 적는다. */
+export function visitDateText(d = new Date(), timeZone = 'Asia/Seoul') {
+  let y, m, day, wd;
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'short' })
+      .formatToParts(d).map((x) => [x.type, x.value]));
+    y = p.year; m = p.month; day = p.day; wd = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday);
+  } catch {
+    y = d.getUTCFullYear(); m = d.getUTCMonth() + 1; day = d.getUTCDate(); wd = d.getUTCDay();
+  }
+  return `${y}. ${Number(m)}. ${Number(day)}. (${WEEK_KO[wd] ?? ''})`;
+}
+
+/** 고객 시간대 기준 「YYYY-MM-DD」(같은 날 판정용). */
+function localDay(t, timeZone) {
+  try { return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Number(t))); }
+  catch { return new Date(Number(t)).toISOString().slice(0, 10); }
+}
+
+/**
+ * 머리 칸 값 → document.fields[]. header = { orgName, dept, date:true|false, sheetNo:true|false }.
+ * sheetIndex = 그날 몇 번째 장인지(1부터). 빈 값·꺼진 항목은 싣지 않는다.
+ */
+export function headerFieldValues(header = {}, { now = Date.now(), timeZone = 'Asia/Seoul', sheetIndex = 1 } = {}) {
+  const out = [];
+  const org = String(header.orgName || '').trim();
+  const dept = String(header.dept || '').trim();
+  if (org) out.push({ id: HEADER_FIELD_IDS.orgName, value: org });
+  if (dept) out.push({ id: HEADER_FIELD_IDS.dept, value: dept });
+  if (header.date) out.push({ id: HEADER_FIELD_IDS.date, value: visitDateText(new Date(now), timeZone) });
+  if (header.sheetNo) out.push({ id: HEADER_FIELD_IDS.sheetNo, value: `${Math.max(1, Math.floor(Number(sheetIndex) || 1))}장` });
+  return out;
+}
+
+/** 환경변수 → header (KIOSK_MULTIROW_ORG_NAME · _DEPT · _DATE=auto · _SHEET_NO=auto). api/multirow.mjs 와 검증 도구가 같이 쓴다. */
+export function headerFromEnv(env = {}) {
+  const auto = (v) => /^(auto|on|true|1|yes)$/i.test(String(v || '').trim());
+  return { orgName: env.KIOSK_MULTIROW_ORG_NAME || '', dept: env.KIOSK_MULTIROW_DEPT || '', date: auto(env.KIOSK_MULTIROW_DATE), sheetNo: auto(env.KIOSK_MULTIROW_SHEET_NO) };
+}
+
+/** 목록에서 오늘(고객 시간대) 만들어진 이 서식 문서 수 + 1 = 이번 장 번호. */
+export function sheetIndexToday(documents = [], { now = Date.now(), timeZone = 'Asia/Seoul', templateId } = {}) {
+  const today = localDay(now, timeZone);
+  const same = (documents || []).filter((d) => d && d.created_date && (!templateId || !d.template?.id || d.template.id === templateId) && localDay(d.created_date, timeZone) === today);
+  return same.length + 1;
+}
+
+/** 새 장: 참여자 N 단계에 자리표시 외부 수신자를 넣어 문서를 만든다. fields = document.fields[{id,value}](머리 칸 값, 선택). */
+export function buildCreateBody({ rows, email, visitorPrefix = '방문자 ', documentName, splitEmail = true, stepNames = [], validDays = 50, fields = [] }) {
   // 🔴 기한을 주지 않으면 API 로 만든 외부 수신자 단계의 기한은 「수신일로부터 7일」이다(2026-09-28 실측:
   //    expired_date = 생성 + 7일). 방문이 뜸한 곳이면 한 장이 7일 만에 멈추므로 최대 50일을 기본으로 준다.
   const day = Math.max(1, Math.min(50, Math.floor(Number(validDays) || 50)));
@@ -114,7 +170,7 @@ export function buildCreateBody({ rows, email, visitorPrefix = '방문자 ', doc
       auth: { valid: { day, hour: 0 } },
     });
   }
-  return { document: { document_name: documentName, recipients } };
+  return { document: { document_name: documentName, recipients, ...(fields && fields.length ? { fields } : {}) } };
 }
 
 /** 문서 이름 뒤에 붙일 「YYYY-MM-DD HH:mm」. 서버(Vercel)는 UTC 라 고객 시간대로 바꿔 적는다. */
@@ -139,6 +195,7 @@ export async function resolveMultirowStep(opts) {
     rows = 20, visitorPrefix = '방문자 ', documentName = '방명록', lastDocumentId, splitEmail = true,
     lookbackDays = 50, now = Date.now(), timeZone = 'Asia/Seoul', validDays = 50,
     forceNew = false,   // 검증 도구 전용: 진행 중 문서가 있어도 새 장을 만든다(핸들러는 쓰지 않는다)
+    header = {},        // 머리 칸(기관명·부서·방문일·장번호) — headerFieldValues 참고. 비어 있으면 fields 를 보내지 않는다
   } = opts;
   if (!templateId) throw new Error('KIOSK_MULTIROW_FORM_ID 가 없습니다.');
   if (!email) throw new Error('KIOSK_MULTIROW_EMAIL 이 없습니다.');
@@ -219,7 +276,9 @@ export async function resolveMultirowStep(opts) {
   } catch (e) {
     log.push(`template_read_error_${e.status || 'x'}`);   // 못 읽으면 환경변수 값으로 진행
   }
-  const body = buildCreateBody({ rows: n, email, visitorPrefix, documentName: `${documentName} ${stamp(new Date(now), timeZone)}`, splitEmail, stepNames, validDays });
+  const fields = headerFieldValues(header, { now, timeZone, sheetIndex: header.sheetNo ? sheetIndexToday(list?.documents, { now, timeZone, templateId }) : 1 });
+  if (fields.length) log.push(`fields:${fields.map((f) => f.id).join('+')}`);
+  const body = buildCreateBody({ rows: n, email, visitorPrefix, documentName: `${documentName} ${stamp(new Date(now), timeZone)}`, splitEmail, stepNames, validDays, fields });
   const created = await api(apiUrl, accessToken, '/v2.0/api/documents', { method: 'POST', query: { template_id: templateId }, body });
   const newId = created?.document?.id;
   if (!newId) throw new Error('새 문서를 만들었지만 문서 번호가 응답에 없습니다.');

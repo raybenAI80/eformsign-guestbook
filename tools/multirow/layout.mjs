@@ -23,3 +23,12 @@ export function loadLayout() {
 // page (1-based) and top y of row r (1-based)
 export const rowPage = (lay, r) => Math.ceil(r / lay.rowsPerPage);
 export const rowTop = (lay, r) => lay.headerTop + lay.headerH + ((r - 1) % lay.rowsPerPage) * lay.rowH;
+// D안 방문 목적 칸: [label, centreX, centreY] per checkbox of a row whose top is `top` (pt).
+// purposeGeo.inline (v5) = options + other on one top line; else (v1~v4) options on the top line, other box on the bottom line.
+export function purposeItems(lay, pc, top) {
+  const g = lay.purposeGeo;
+  const labs = g.inline ? [...pc.options, pc.otherLabel] : pc.options;
+  const items = labs.map((lab, k) => [lab, pc.x0 + g.itemX0 + k * g.itemDX + g.boxDX, top + g.topCY]);
+  if (!g.inline) items.push([pc.otherLabel, pc.x0 + g.otherBoxDX, top + g.botCY]);
+  return items;
+}

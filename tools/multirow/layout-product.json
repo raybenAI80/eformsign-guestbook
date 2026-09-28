@@ -71,7 +71,7 @@
       "coverSize": 13,
       "coverText": "✓ 작성 완료",
       "ownNoInverse": true,
-      "purposeGeo": {"_comment": "방문 목적 칸 안 좌표(칸 왼쪽 x0·행 top 기준 pt). 윗줄 선택지 k: 상자 중심 x = x0+itemX0+k*itemDX+boxDX, y = top+topCY. 아랫줄 기타: 상자 중심 x0+otherBoxDX, y top+botCY, 텍스트칸 otherText=[x0+,top+,x0+,top+]. box=인쇄 상자 한 변, touch=체크박스 컴포넌트(터치 영역) 한 변, 라벨은 상자 오른쪽 labelGap", "itemX0": 4, "itemDX": 52, "boxDX": 13, "topCY": 16.5, "botCY": 49.5, "otherBoxDX": 17, "otherText": [50, 38, 156, 61], "box": 10, "touch": 30, "labelGap": 8, "labelSize": 9},
+      "purposeGeo": {"_comment": "방문 목적 칸 안 좌표(칸 왼쪽 x0·행 top 기준 pt). v5(inline=true): 선택지 3개+기타 = 윗줄 한 줄 4칸 — 상자 중심 x = x0+itemX0+k*itemDX+boxDX, y = top+topCY. 아랫줄 = 기타 내용 텍스트칸 otherText=[x0+,top+,x0+,top+] + 앞 안내 otherHint. box=상자 한 변. printBox=false = 배경 PDF 에 상자를 그리지 않음(OZ 체크박스가 자기 상자를 그리므로 완료 PDF 이중 테두리 제거). touch=체크박스 컴포넌트(터치 영역) 한 변 — 38pt ≈ 45.8px(모바일 뷰어 1.205px/pt, 44px 기준). 이웃 컴포넌트 간격 itemDX-touch=2pt, 라벨(상자 오른쪽 labelGap, labelSize)은 자기 컴포넌트 안에 끝남. v4(2줄·touch 30) 값은 커밋 3e3343c", "inline": true, "itemX0": 4, "itemDX": 40, "boxDX": 15, "topCY": 20, "otherText": [34,41,160,63], "otherHint": "기타 내용", "otherHintSize": 7, "box": 10, "printBox": false, "touch": 38, "labelGap": 4, "labelSize": 8},
       "title": "방문자 명부",
       "titleEn": "VISITOR LOG",
       "cols": [
@@ -101,7 +101,7 @@
         {
           "key": "목적",
           "label": "방문 목적",
-          "w": 160,
+          "w": 164,
           "type": "purpose",
           "options": [
             "회의",
@@ -113,7 +113,7 @@
         {
           "key": "담당자",
           "label": "담당자",
-          "w": 58,
+          "w": 54,
           "type": "text"
         },
         {

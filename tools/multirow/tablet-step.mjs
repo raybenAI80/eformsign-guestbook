@@ -13,9 +13,12 @@
 //   the editable text inputs on the same row band (성명·연락처·기타내용·담당자, 시각 is read-only). 방문 목적 checkboxes are not
 //   <input> elements in the mobile viewer -> clicked at coordinates mapped from layout pt (scale from 성명/연락처 input lefts).
 //   --check "회의,기타"  --manager "<담당자>"  --other "<기타 내용>"  --min (성명+서명 only)
+// --attach (with --tab <id prefix>, v5 2026-09-28): drive a tab that is ALREADY loaded — e.g. the kiosk wrapper
+//   (probe.mjs serve, external visitor) after the consent screen was passed by a person. No navigation; the eformsign OOPIF
+//   (external_view_service or m_view_service) is looked up under that tab. The Chrome process must carry --user-agent=<tablet UA>.
 import fs from 'node:fs';
 import path from 'node:path';
-import { loadLayout, rowTop as rowTopPt } from './layout.mjs';
+import { loadLayout, rowTop as rowTopPt, purposeItems } from './layout.mjs';
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const has = (k) => process.argv.includes(k);
 const port = arg('--port', '9223'); const row = Number(arg('--row')); const E = arg('--ev'); const tag = arg('--tag', 'x');
@@ -41,16 +44,18 @@ const shot = async (name) => { const r = await send('Page.captureScreenshot', { 
 const text = () => ev("document.body.innerText.split(String.fromCharCode(10)).filter(x=>x.trim()).slice(0,40).join(' | ')");
 const out = { row, shots: [] };
 const embed = arg('--embed');
-if (embed) {
+const attach = has('--attach');
+if (embed || attach) {
   // --embed <url>: no logged-in session needed (the dead 9223 path). tools/multirow/embed-member.mjs serves an efs_embedded_v2 page
   // with user.type 01 + API member token. 🔴 The tablet UA must be set on the Chrome process (--user-agent=...): a page-level
   // Emulation UA override does not reach the eformsign OOPIF, whose viewer then picks the PC toolbar layout at 100% (measured 2026-09-28).
   await send('Emulation.setUserAgentOverride', { userAgent: TABLET_UA });
   await send('Emulation.setTouchEmulationEnabled', { enabled: false });
   await send('Emulation.setDeviceMetricsOverride', { width: 768, height: 1024, deviceScaleFactor: 1, mobile: true });
-  await send('Page.navigate', { url: embed }); await sleep(Number(arg('--wait', '25000')));
-  const fr = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).filter((x) => x.type === 'iframe' && /m_view_service/.test(x.url) && (!x.parentId || x.parentId === t.id));
-  if (!fr.length) throw new Error('embedded m_view_service frame not found');
+  if (attach) await sleep(Number(arg('--wait', '4000'))); // re-layout under the metrics override, no navigation
+  else { await send('Page.navigate', { url: embed }); await sleep(Number(arg('--wait', '25000'))); }
+  const fr = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).filter((x) => x.type === 'iframe' && (attach ? /view_service/ : /m_view_service/).test(x.url) && (!x.parentId || x.parentId === t.id));
+  if (!fr.length) throw new Error('embedded view_service frame not found');
   const fws = new WebSocket(fr.at(-1).webSocketDebuggerUrl); const fp = new Map(); let fid = 0;
   fws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && fp.has(m.id)) { const p = fp.get(m.id); fp.delete(m.id); m.error ? p.rej(new Error(JSON.stringify(m.error))) : p.res(m.result); } };
   await new Promise((r) => (fws.onopen = r));
@@ -141,13 +146,12 @@ if (LAY?.style === 'reception') {
   const sx = (g3[1].x - g3[0].x) / (col('연락처').x0 - col('성명').x0);
   const pt2px = (xp, yp) => [Math.round(g3[0].x + (xp - (col('성명').x0 + LAY.textInsetX)) * sx), Math.round(g3[0].y + (yp - (rowTopPt(LAY, row) + LAY.textInsetY)) * sx)];
   const pc = LAY.cols.find((q) => q.type === 'purpose'); const G = LAY.purposeGeo; const t0 = rowTopPt(LAY, row);
-  const pos = Object.fromEntries(pc.options.map((lab, k) => [lab, pt2px(pc.x0 + G.itemX0 + k * G.itemDX + G.boxDX, t0 + G.topCY)]));
-  pos[pc.otherLabel] = pt2px(pc.x0 + G.otherBoxDX, t0 + G.botCY);
+  const pos = Object.fromEntries(purposeItems(LAY, pc, t0).map(([lab, x, y]) => [lab, pt2px(x, y)]));
   out.checkboxTouchPx = Math.round(G.touch * sx * 10) / 10; out.checkboxPos = pos; out.scalePxPerPt = Math.round(sx * 1000) / 1000;
   // --poke "1:회의,4:면접": tap checkboxes of OTHER rows (lock test — previous rows hidden, later rows disabled; judge by API values)
   for (const pk of (arg('--poke', '') || '').split(',').filter(Boolean)) {
-    const [pr, lab] = pk.split(':'); const tr = rowTopPt(LAY, Number(pr)); const k = pc.options.indexOf(lab);
-    const xy = k >= 0 ? pt2px(pc.x0 + G.itemX0 + k * G.itemDX + G.boxDX, tr + G.topCY) : pt2px(pc.x0 + G.otherBoxDX, tr + G.botCY);
+    const [pr, lab] = pk.split(':'); const it = purposeItems(LAY, pc, rowTopPt(LAY, Number(pr))).find((q) => q[0] === lab);
+    const xy = pt2px(it[1], it[2]);
     await click(...xy); await sleep(600); out.clicks.push([...xy, 'poke ' + pk]);
   }
   for (const lab of checks) { await click(...pos[lab]); await sleep(600); out.clicks.push([...pos[lab], 'check ' + lab]); }

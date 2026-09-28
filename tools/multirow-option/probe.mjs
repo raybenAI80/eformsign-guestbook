@@ -58,10 +58,10 @@ if (cmd === 'plan') {
   console.log(JSON.stringify({ status_type: cs.status_type, step_name: cs.step_name, recipients: (d.recipients || []).map((r) => r.name), expired_date: cs.expired_date ? new Date(cs.expired_date).toISOString() : null }));
 } else if (cmd === 'create') {
   // 새 장을 강제로 하나 만든다(진행 중 문서가 있어도). 핸들러와 같은 lib 경로.
-  const { resolveMultirowStep } = await import('../../api/lib/eformsign-multirow.mjs');
+  const { resolveMultirowStep, headerFromEnv } = await import('../../api/lib/eformsign-multirow.mjs');
   const r = await resolveMultirowStep({ apiKey: env.EFORMSIGN_API_KEY, privateKey: env.EFORMSIGN_PRIVATE_KEY, memberId: env.EFORMSIGN_MEMBER_ID,
     templateId: env.KIOSK_MULTIROW_FORM_ID, email: env.KIOSK_MULTIROW_EMAIL, rows: Number(env.KIOSK_MULTIROW_ROWS) || 20, forceNew: true,
-    validDays: Number(env.KIOSK_MULTIROW_VALID_DAYS) || 50 });
+    validDays: Number(env.KIOSK_MULTIROW_VALID_DAYS) || 50, header: headerFromEnv(env) });
   console.log(redact({ created: r.created, rows: r.rows, warnings: r.warnings, trace: r.log }));
   if (arg('--save')) fs.writeFileSync(arg('--save'), JSON.stringify(r, null, 1));
 } else if (cmd === 'call') {
