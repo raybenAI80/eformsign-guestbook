@@ -70,8 +70,11 @@ if (mode === 'preview') {
   console.error('대상 템플릿: ' + tpl.templateName + ' (' + templateFile.split(/[\/]/).pop() + ')');
   docName = `방문자 기록부 명단 - ${date}`;
   // 서식 이름은 회사 안에서 유일해야 한다(중복이면 HTTP 400 4000048 「connection name already exists」).
+  // 기본값 = 영상 D04 가 쓰는 v2 서식명. v1 서식 「…보고서 (OZ Report)」는 2026-09-28 콘솔에서 삭제됨 — 되돌리지 말 것.
+  // 🔴 v2 서식이 이미 회사에 있으면 기본값 그대로 재실행 시 400 4000048 → 새 이름을 --template-name 으로 주거나
+  //    기존 v2 서식을 콘솔에서 정리한 뒤 실행한다(이 스크립트는 서식을 지우지 않는다).
   const tnIdx = args.indexOf('--template-name');
-  tplName = tnIdx >= 0 ? args[tnIdx + 1] : `방문자 기록부 명단 보고서 (OZ Report)`;
+  tplName = tnIdx >= 0 ? args[tnIdx + 1] : `방문자 기록부 명단 보고서 v2 (OZ Report)`;
   extra = ['--template-id', tpl.templateId, '--require-field', '방문자성명', '--keep',
     '--document-name', docName, '--template-name', tplName];
 }
