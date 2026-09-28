@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>방명록 디자인 방향</title>
+<style>
+:root{
+  --ink:#1d232b; --muted:#5d6672; --line:#d9dde3; --paper:#f4f2ee; --card:#ffffff;
+  --efs:#1d6fc4; --efs-bar:#e6eff9;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:"Malgun Gothic","맑은 고딕",sans-serif;
+  word-break:keep-all; overflow-wrap:break-word; line-break:strict;
+  -webkit-font-smoothing:antialiased;
+}
+.nb{white-space:nowrap}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{text-wrap:pretty}
+
+/* ---------- review page chrome ---------- */
+.page{max-width:1320px;margin:0 auto;padding:48px 32px 64px}
+.masthead{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:28px}
+.masthead h1{font-size:34px;letter-spacing:-.02em;font-weight:700}
+.masthead p{margin:10px 0 0;color:var(--muted);font-size:15px;line-height:1.6;max-width:62ch}
+.legend{font-size:13px;color:var(--muted);line-height:1.7;text-align:right}
+.legend b{color:var(--ink)}
+.dirs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}
+.dir{display:flex;flex-direction:column;gap:14px;min-width:0}
+.dir-head{display:flex;gap:12px;align-items:baseline}
+.dir-no{font-size:44px;font-weight:700;line-height:1;color:var(--accent)}
+.dir-head h2{font-size:21px;letter-spacing:-.01em}
+.dir-head p{margin:4px 0 0;font-size:13px;color:var(--muted);line-height:1.5}
+.cap{font-size:12px;color:var(--muted);margin:0 0 6px;display:flex;justify-content:space-between;gap:8px}
+.cap b{color:var(--ink);font-weight:700}
+.fbox{position:relative;width:100%;overflow:hidden;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.08),0 8px 24px rgba(0,0,0,.08);background:#fff}
+.fbox > .native{position:absolute;left:0;top:0;transform-origin:0 0}
+.notes{background:var(--card);border-radius:6px;padding:14px 16px;font-size:13.5px;line-height:1.6;border-left:4px solid var(--accent)}
+.notes dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px}
+.notes dt{font-weight:700;white-space:nowrap}
+.notes dd{margin:0;text-wrap:pretty}
+.meter{display:inline-flex;gap:3px;vertical-align:middle;margin-right:6px}
+.meter i{width:14px;height:6px;border-radius:2px;background:#dfe2e6}
+.meter i.on{background:var(--accent)}
+.rec{margin-top:32px;background:var(--ink);color:#fff;border-radius:6px;padding:18px 22px;font-size:15px;line-height:1.6}
+.rec b{color:#ffd48a}
+.foot-note{margin-top:14px;font-size:12.5px;color:var(--muted);line-height:1.6}
+@media (max-width:980px){ .dirs{grid-template-columns:1fr} .masthead{grid-template-columns:1fr} .legend{text-align:left} }
+@media (max-width:480px){ .page{padding:28px 16px 48px} .masthead h1{font-size:26px} }
+
+/* ---------- eformsign viewer chrome (tablet 768x1024) ---------- */
+.tablet{width:768px;height:1024px;background:#e8ebef;position:relative;overflow:hidden;font-family:"Malgun Gothic","맑은 고딕",sans-serif}
+.efs-top{position:absolute;left:0;right:0;top:0;height:56px;background:var(--efs);display:flex;align-items:center;gap:14px;padding:0 16px;color:#fff;z-index:5}
+.efs-top .x{width:22px;height:22px;position:relative}
+.efs-top .x::before,.efs-top .x::after{content:"";position:absolute;left:10px;top:-2px;width:2.5px;height:26px;background:#fff;transform:rotate(45deg)}
+.efs-top .x::after{transform:rotate(-45deg)}
+.efs-top .t{flex:1;font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.efs-top .btn{background:#fff;color:var(--efs);font-weight:700;font-size:15px;padding:8px 14px;border-radius:4px}
+.efs-top .kebab{width:34px;height:34px;border-radius:4px;background:rgba(0,0,0,.18);display:grid;place-items:center;font-size:20px;line-height:1}
+.efs-tools{position:absolute;left:10px;top:66px;display:flex;gap:7px;z-index:5}
+.efs-tools i{width:40px;height:40px;border-radius:50%;background:var(--efs);opacity:.9;display:block;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.efs-tools i:nth-child(3),.efs-tools i:nth-child(4){opacity:.4}
+.efs-view{position:absolute;left:8px;top:64px;width:752px;height:1123px;overflow:visible}
+.efs-view > .doc{transform:scale(.9471);transform-origin:0 0}
+.efs-bar{position:absolute;left:0;right:0;bottom:0;height:70px;background:var(--efs-bar);display:flex;align-items:center;justify-content:space-between;padding:0 32px 0 110px;z-index:5;box-shadow:0 -1px 0 #cfdcec}
+.efs-bar .req{font-size:16px;font-weight:700;color:#1f2d3d}
+.efs-bar .btn{background:var(--efs);color:#fff;font-weight:700;font-size:14px;padding:9px 16px;border-radius:4px}
+
+/* ---------- A4 document (794x1123 = A4 @96dpi) ---------- */
+.doc{width:794px;height:1123px;position:relative;background:#fff;color:#1b1f24;font-family:"Malgun Gothic","맑은 고딕",sans-serif;overflow:hidden}
+.grid{display:grid;grid-template-columns:var(--cols)}
+.cell{position:relative;display:flex;align-items:center;justify-content:center;font-size:15px;min-width:0}
+.cell.l{justify-content:flex-start;padding-left:12px}
+.rows .row{position:relative}
+.logo-forcs{display:block;max-width:160px;max-height:48px;width:auto;height:auto}
+.efs-mark{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#6c7682;white-space:nowrap}
+.efs-mark img{height:14px;width:auto;display:block}
+.sig{width:100%;height:100%;display:block}
+.sig path{fill:none;stroke:#15243d;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.cover{position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:700;letter-spacing:.04em}
+.ph{color:#a4acb6;font-size:13px}
+.auto{color:#6e7a88}
+.inp{position:absolute;inset:7px;border-radius:3px;display:flex;align-items:center;padding-left:9px}
+.sel-caret{margin-left:auto;margin-right:10px;font-size:11px;color:#667}
+
+/* ===== D1 기업 리셉션 ===== */
+.d1{--navy:#15243d;--slate:#5a6a80;--hair:#d6dce5;--cols:40px 60px 116px 146px 128px 92px 132px}
+.d1 .inner{position:absolute;left:40px;right:40px;top:40px}
+.d1 .brand{display:flex;align-items:center;justify-content:space-between;height:64px}
+.d1 .brand .org{font-size:14px;color:var(--slate);text-align:right;line-height:1.5}
+.d1 .brand .org b{display:block;color:var(--navy);font-size:17px}
+.d1 .band{margin-top:14px;background:var(--navy);color:#fff;height:76px;display:grid;grid-template-columns:1fr auto auto;align-items:center;padding:0 22px;gap:26px}
+.d1 .band h3{font-size:26px;font-weight:700;letter-spacing:.02em}
+.d1 .band h3 small{display:block;font-size:11px;font-weight:400;letter-spacing:.24em;opacity:.7;margin-top:2px}
+.d1 .band .meta{font-size:13px;opacity:.72;text-align:right;line-height:1.3}
+.d1 .band .meta b{display:block;font-size:17px;opacity:1;color:#fff}
+.d1 .band .sheet{border-left:1px solid rgba(255,255,255,.3);padding-left:22px}
+.d1 .thead{margin-top:18px;border-top:2px solid var(--navy);border-bottom:1px solid var(--navy);height:38px}
+.d1 .thead .cell{font-size:12.5px;font-weight:700;color:var(--navy);letter-spacing:.02em}
+.d1 .row{height:78px;border-bottom:1px solid var(--hair)}
+.d1 .row .cell+.cell::before{content:"";position:absolute;left:0;top:18px;bottom:18px;border-left:1px solid #eceff3}
+.d1 .row .no{color:var(--slate);font-size:13px}
+.d1 .foot{position:absolute;left:40px;right:40px;bottom:34px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--hair);padding-top:12px;font-size:11.5px;color:var(--slate)}
+.screen.d1 .row.done .cover{left:40px;background:#eef1f5;color:#8591a1}
+.screen.d1 .row.own{z-index:4;background:#fff;box-shadow:0 10px 26px rgba(21,36,61,.28);outline:2.5px solid var(--navy);border-bottom-color:transparent}
+.screen.d1 .row.own .no{background:var(--navy);color:#fff;font-weight:700}
+.screen.d1 .row.own .inp{background:#f2f5fa;border:1px solid #c8d1de}
+.screen.d1 .row.idle{opacity:.55}
+
+/* ===== D2 공공기관 기록부 ===== */
+.d2{--k:#111;--g:#ececec;--cols:38px 56px 104px 132px 190px 76px 118px}
+.d2 .inner{position:absolute;left:38px;right:38px;top:36px}
+.d2 .hdr{display:grid;grid-template-columns:170px 1fr 170px;align-items:center;height:66px}
+.d2 .hdr h3{text-align:center;font-size:30px;font-weight:700;letter-spacing:.5em;padding-left:.5em}
+.d2 .hdr .no-box{font-size:11px;text-align:right;color:#333;line-height:1.5}
+.d2 .info{margin-top:10px;border:2px solid var(--k);display:grid;grid-template-columns:80px 1fr 80px 150px 70px 70px;font-size:14px}
+.d2 .info > div{height:36px;display:flex;align-items:center;padding:0 10px;border-right:1px solid var(--k)}
+.d2 .info > div:last-child{border-right:0}
+.d2 .info .lab{background:var(--g);font-weight:700;justify-content:center;font-size:13px}
+.d2 .tbl{margin-top:12px;border:2px solid var(--k)}
+.d2 .thead{height:52px;background:var(--g);border-bottom:2px solid var(--k)}
+.d2 .thead .cell{flex-direction:column;font-size:12.5px;font-weight:700;line-height:1.2;gap:2px}
+.d2 .thead .cell i{font-style:normal;font-weight:400;font-size:11px;color:#444}
+.d2 .cell+.cell{border-left:1px solid var(--k)}
+.d2 .row{height:70px;border-bottom:1px solid var(--k)}
+.d2 .row:last-child{border-bottom:0}
+.d2 .chks{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;width:100%;padding:0 6px}
+.d2 .chk{height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;gap:1px}
+.d2 .chk::before{content:"";width:15px;height:15px;border:1.5px solid #222;display:block;background:#fff}
+.d2 .chk.on::before{background:#111;box-shadow:inset 0 0 0 2px #fff}
+.d2 .privacy{position:absolute;left:38px;right:38px;bottom:58px;border:2px solid var(--k);font-size:11.5px;line-height:1.55;display:grid;grid-template-columns:118px 1fr}
+.d2 .privacy .lab{background:var(--g);font-weight:700;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--k);font-size:12.5px;text-align:center;padding:6px}
+.d2 .privacy ul{margin:0;padding:8px 12px 8px 26px}
+.d2 .foot{position:absolute;left:38px;right:38px;bottom:24px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#444}
+.screen.d2 .row.done .cover{left:38px;background:repeating-linear-gradient(135deg,#f1f1f1 0 10px,#e8e8e8 10px 20px);color:#777}
+.screen.d2 .row.own{z-index:4;background:#fff8d9;outline:3px solid #111;outline-offset:-1px}
+.screen.d2 .row.own .no{font-weight:700}
+.screen.d2 .row.own .no::before{content:"▶";position:absolute;left:-26px;font-size:16px}
+.screen.d2 .row.own .inp{background:#fff;border:1.5px solid #555}
+.screen.d2 .row.own .chk::before{width:20px;height:20px}
+.screen.d2 .row.idle{color:#aaa}
+.screen.d2 .row.idle .chk::before{border-color:#bbb}
+
+/* ===== D3 따뜻한 매장/병원 ===== */
+.d3{--bg:#fbf3e8;--terra:#c45c38;--brown:#5b4637;--soft:#efe2d1;--cols:40px 62px 122px 150px 196px 144px;background:var(--bg)}
+.d3 .inner{position:absolute;left:40px;right:40px;top:38px}
+.d3 .top{display:flex;justify-content:space-between;align-items:center;height:52px}
+.d3 .pill{background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;color:var(--brown);box-shadow:0 0 0 1px var(--soft)}
+.d3 .welcome{margin-top:16px;color:var(--brown)}
+.d3 .welcome h3{font-size:36px;font-weight:700;letter-spacing:-.02em;color:#3d2c21}
+.d3 .welcome h3 em{font-style:normal;color:var(--terra)}
+.d3 .welcome p{margin:8px 0 0;font-size:16px;color:#7a6452}
+.d3 .card{margin-top:20px;background:#fff;border-radius:18px;box-shadow:0 0 0 1px var(--soft);overflow:hidden}
+.d3 .thead{height:40px;background:#f6ebdd}
+.d3 .thead .cell{font-size:13px;font-weight:700;color:var(--brown)}
+.d3 .row{height:74px;border-top:1px solid #f1e7da}
+.d3 .row .no{color:#b39a84;font-size:14px}
+.d3 .pills{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;width:100%;padding:0 8px}
+.d3 .pl{height:44px;border-radius:22px;border:1.5px solid #e6d6c3;display:grid;place-items:center;font-size:13px;color:#8a7360;background:#fff}
+.d3 .pl.on{background:var(--terra);border-color:var(--terra);color:#fff;font-weight:700}
+.d3 .foot{position:absolute;left:40px;right:40px;bottom:30px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#8a7360}
+.screen.d3 .row.done .cover{left:40px;background:#f5ede3;color:#a88f78;font-weight:400}
+.screen.d3 .row.own{z-index:4;background:#fff1e6;box-shadow:inset 0 0 0 2.5px #e58a63;border-radius:14px;border-top-color:transparent}
+.screen.d3 .row.own + .row{border-top-color:transparent}
+.screen.d3 .row.own .no{color:var(--terra);font-weight:700;font-size:16px}
+.screen.d3 .row.own .inp{background:#fff;border:1.5px solid #efc9b4;border-radius:12px}
+.screen.d3 .row.own .sigbox{border:1.5px dashed #e3a888;background:#fffaf6}
+.screen.d3 .row.idle{opacity:.5}
+
+/* no-logo mini crop */
+.crop{position:relative;width:100%;overflow:hidden;border-radius:6px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.crop > .native{position:absolute;left:0;top:0;transform-origin:0 0}
+
+/* solo mode for original-size screenshots */
+body.solo{background:#fff}
+body.solo .page{display:none}
+body.solo #solo{display:block}
+#solo{display:none;position:absolute;left:0;top:0}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <div>
+      <h1>방명록 디자인 방향 3종</h1>
+      <p>한 장에 10명이 차례로 적는 누적형 방명록입니다. 방향마다 태블릿에서 두 번째 방문자가 보는 화면과, 두 명이 적은 뒤 받는 A4 완료 PDF를 나란히 그렸습니다.</p>
+    </div>
+    <div class="legend"><b>화면</b> = 덮개·강조가 보이는 입력 상태<br><b>PDF</b> = 덮개·강조가 빠진 인쇄 상태<br>글꼴은 모두 맑은 고딕</div>
+  </header>
+  <section class="dirs" id="dirs"></section>
+  <div class="rec">추천: <b>방향 1을 뼈대로 쓰고 방문 목적만 방향 2의 체크 칸으로 바꾸는 조합</b>이 구현 위험 대비 개선 폭이 가장 큽니다. 선택은 사용자 판단입니다.</div>
+  <p class="foot-note">기관명·날짜·장 번호·방문 시각은 문서를 만들 때 자동으로 채우는 값입니다. 로고를 OZR에 넣는 방식(빌드할 때 이미지로 삽입할지, 문서를 만들 때 값으로 넘길지)은 별도로 조사 중입니다.</p>
+</div>
+<div id="solo"></div>
+
+<script>
+const LOGO = '../../assets/brand/forcs-ci-en-original.png';
+const EFS = '../../assets/brand/eformsign-logo-blue.png';
+const SIG = [
+  'M10 44 C18 20 26 18 28 34 S36 52 44 30 C48 18 54 22 52 38 C50 50 62 44 70 30 C74 24 80 26 82 34 C86 44 96 40 104 26 M60 50 C80 46 100 44 120 40',
+  'M14 40 C20 26 30 16 34 28 C38 42 30 50 40 44 C52 36 56 20 64 24 C70 28 62 46 72 42 C84 36 88 22 96 28 C102 34 98 44 112 36 C118 32 122 30 126 30'
+];
+const sig = i => `<svg class="sig" viewBox="0 0 136 60" preserveAspectRatio="xMidYMid meet"><path d="${SIG[i]}"/></svg>`;
+const efsMark = `<span class="efs-mark">이폼사인으로 작성 <img src="${EFS}" alt="eformsign"></span>`;
+const V = [
+  {name:'김서연', tel:'010-2481-3307', time:'14:05', host:'정민호', p:0},
+  {name:'이준호', tel:'010-5530-1928', time:'14:32', host:'박지은', p:1}
+];
+
+const DIRS = [
+ { id:'d1', accent:'#15243d', title:'기업 리셉션', tone:'절제된 네이비와 회색, 상단 밴드에 기관명·날짜·장 번호',
+   purposes:['회의','납품','면접','기타'],
+   head:(logo)=>`
+    <div class="brand">${logo?`<img class="logo-forcs" src="${LOGO}" alt="FORCS">`:`<b style="font-size:24px;color:var(--navy);letter-spacing:-.01em">포시에스</b>`}
+      <div class="org"><b>포시에스 본사</b>1층 안내데스크</div></div>
+    <div class="band"><h3>방문자 명부<small>VISITOR LOG</small></h3>
+      <div class="meta">방문일<b class="nb">2026. 9. 28. (월)</b></div>
+      <div class="meta sheet">장 번호<b>3장</b></div></div>`,
+   cols:['번호','시각','성명','연락처','방문 목적','담당자','서명'],
+   cell:(c,r,st)=>{
+     const f=r<2&&st==='print'?V[r]:null;
+     if(c===0) return `<div class="cell no">${r+1}</div>`;
+     if(c===1) return `<div class="cell auto">${f?f.time:(st==='screen'&&r===1?'<span class="nb">14:32</span>':'')}</div>`;
+     if(st==='screen'&&r===1){
+       const ph=['','','성함','010-','선택','만나실 분'][c];
+       if(c===4) return `<div class="cell"><div class="inp"><span class="ph">${ph}</span><span class="sel-caret">▼</span></div></div>`;
+       if(c===6) return `<div class="cell"><div class="inp"><span class="ph">서명</span></div></div>`;
+       return `<div class="cell"><div class="inp"><span class="ph">${ph}</span></div></div>`;
+     }
+     if(!f) return `<div class="cell"></div>`;
+     return `<div class="cell ${c<6?'l':''}">${[,,f.name,`<span class="nb">${f.tel}</span>`,['회의','납품','면접','기타'][f.p],f.host,sig(r)][c]}</div>`;
+   },
+   foot:()=>`<div class="foot"><span>적어 주신 성명·연락처는 방문 확인에만 쓰고, 1년이 지나면 파기합니다.</span>${efsMark}</div>`,
+   notes:{good:'본사 로비에 어울리는 절제된 인상입니다. 기관 로고·기관명·날짜·장 번호가 첫 줄에서 한눈에 들어옵니다.',
+     risk:'OZR 셀에는 그림자 속성이 없어 자기 행의 「카드 그림자」는 굵은 테두리와 연한 채움으로 대신해야 합니다. 방문 목적 목록 상자는 태블릿에서 펼침 크기를 실측해야 합니다. 로고 삽입 방식은 별도 조사 중입니다.',
+     level:2, levelText:'낮음~중간 — 밴드는 배경 PDF에 그리고, 표 구조는 지금 시안을 그대로 씁니다.'}
+ },
+ { id:'d2', accent:'#111111', title:'공공기관 기록부', tone:'굵은 외곽선·칸 번호·체크 칸, 개인정보 고지를 표로 명확하게',
+   purposes:['회의','납품','면접','기타'],
+   head:(logo)=>`
+    <div class="hdr">${logo?`<img class="logo-forcs" src="${LOGO}" alt="FORCS" style="max-height:40px">`:`<b style="font-size:18px">포시에스</b>`}
+      <h3>방문자 기록부</h3>
+      <div class="no-box">관리번호<br><b class="nb" style="font-size:13px">2026-0928-03</b></div></div>
+    <div class="info"><div class="lab">기관명</div><div>포시에스 본사 1층</div><div class="lab">방문일</div><div class="nb">2026. 9. 28. (월)</div><div class="lab">장</div><div style="justify-content:center"><b>3</b>&nbsp;/ 장</div></div>`,
+   cols:['①<i>번호</i>','②<i>시각</i>','③<i>성명</i>','④<i>연락처</i>','⑤<i>방문 목적</i>','⑥<i>담당자</i>','⑦<i>서명</i>'],
+   cell:(c,r,st)=>{
+     const f=r<2&&st==='print'?V[r]:null;
+     if(c===0) return `<div class="cell no">${r+1}</div>`;
+     if(c===1) return `<div class="cell auto">${f?f.time:(st==='screen'&&r===1?'<span class="nb">14:32</span>':'')}</div>`;
+     if(c===4){ const on=f?f.p:-1; return `<div class="cell"><div class="chks">${['회의','납품','면접','기타'].map((p,i)=>`<span class="chk ${i===on?'on':''}">${p}</span>`).join('')}</div></div>`; }
+     if(st==='screen'&&r===1){
+       const ph=['','','성명','010-','','담당자','서명'][c];
+       return `<div class="cell"><div class="inp"><span class="ph">${ph}</span></div></div>`;
+     }
+     if(!f) return `<div class="cell"></div>`;
+     return `<div class="cell ${c<6?'l':''}">${[,,f.name,`<span class="nb">${f.tel}</span>`,,f.host,sig(r)][c]}</div>`;
+   },
+   foot:()=>`
+    <div class="privacy"><div class="lab">개인정보<br>수집·이용 고지</div>
+      <ul><li>수집 항목: 성명, 연락처, 방문 목적, 서명</li><li>이용 목적: 출입 확인과 안전 관리</li><li>보유 기간: 수집일부터 1년, 기간이 지나면 즉시 파기</li><li>동의하지 않으시면 안내데스크에서 별도로 확인합니다.</li></ul></div>
+    <div class="foot"><span>포시에스 본사 · 방문자 기록부 (서식 제3호)</span>${efsMark}</div>`,
+   notes:{good:'관공서·공장·보안 구역의 기록부로 바로 읽히는 신뢰감이 있습니다. 방문 목적을 체크 칸으로 받아 타이핑이 절반으로 줄고, 개인정보 고지가 표로 분명합니다.',
+     risk:'체크 칸이 4개×10행=40개로 늘어 행마다 입력 가능 범위를 켜고 끄는 대상이 많아집니다. 칸 번호 <span class="nb">원문자(①~⑦)</span>가 뷰어·PDF에서 맑은 고딕으로 그대로 찍히는지 확인해야 합니다. 로고 삽입 방식은 별도 조사 중입니다.',
+     level:3, levelText:'중간 — 선 두께·체크 칸은 OZR 기본 기능이지만, 행별 체크 칸 잠금 설정이 늘어납니다.'}
+ },
+ { id:'d3', accent:'#c45c38', title:'따뜻한 매장·병원', tone:'부드러운 배경, 둥근 모서리, 큰 환영 문구',
+   purposes:['진료','상담','면회','기타'],
+   head:(logo)=>`
+    <div class="top">${logo?`<img class="logo-forcs" src="${LOGO}" alt="FORCS" style="max-height:42px">`:`<b style="font-size:20px;color:#3d2c21">포시에스</b>`}
+      <div style="display:flex;gap:8px"><span class="pill nb">2026. 9. 28. (월)</span><span class="pill">3장</span></div></div>
+    <div class="welcome"><h3>방문해 주셔서 <em>감사합니다</em></h3><p>성함과 연락처를 한 줄에 적어 주세요. 잠시 뒤 안내해 드릴게요.</p></div>`,
+   cols:['번호','시각','성함','연락처','방문 목적','서명'],
+   cell:(c,r,st)=>{
+     const f=r<2&&st==='print'?V[r]:null;
+     if(c===0) return `<div class="cell no">${r+1}</div>`;
+     if(c===1) return `<div class="cell auto">${f?f.time:(st==='screen'&&r===1?'<span class="nb">14:32</span>':'')}</div>`;
+     if(c===4){ const on=f?f.p:-1; return `<div class="cell"><div class="pills">${['진료','상담','면회','기타'].map((p,i)=>`<span class="pl ${i===on?'on':''}">${p}</span>`).join('')}</div></div>`; }
+     if(st==='screen'&&r===1){
+       if(c===5) return `<div class="cell"><div class="inp sigbox" style="justify-content:center;padding:0"><span class="ph" style="color:#d19a7e">여기에 서명</span></div></div>`;
+       const ph=['','','성함','010-'][c];
+       return `<div class="cell"><div class="inp"><span class="ph">${ph}</span></div></div>`;
+     }
+     if(!f) return `<div class="cell"></div>`;
+     return `<div class="cell ${c<5?'l':''}">${[,,f.name,`<span class="nb">${f.tel}</span>`,,sig(r)][c]}</div>`;
+   },
+   foot:()=>`<div class="foot"><span>적어 주신 정보는 방문 확인에만 쓰고, 1년 뒤 안전하게 파기합니다.</span>${efsMark}</div>`,
+   notes:{good:'큰 환영 문구로 첫인상이 따뜻하고, 진료·면회로 온 방문자의 부담이 적습니다. 방문 목적은 손가락으로 누르는 큰 버튼입니다.',
+     risk:'OZR 셀은 사각형이라 둥근 모서리와 둥근 자기 행 강조는 배경 PDF와 화면 전용 도형으로 그려 행 좌표에 맞춰야 합니다. 크림색 배경은 인쇄 시 잉크를 씁니다. 로고 삽입 방식은 별도 조사 중입니다.',
+     level:4, levelText:'중간~높음 — 배경 PDF와 화면 전용 도형의 좌표 맞춤을 행마다 검증해야 합니다.'}
+ }
+];
+
+function docHTML(d, st, logo=true){
+  const rows = Array.from({length:10},(_,r)=>{
+    const cls = st==='screen' ? (r===0?'done':r===1?'own':'idle') : '';
+    const cells = d.cols.map((_,c)=>d.cell(c,r,st)).join('');
+    const cover = st==='screen'&&r===0 ? `<div class="cover">✓ 작성 완료</div>` : '';
+    return `<div class="row grid ${cls}">${cells}${cover}</div>`;
+  }).join('');
+  const thead = `<div class="thead grid">${d.cols.map(h=>`<div class="cell">${h}</div>`).join('')}</div>`;
+  const table = d.id==='d2' ? `<div class="tbl">${thead}<div class="rows">${rows}</div></div>`
+              : d.id==='d3' ? `<div class="card">${thead}<div class="rows">${rows}</div></div>`
+              : `${thead}<div class="rows">${rows}</div>`;
+  return `<div class="doc ${d.id} ${st}"><div class="inner">${d.head(logo)}${table}</div>${d.foot()}</div>`;
+}
+function tabletHTML(d){
+  return `<div class="tablet">
+    <div class="efs-top"><span class="x"></span><span class="t">방명록 · <span class="nb">2026-09-28</span> · 3장</span><span class="btn">입력 시작</span><span class="kebab">⋮</span></div>
+    <div class="efs-tools"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="efs-view">${docHTML(d,'screen')}</div>
+    <div class="efs-bar"><span class="req">필수 입력 항목(0/2)</span><span class="btn">전송</span></div></div>`;
+}
+const meter = n => `<span class="meter">${[1,2,3,4,5].map(i=>`<i class="${i<=n?'on':''}"></i>`).join('')}</span>`;
+
+const q = new URLSearchParams(location.search).get('solo');
+if(q){
+  const [id, kind] = q.split('-'); const d = DIRS.find(x=>x.id===id);
+  document.body.classList.add('solo');
+  document.getElementById('solo').innerHTML = kind==='pdf' ? docHTML(d,'print') : tabletHTML(d);
+} else {
+  document.getElementById('dirs').innerHTML = DIRS.map((d,i)=>`
+    <article class="dir" style="--accent:${d.accent}">
+      <div class="dir-head"><span class="dir-no">${i+1}</span><div><h2>${d.title}</h2><p>${d.tone}</p></div></div>
+      <div><p class="cap"><b>화면</b><span>태블릿 768×1024 · 두 번째 방문자</span></p>
+        <div class="fbox" data-w="768" data-h="1024"><div class="native">${tabletHTML(d)}</div></div></div>
+      <div><p class="cap"><b>PDF</b><span>A4 완료본 · 두 명 작성</span></p>
+        <div class="fbox" data-w="794" data-h="1123"><div class="native">${docHTML(d,'print')}</div></div></div>
+      <div><p class="cap"><b>로고 없음</b><span>기관명 글자만 있을 때 상단</span></p>
+        <div class="crop" data-w="794" data-h="${d.id==='d3'?250:d.id==='d2'?170:230}"><div class="native">${docHTML(d,'print',false)}</div></div></div>
+      <div class="notes"><dl>
+        <dt>장점</dt><dd>${d.notes.good}</dd>
+        <dt>위험</dt><dd>${d.notes.risk}</dd>
+        <dt>난이도</dt><dd>${meter(d.notes.level)}${d.notes.levelText}</dd></dl></div>
+    </article>`).join('');
+  const fit = () => document.querySelectorAll('.fbox,.crop').forEach(b=>{
+    const w=+b.dataset.w, h=+b.dataset.h, s=b.clientWidth/w;
+    b.style.height = (h*s)+'px';
+    b.firstElementChild.style.transform = `scale(${s})`;
+  });
+  fit(); new ResizeObserver(fit).observe(document.body);
+}
+
+// Korean line-break glue: keep A·B compounds together, keep standalone endings on the previous line
+function glue(root){
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);const ns=[];while(w.nextNode())ns.push(w.currentNode);
+  ns.forEach(n=>{const t=n.nodeValue.replace(/(\S)·(?=\S)/g,'$1⁠·⁠').replace(/ (합니다|됩니다|입니다|있습니다)/g,' $1');if(t!==n.nodeValue)n.nodeValue=t;});
+}
+glue(document.body);
+</script>
+</body>
+</html>
