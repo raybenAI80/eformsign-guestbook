@@ -1,0 +1,43 @@
+// Deploy the multirow probe OZR to the account in EFORMSIGN_ENV_FILE.
+// Workflow = 시작 + 참여자 N (step names "방문자 1..N", recipient mode "문서 전송 시 지정 가능") + 완료.
+// Step shape source = an existing template that has a participant step (--shape-name, looked up by name at runtime).
+// Usage: node deploy.mjs --ozr <f.ozr> --name "<template name>" --shape-name "<source template name>" [--category 키오스크] [--dry-run]
+import fs from 'node:fs';
+import { client } from './env.mjs';
+const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
+const lay = JSON.parse(fs.readFileSync(new URL('./layout.json', import.meta.url), 'utf8'));
+const c = await client();
+const list = await c.templates.list();
+const shape = list.templates.find((t) => t.name === arg('--shape-name'));
+if (!shape) throw new Error('shape template not found by name');
+const shapeId = shape.form_id ?? shape.id;
+const src = (await c.templates.getManaged(shapeId)).result.form;
+const steps = src.config.step_settings;
+const w = steps.find((s) => s.type === 'write');
+const p = steps.find((s) => s.type === 'participant');
+const done = steps.find((s) => s.type === 'complete');
+if (!w || !p || !done) throw new Error('shape needs write/participant/complete');
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const n = lay.rows;
+const stepSettings = [clone(w)];
+// Unattended visitors cannot pass "문서 열람 전 본인확인"(email code + reCAPTCHA) -> switch it off on every participant step.
+// (2026-09-28: the shape source had use_before_view_auth/use_email_auth=true and the member viewer stopped at a CAPTCHA page.)
+const noViewAuth = (s) => { Object.assign(s.option, { use_before_view_auth: false, use_email_auth: false, use_before_send_email_auth: false, use_email_sms_auth_view: false, use_mobile_auth: false, use_login_auth: false,
+  // shape source also forced 「인증서로 전자서명」(PASS/네이버/카카오) before 전송 -> off
+  sign_type: '', digital_signature_info: { ...(s.option.digital_signature_info ?? {}), use_sign: false, sign_type: '', sign_type_value: 'none' } }); return s; };
+for (let k = 1; k <= n; k++) stepSettings.push(noViewAuth({ ...clone(p), seq: k + 1, step_group: k + 2, name: lay.stepNamePrefix + k }));
+stepSettings.push({ ...clone(done), seq: n + 2, step_group: 2 });
+const spec = [{ type: 'write', accessibleAll: true, stepName: w.name }];
+for (let k = 1; k <= n; k++) spec.push({ type: 'participant', accessibleAll: true, recipientMode: '', stepName: lay.stepNamePrefix + k });
+spec.push({ type: 'complete' });
+const res = await c.ozw.deployTemplateFile({
+  fileBuffer: fs.readFileSync(arg('--ozr')), ext: 'ozr', name: arg('--name'), category: arg('--category'),
+  description: '누적형 방명록 실측(한 문서 여러 방문자·이전 행 가림). 삭제는 사용자가 판단.',
+  stepSettings, stepSettingsSpec: spec, stepSettingsDocTitle: arg('--name'),
+  sourceFormId: shapeId, generateDisplaySettings: true,
+  inputs: [{ name: 'document_step', value: '' }, { name: 'document_step_name', value: '' }],
+  dryRun: process.argv.includes('--dry-run'),
+});
+const out = { ...res }; delete out.payload;
+if (process.argv.includes('--dry-run')) out.payloadSteps = res.payload?.config?.step_settings?.map((s) => `${s.type}:${s.name}:${s.option?.specified_recipient_type ?? '-'}`) ?? JSON.stringify(res.payload).slice(0, 400);
+console.log(JSON.stringify(out, null, 1));
