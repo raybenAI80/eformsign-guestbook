@@ -29,11 +29,30 @@ const send = (method, params = {}) => new Promise((res, rej) => { const i = ++id
 ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { const p = pend.get(m.id); pend.delete(m.id); m.error ? p.rej(new Error(JSON.stringify(m.error))) : p.res(m.result); } };
 await new Promise((r) => (ws.onopen = r));
 await send('Page.enable');
-const ev = async (js) => { const r = await send('Runtime.evaluate', { expression: js, awaitPromise: true, returnByValue: true }); if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails.exception?.description ?? r.exceptionDetails)); return r.result.value; };
+let evSend = null; // set in --embed mode: Runtime.evaluate goes to the eformsign OOPIF (m_view_service) target
+const ev = async (js) => { const r = await (evSend ?? send)('Runtime.evaluate', { expression: js, awaitPromise: true, returnByValue: true }); if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails.exception?.description ?? r.exceptionDetails)); return r.result.value; };
 const click = async (x, y) => { for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 }); };
 const shot = async (name) => { const r = await send('Page.captureScreenshot', { format: 'png' }); fs.mkdirSync(E, { recursive: true }); const f = path.join(E, `${tag}-${name}.png`); fs.writeFileSync(f, Buffer.from(r.data, 'base64')); return f; };
 const text = () => ev("document.body.innerText.split(String.fromCharCode(10)).filter(x=>x.trim()).slice(0,40).join(' | ')");
 const out = { row, shots: [] };
+const embed = arg('--embed');
+if (embed) {
+  // --embed <url>: no logged-in session needed (the dead 9223 path). tools/multirow/embed-member.mjs serves an efs_embedded_v2 page
+  // with user.type 01 + API member token. 🔴 The tablet UA must be set on the Chrome process (--user-agent=...): a page-level
+  // Emulation UA override does not reach the eformsign OOPIF, whose viewer then picks the PC toolbar layout at 100% (measured 2026-09-28).
+  await send('Emulation.setUserAgentOverride', { userAgent: TABLET_UA });
+  await send('Emulation.setTouchEmulationEnabled', { enabled: false });
+  await send('Emulation.setDeviceMetricsOverride', { width: 768, height: 1024, deviceScaleFactor: 1, mobile: true });
+  await send('Page.navigate', { url: embed }); await sleep(Number(arg('--wait', '25000')));
+  const fr = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).filter((x) => x.type === 'iframe' && /m_view_service/.test(x.url) && (!x.parentId || x.parentId === t.id));
+  if (!fr.length) throw new Error('embedded m_view_service frame not found');
+  const fws = new WebSocket(fr.at(-1).webSocketDebuggerUrl); const fp = new Map(); let fid = 0;
+  fws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && fp.has(m.id)) { const p = fp.get(m.id); fp.delete(m.id); m.error ? p.rej(new Error(JSON.stringify(m.error))) : p.res(m.result); } };
+  await new Promise((r) => (fws.onopen = r));
+  evSend = (method, params = {}) => new Promise((res, rej) => { const i = ++fid; fp.set(i, { res, rej }); fws.send(JSON.stringify({ id: i, method, params })); setTimeout(() => { if (fp.has(i)) { fp.delete(i); rej(new Error('timeout ' + method)); } }, 45000); });
+  const off = (await send('Runtime.evaluate', { expression: "(()=>{const r=document.getElementById('eformsign_iframe').getBoundingClientRect();return [r.left,r.top]})()", returnByValue: true })).result.value;
+  globalThis.__OFF = off; out.embed = true; globalThis.__FWS = fws;
+} else {
 // 1) open URL via PC UA
 await send('Emulation.setUserAgentOverride', { userAgent: PC_UA });
 await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
@@ -47,9 +66,11 @@ await send('Emulation.setDeviceMetricsOverride', { width: 768, height: 1024, dev
 // touch emulation stays OFF: with it on at load the mobile viewer ignores CDP mouse clicks for the whole page life (measured 2026-09-28);
 // the mobile viewer is chosen by UA, so the tablet layout (view_iframe_mobile, fit-to-width) is unchanged.
 await send('Page.navigate', { url: 'https://www.eformsign.com' + rel }); await sleep(20000);
+}
 out.shots.push(await shot(`step${row}-open`));
 // measure: inputs inside the viewer iframe, grouped into rows of 4 (성명·연락처·목적 text + 서명 button) in DOM order
-const measure = `(()=>{const f=[...document.querySelectorAll('iframe')].find(x=>/view_iframe/.test(x.src));if(!f)return null;const o=f.getBoundingClientRect();const dd=f.contentDocument;
+const OX0 = () => (globalThis.__OFF ?? [0, 0]);
+const measure = `(()=>{const OX=${OX0()[0]},OY=${OX0()[1]};const f=[...document.querySelectorAll('iframe')].find(x=>/view_iframe/.test(x.src));if(!f)return null;const o0=f.getBoundingClientRect();const o={left:o0.left+OX,top:o0.top+OY,x:o0.left+OX,y:o0.top+OY,width:o0.width,height:o0.height,toJSON(){return {x:this.x,y:this.y,width:this.width,height:this.height}}};const dd=f.contentDocument;
 const els=[...dd.querySelectorAll('input')].filter(e=>e.type==='text'||e.type==='button').map(e=>{const r=e.getBoundingClientRect();return {t:e.type,x:r.left+o.left,y:r.top+o.top,w:r.width,h:r.height,vis:r.width>0&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none',dis:e.disabled||e.readOnly}});
 const sc=dd.scrollingElement?{top:dd.scrollingElement.scrollTop,h:dd.scrollingElement.scrollHeight}:null;
 const scrollers=[...dd.querySelectorAll('div')].filter(x=>x.scrollHeight>x.clientHeight+50&&x.clientHeight>300).map(x=>({top:x.scrollTop,sh:x.scrollHeight,ch:x.clientHeight})).slice(0,3);
@@ -111,3 +132,4 @@ if (!has('--no-send')) {
 }
 console.log(JSON.stringify(out, null, 1));
 ws.close();
+globalThis.__FWS?.close();

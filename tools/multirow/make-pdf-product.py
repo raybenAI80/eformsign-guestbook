@@ -2,7 +2,7 @@
 # python make-pdf-product.py <resolved-layout.json> <out.pdf>
 # Fonts are embedded from TTF files (layout.font / fontBold) — the builtin 'korea' CJK font of the probe
 # (make-pdf.py) rendered with wide, uneven letter spacing in the completed PDF (v7-ext-i-complete-p1.png).
-import json, sys, fitz
+import json, os, sys, fitz
 
 lay = json.load(open(sys.argv[1], encoding='utf-8'))
 out = sys.argv[2]
@@ -52,6 +52,13 @@ for p in range(lay['pages']):
         t = body_top + i * rh
         text(pg, (cols[0]['x0'] + cols[0]['x1']) / 2, t + rh / 2 + lay['numberSize'] * 0.36, str(first + i), lay['numberSize'], C['number'], align='center')
     text(pg, x0, lay['noteY'], lay['privacyNote'], lay['noteSize'], C['note'])
+    # logos (layout "logos": [{file, h, x|right, y|yCenter}]) — PNG with alpha, aspect kept; file relative to the layout json
+    for lg in lay.get('logos', []):
+        f = lg['file'] if os.path.isabs(lg['file']) else os.path.normpath(os.path.join(os.path.dirname(lay['file']), lg['file']))
+        pix = fitz.Pixmap(f); h = lg['h']; w = h * pix.width / pix.height
+        lx = x1 - w if lg.get('right') else lg['x']
+        ly = lg['yCenter'] - h / 2 if 'yCenter' in lg else lg['y']
+        pg.insert_image(fitz.Rect(lx, ly, lx + w, ly + h), filename=f, keep_proportion=True)
 doc.subset_fonts()
 doc.save(out, garbage=4, deflate=True)
 print('ok', out, 'pages', lay['pages'])

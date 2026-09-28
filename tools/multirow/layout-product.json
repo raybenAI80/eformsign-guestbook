@@ -47,6 +47,19 @@
       "_comment": "10행 x 2페이지",
       "rows": 20, "rowsPerPage": 10, "rowH": 66, "headerH": 26, "inputSize": 13, "numberSize": 12, "coverSize": 13
     },
+    "C": {
+      "_comment": "10행 1페이지(사용자 결정 2026-09-28). B 디자인 그대로, 행 66→68pt 로 남는 세로 여백 흡수, 하단 안내는 표 바로 아래(표 끝 804pt + 18)",
+      "rows": 10, "rowsPerPage": 10, "rowH": 68, "headerH": 26, "inputSize": 13, "numberSize": 12, "coverSize": 13, "noteY": 822
+    },
+    "C2": {
+      "_comment": "C + 로고 2개(사용자 지시 2026-09-28 \"이폼사인 로고를 넣어\" \"포시에스 로고랑\"). 기관(FORCS) 로고 = 제목 위 왼쪽 높이 34pt(12mm), 이폼사인 로고 = 하단 안내 오른쪽 끝 높이 17pt(6mm). 로고 자리만큼 제목·헤더를 내리고 행은 66pt(B 와 같음). logos[].file 은 이 json 기준 상대경로, right=true 면 표 오른쪽 끝 정렬, yCenter 로 세로 중심 지정 가능",
+      "rows": 10, "rowsPerPage": 10, "rowH": 66, "headerH": 26, "inputSize": 13, "numberSize": 12, "coverSize": 13,
+      "titleY": 92, "subtitleY": 110, "accentY": 119, "headerTop": 126, "noteY": 829,
+      "logos": [
+        {"file": "../../assets/brand/forcs-ci-en-original.png", "x": 36, "y": 20, "h": 34},
+        {"file": "../../assets/brand/eformsign-logo-blue.png", "right": true, "yCenter": 826, "h": 17}
+      ]
+    },
     "P": {
       "_comment": "서명칸 빈 자리표시(펜) 아이콘 실측 프로브. 1행=서명(대조), 2행 ICONSIZE=0, 3행 ICONSIZE=1, 4행 기본 12",
       "title": "방명록 (서명칸 아이콘 실측)",
