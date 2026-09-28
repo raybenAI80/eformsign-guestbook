@@ -58,7 +58,12 @@ export const Manage: React.FC<{ mute?: boolean }> = ({ mute }) => {
   const d04 = geo("D04");
   const bg = grade("gen-06.png");
 
-  /** 🔴 노트북 화면(1.58)과 문서함 캡처(1.78)는 비가 다르다 — 왼쪽(상태·제목·단계)을 살린다 */
+  /**
+   * 🔴 노트북 화면(1.58)과 문서함 캡처(1.78)는 비가 다르다.
+   *    v3.1 까지는 높이 기준·왼쪽 정렬이라 오른쪽 「문서 상태 / 이력」 패널이 잘렸다(사용자 지적).
+   *    2026-09-28 레인 M5 부터 문서함 컷(D01~D03)은 측정값 `frame`(폭 기준·위 정렬,
+   *    tools/measure-scenes.mjs `widthFirstFrame`)을 쓴다. K02·D04 는 기존 방식 유지(사용자 결정).
+   */
   const aspect = QUAD ? quadAspect(QUAD) : 1.58;
 
   const center = QUAD ? quadCentroid(QUAD) : ([960, 540] as [number, number]);
@@ -71,7 +76,7 @@ export const Manage: React.FC<{ mute?: boolean }> = ({ mute }) => {
   const plan: {
     key: string;
     rel: string;
-    cap: { width: number; height: number; viewport?: Rect | null };
+    cap: { width: number; height: number; viewport?: Rect | null; frame?: Rect | null };
     weight: number;
     align?: "center" | "left" | "top";
     /** 자르기를 직접 지정한다(생략하면 비율에서 계산) */
@@ -190,7 +195,7 @@ export const Manage: React.FC<{ mute?: boolean }> = ({ mute }) => {
                 <QuadShot
                   {...shotLayer(c.rel)}
                   capture={c.cap}
-                  crop={c.crop ?? screenCrop(c.cap, aspect, c.align ?? "left")}
+                  crop={c.crop ?? c.cap.frame ?? screenCrop(c.cap, aspect, c.align ?? "left")}
                   corners={QUAD}
                 >
                   {c.overlay}

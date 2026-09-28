@@ -1,6 +1,6 @@
 {
   "$comment": "🔴 손으로 고치지 말고 `node tools/prescale-shots.mjs` 로 다시 만든다. 캡처를 재촬영하면 measure-scenes → prescale-shots 순서로 돌린다.",
-  "scaledAt": "2026-09-28T00:55:57.690Z",
+  "scaledAt": "2026-09-28T01:24:47.414Z",
   "targetWidth": {
     "portrait": 840,
     "landscape": 1500

@@ -38,6 +38,11 @@ export interface CaptureGeo {
    * 이것이 없으면 캡처 전체가 기기 화면에 들어가 서식이 작아지고 아래가 백지가 된다.
    */
   viewport?: Rect | null;
+  /**
+   * **폭 기준 프레이밍**(measure-scenes `widthFirstFrame`, 2026-09-28 레인 M5) — 캡처 비가 기기 화면
+   * 비보다 넓은 문서함 컷(D01~D03)에만 있다. 캡처 가로 전체 + 위 정렬. 있으면 장면은 이것을 자르기로 쓴다.
+   */
+  frame?: Rect | null;
   /** 캡처 한 장의 평균 밝기(0–255). 200 미만이면 제품이 스스로 어둡게 한 상태다 */
   luma?: number;
 }

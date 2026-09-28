@@ -689,6 +689,49 @@ for (const [key, fn] of Object.entries(jobs)) {
   }
 }
 
+/* ---------- 문서함 컷 프레이밍(2026-09-28 레인 M5, 사용자 지적 「오른쪽 잘림」) ---------- */
+
+/**
+ * 기기 화면 네 점(public/gen/prompts.json 의 screenQuad)의 가로/세로 비.
+ * 🔴 src/shots-scenes.ts `quadAspect` 와 같은 식이다 — 장면이 쓰는 비와 여기서 쓰는 비가
+ *    어긋나면 이 규칙이 만든 사각형이 화면에서 늘어난다.
+ */
+function screenAspect(sceneNo) {
+  const prompts = JSON.parse(fs.readFileSync(path.join(ROOT, "public/gen/prompts.json"), "utf8"));
+  const q = prompts.scenes.find((x) => x.scene === sceneNo)?.screenQuad;
+  if (!q || q.points.length !== 4) return null;
+  const [tl, tr, br, bl] = q.points;
+  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  return (d(tl, tr) + d(bl, br)) / 2 / ((d(tl, bl) + d(tr, br)) / 2);
+}
+
+/**
+ * **폭 기준 프레이밍** — 캡처 비가 화면 비보다 넓으면 캡처 가로 전체를 담고, 남는 높이는
+ * 위 정렬로 둔다(캡처 아래를 넘는 부분은 QuadShot 의 흰 바탕).
+ *
+ * 🔴 왜: 문서함 캡처(2400x1350 = 1.78)를 노트북 화면(≈1.58)에 `screenCrop`(높이 기준·왼쪽 정렬)
+ *    으로 얹으면 가로 2133 만 남아 오른쪽 「문서 상태 / 이력」 패널이 반쯤 잘렸다(v3.1 D01·D02,
+ *    사용자 지적). 문서함 화면은 왼쪽 목록 + 오른쪽 패널이 **한 화면**이라 가로를 버릴 곳이 없다.
+ *    세로는 목록 아래가 빈 흰 영역이라 버려도 되는 쪽이다 → 가로를 다 담고 세로를 버린다.
+ * 🔴 수동 좌표로 피하지 않는다(D04 의 손 crop 이 그 예) — 재촬영하면 조용히 다시 잘린다.
+ * 캡처 비 ≤ 화면 비면 null → 장면은 기존 `screenCrop` 을 쓴다.
+ */
+function widthFirstFrame(cap, aspect) {
+  if (!cap || !aspect) return null;
+  if (cap.width / cap.height <= aspect) return null;
+  return { x: 0, y: 0, w: cap.width, h: Math.round(cap.width / aspect), basis: "width" };
+}
+
+/** 이 규칙을 타는 컷 = Manage 문서함 컷. K02(시트)·D04(보고서)는 사용자 결정으로 제외 */
+const MANAGE_WIDTH_FIRST = ["D01", "D02", "D03"];
+{
+  const aspect = screenAspect(6);
+  for (const k of MANAGE_WIDTH_FIRST) {
+    const c = result.captures[k];
+    if (c) c.frame = widthFirstFrame(c, aspect);
+  }
+}
+
 /* 선택 소재 — 있으면 쓰고 없으면 그 연출을 뺀다(존재 분기) */
 const seqFrames = (dir) => {
   const d = shot(dir);
