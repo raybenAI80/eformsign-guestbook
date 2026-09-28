@@ -61,6 +61,8 @@ const SHOT_FILES = {
   D01: "D/D01-document-list.png",
   D02: "D/D02-search.png",
   D03: "D/D03-pdf-preview.png",
+  D04: "D/D04-ozr-report-preview.png",
+  K02: "K/K02-sheet-rows.png",
 };
 for (const [key, rel] of Object.entries(SHOT_FILES)) {
   if (geometry.captures[key]) targets.add(rel);

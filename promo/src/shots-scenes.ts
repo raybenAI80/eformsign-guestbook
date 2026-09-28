@@ -134,6 +134,10 @@ export const SHOT_FILES = {
   D01: "D/D01-document-list.png",
   D02: "D/D02-search.png",
   D03: "D/D03-pdf-preview.png",
+  /** OZR 참석자 명단 보고서(이폼사인 문서) 미리보기 — 각주 「보고서 서식은 맞춤 제작」 */
+  D04: "D/D04-ozr-report-preview.png",
+  /** 커넥트 → 구글 시트에 자동으로 쌓인 행 */
+  K02: "K/K02-sheet-rows.png",
 } as const;
 export type ShotKey = keyof typeof SHOT_FILES;
 

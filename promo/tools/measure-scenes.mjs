@@ -639,6 +639,10 @@ const jobs = {
   A04: measureA04,
   D02: measureD02,
   D03: measureD03,
+  /* 2026-09-28 레인 M3: Manage 장면 뒤쪽 두 컷 — 커넥트로 자동 채워진 구글 시트(K02),
+     이폼사인 문서로 만든 OZR 참석자 명단 보고서 미리보기(D04). 둘 다 가로 캡처 2400x1350. */
+  K02: () => measureListLandscape("K/K02-sheet-rows.png", "K02"),
+  D04: () => measureListLandscape("D/D04-ozr-report-preview.png", "D04"),
   B02: () => measurePortrait("B/B02-empty-form.png", "B02"),
   B03: () => measurePortrait("B/B03-filled-form.png", "B03"),
   B04: () => measurePortrait("B/B04-send-dialog.png", "B04"),
