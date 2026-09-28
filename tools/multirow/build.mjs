@@ -35,7 +35,35 @@ const m = await core();
 const fid = (key, row) => `${key} ${row}`;
 const rowTop = (i) => rowTopOf(lay, i);
 const fields = [];
-for (let r = 1; r <= lay.rows; r++) {
+// D안(style reception): explicit geometry per FORMID (time / purpose sub-fields / header value fields)
+const geoByFid = new Map(); const colTypeByKey = new Map();
+if (lay.style === 'reception') {
+  const g = lay.purposeGeo;
+  for (let r = 1; r <= lay.rows; r++) {
+    const top = rowTop(r);
+    for (const c of lay.cols.filter((c) => c.type)) {
+      colTypeByKey.set(c.key, c.type);
+      if (c.type === 'purpose') {
+        const items = c.options.map((lab, k) => [lab, c.x0 + g.itemX0 + k * g.itemDX + g.boxDX, top + g.topCY]);
+        items.push([c.otherLabel, c.x0 + g.otherBoxDX, top + g.botCY]);
+        for (const [lab, cx, cy] of items) {
+          colTypeByKey.set(`${c.key}_${lab}`, 'check');
+          fields.push({ id: fid(`${c.key}_${lab}`, r), page: rowPage(lay, r), type: 'checkbox', bbox: [cx - g.touch / 2, cy - g.touch / 2, cx + g.touch / 2, cy + g.touch / 2] });
+        }
+        const ot = g.otherText; const k2 = `${c.key}_${c.otherLabel}내용`; colTypeByKey.set(k2, 'text');
+        fields.push({ id: fid(k2, r), page: rowPage(lay, r), type: 'text', bbox: [c.x0 + ot[0], top + ot[1], c.x0 + ot[2], top + ot[3]] });
+        geoByFid.set(fid(k2, r), { LEFT: c.x0 + ot[0], TOP: top + ot[1], WIDTH: ot[2] - ot[0], HEIGHT: ot[3] - ot[1], FONTSIZE: 11 });
+        continue;
+      }
+      const si = lay.signInset ?? 6;
+      const bbox = c.type === 'signature' ? [c.x0 + si, top + si, c.x1 - si, top + lay.rowH - si] : [c.x0 + 3, top + lay.rowH / 2 - 11, c.x1 - 3, top + lay.rowH / 2 + 11];
+      fields.push({ id: fid(c.key, r), page: rowPage(lay, r), bbox, type: c.type === 'signature' ? 'signature' : 'text' });
+      if (c.type !== 'signature') geoByFid.set(fid(c.key, r), { LEFT: c.x0 + lay.textInsetX, TOP: top + lay.textInsetY, WIDTH: c.w - 2 * lay.textInsetX, HEIGHT: lay.rowH - 2 * lay.textInsetY, FONTSIZE: c.type === 'time' ? 11 : lay.inputSize });
+    }
+  }
+  for (const hf of lay.headerFields ?? []) fields.push({ id: hf.id, page: 1, type: 'text', bbox: hf.box });
+}
+for (let r = 1; r <= (lay.style === 'reception' ? 0 : lay.rows); r++) {
   for (const c of lay.cols.filter((c) => c.type)) {
     const top = rowTop(r);
     const si = lay.signInset ?? 6;
@@ -80,6 +108,39 @@ ${stepJs}
 This.SetText('step=' + _st + ' / name=' + _nm + ' / cur=' + _cur);
 } catch (e) {}`;
 
+// D안: 방문 시각 = own row only, only while empty (the completed-PDF render re-binds with _cur 0 -> never overwrites)
+const nowHm = `var _d = new Date(); var _hm = String(_d.getHours() + 100).substring(1) + ':' + String(_d.getMinutes() + 100).substring(1);`;
+const timeJs = (row) => `try {
+${stepJs}
+var _v = ''; try { _v = String(This.GetText()); } catch (e) { _v = ''; }
+if (_v === 'null' || _v === 'undefined') _v = '';
+if (_cur === ${row} && _st !== 'complete') {
+  var _me = This;
+  var _f = function () { try { var _x = String(_me.GetText()); if (_x === 'null' || _x === 'undefined') _x = ''; if (_x === '') { ${nowHm} _me.SetText(_hm); } } catch (e2) {} };
+  _f(); setTimeout(_f, 800); setTimeout(_f, 2500); setTimeout(_f, 6000);
+}
+} catch (e) {}`;
+// D안: 방문일 fallback = step 1 (first visitor) only, only while empty (document.fields injection wins when given)
+const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+const todayJs = `try {
+${stepJs}
+var _v = ''; try { _v = String(This.GetText()); } catch (e) { _v = ''; }
+if (_v === 'null' || _v === 'undefined') _v = '';
+if (_cur === 1 && _st !== 'complete') {
+  var _me = This;
+  var _f = function () { try { var _x = String(_me.GetText()); if (_x === 'null' || _x === 'undefined') _x = ''; if (_x === '') { var _d = new Date(); var _w = ${JSON.stringify(WEEK)}; _me.SetText(_d.getFullYear() + '. ' + (_d.getMonth() + 1) + '. ' + _d.getDate() + '. (' + _w[_d.getDay()] + ')'); } } catch (e2) {} };
+  _f(); setTimeout(_f, 800); setTimeout(_f, 2500); setTimeout(_f, 6000);
+}
+} catch (e) {}`;
+// header fixed-text fallback (same guard/timing as todayJs): used only when document.fields injection gave no value
+const fixedJs = (txt) => `try {
+${stepJs}
+if (_cur === 1 && _st !== 'complete') {
+  var _me = This;
+  var _f = function () { try { var _x = String(_me.GetText()); if (_x === 'null' || _x === 'undefined') _x = ''; if (_x === '') { _me.SetText(${JSON.stringify(txt)}); } } catch (e2) {} };
+  _f(); setTimeout(_f, 800); setTimeout(_f, 2500); setTimeout(_f, 6000);
+}
+} catch (e) {}`;
 // inject OnBind into every row input (OZIC* with FORMID "<key> <row>")
 let injected = 0;
 xml = xml.replace(/<(OZIC[A-Z]+) ([^>]*?)FORMID="([^"]+) (\d+)"([^>]*?)(\/?)>/g, (all, tag, a, key, row, b, selfClose) => {
@@ -88,6 +149,16 @@ xml = xml.replace(/<(OZIC[A-Z]+) ([^>]*?)FORMID="([^"]+) (\d+)"([^>]*?)(\/?)>/g,
   // v5: ozrRequired "static" -> REQUIRED="true" on requiredCols of every row (b1 probe); "own-row" -> plus OnBind SetRequired(own row only)
   const reqAttr = lay.ozrRequired && (lay.requiredCols ?? []).includes(key) ? ' REQUIRED="true"' : '';
   const open = `<${tag} ${a}FORMID="${key} ${row}"${b}${reqAttr}>`;
+  if (colTypeByKey.get(key) === 'time') {
+    const vis = `try {
+${stepJs}
+var _row = ${Number(row)};
+This.SetEnable(false);
+if (_cur !== 0 && _cur !== _row && Math.max(_row, _cur) === _cur) This.SetVisible(false);
+} catch (e) {}`;
+    const evs = ev('OnBind', vis + '\n' + timeJs(Number(row)));
+    return selfClose ? `${open}${evs}</${tag}>` : `${open}${evs}`;
+  }
   return selfClose ? `${open}${ev('OnBind', inputJs(Number(row), method, reqAttr !== '' && lay.ozrRequired === 'own-row'))}</${tag}>` : `${open}${ev('OnBind', inputJs(Number(row), method, reqAttr !== '' && lay.ozrRequired === 'own-row'))}`;
 });
 // v4 (2026-09-28): cover labels 「작성 완료」 over previous rows + own-row highlight.
@@ -140,32 +211,59 @@ if (!lay.design) {
   const C = lay.colors; const X0 = lay.cols[0].x0, X1 = lay.cols[lay.cols.length - 1].x1;
   for (let r = 1; r <= lay.rows; r++) {
     const pg = rowPage(lay, r); const t = rowTop(r);
-    if (lay.coverLabel && r < lay.rows) extraKids.push(shape(`Cover${r}`, rx0, t + 1, rx1 - rx0, lay.rowH - 2, '작성 완료',
+    if (lay.coverLabel && r < lay.rows) extraKids.push(shape(`Cover${r}`, rx0, t + 1, rx1 - rx0, lay.rowH - 2, lay.coverText ?? '작성 완료',
       { bg: ozc(C.coverBg), transparent: 'false', fg: ozc(C.coverText), size: lay.coverSize, style: 1, halign: 0, valign: 0, hidden: true }, coverJs(r, false)), pg);
     if (lay.highlightOwnRow) {
       // bold outline = accent box under the whole row; per-cell light fills leave 1.6pt outer / 0.8pt inner gaps showing it
       backKids.push(shape(`OwnB${r}`, X0, t, X1 - X0, lay.rowH, '', { bg: ozc(C.ownBorder), transparent: 'false', fg: -16777216, size: 9, style: 0, halign: 0, hidden: true }, hiJs(r)), pg);
       lay.cols.forEach((c, i) => {
         const l = c.x0 + (i === 0 ? 1.8 : 0.4), rr = c.x1 - (i === lay.cols.length - 1 ? 1.8 : 0.4);
-        backKids.push(shape(`Own${r}c${i}`, +l.toFixed(2), t + 1.8, +(rr - l).toFixed(2), lay.rowH - 3.6, '', { bg: ozc(C.ownFill), transparent: 'false', fg: -16777216, size: 9, style: 0, halign: 0, hidden: true }, hiJs(r)), pg);
+        backKids.push(shape(`Own${r}c${i}`, +l.toFixed(2), t + 1.8, +(rr - l).toFixed(2), lay.rowH - 3.6, '', { bg: ozc(i === 0 && lay.ownNoInverse ? C.ownBorder : C.ownFill), transparent: 'false', fg: -16777216, size: 9, style: 0, halign: 0, hidden: true }, hiJs(r)), pg);
       });
+    }
+  }
+  const pcol = lay.cols.find((c) => c.type === 'purpose');
+  if (lay.highlightOwnRow && pcol && lay.purposeGeo) {
+    const g = lay.purposeGeo;
+    for (let r = 1; r <= lay.rows; r++) {
+      const t = rowTop(r);
+      const items = pcol.options.map((lab, k) => [lab, pcol.x0 + g.itemX0 + k * g.itemDX + g.boxDX, t + g.topCY]);
+      items.push([pcol.otherLabel, pcol.x0 + g.otherBoxDX, t + g.botCY]);
+      items.forEach(([lab, cx, cy], k) => extraKids.push(shape(`OwnOpt${r}_${k}`, +(cx + g.box / 2 + g.labelGap - 5).toFixed(2), +(cy - 8).toFixed(2), 26, 16, lab,
+        { bg: -1, transparent: 'true', fg: ozc(C.optLabel), size: g.labelSize, style: 0, halign: 1, valign: 0, hidden: true }, hiJs(r)), rowPage(lay, r)));
     }
   }
   if (lay.highlightOwnRow) {
     // own-row number is drawn in the PDF background and would be covered by the fills -> NOPRINT accent number on top
     for (let r = 1; r <= lay.rows; r++) extraKids.push(shape(`OwnNo${r}`, lay.cols[0].x0 + 2, rowTop(r) + 2, lay.cols[0].w - 4, lay.rowH - 4, String(r),
-      { bg: -1, transparent: 'true', fg: ozc(C.ownBorder), size: lay.numberSize, style: 1, halign: 0, valign: 0, hidden: true }, hiJs(r)), rowPage(lay, r));
+      { bg: -1, transparent: 'true', fg: lay.ownNoInverse ? -1 : ozc(C.ownBorder), size: lay.numberSize, style: 1, halign: 0, valign: 0, hidden: true }, hiJs(r)), rowPage(lay, r));
   }
 }
 // design: text inputs fill the cell (core caps height at 15pt / font 10); signpad ICONSIZE per row
 if (lay.design) {
   xml = xml.replace(/<OZICTEXTBOX ([^>]*?)FORMID="([^"]+) (\d+)"([^>]*)>/g, (all, a, key, row, b) => {
     const c = lay.cols.find((x) => x.key === key); const t = rowTop(Number(row));
-    const geo = { LEFT: c.x0 + lay.textInsetX, TOP: t + lay.textInsetY, WIDTH: c.w - 2 * lay.textInsetX, HEIGHT: lay.rowH - 2 * lay.textInsetY, FONTSIZE: lay.inputSize };
+    const geo = geoByFid.get(`${key} ${row}`) ?? { LEFT: c.x0 + lay.textInsetX, TOP: t + lay.textInsetY, WIDTH: c.w - 2 * lay.textInsetX, HEIGHT: lay.rowH - 2 * lay.textInsetY, FONTSIZE: lay.inputSize };
     let tag = `<OZICTEXTBOX ${a}FORMID="${key} ${row}"${b}>`;
     for (const [k, v] of Object.entries(geo)) tag = tag.replace(new RegExp(` ${k}="[^"]*"`), ` ${k}="${+Number(v).toFixed(2)}"`);
+    // time column: read-only, centred, muted (value written by OnBind)
+    if (colTypeByKey.get(key) === 'time') tag = tag.replace(/ HALIGN="\d+"/, ' HALIGN="0"').replace(/ FGCOLOR="-?\d+"/, ` FGCOLOR="${ozc(lay.colors.time)}"`);
     return tag;
   });
+  // header value fields (no row number): read-only, fixed box, colour/bold/align from layout; 방문일 fallback OnBind
+  for (const hf of lay.headerFields ?? []) {
+    const re = new RegExp(`<OZICTEXTBOX ([^>]*?)FORMID="${hf.id}"([^>]*)>`);
+    const mm = re.exec(xml); if (!mm) throw new Error('header field not emitted: ' + hf.id);
+    const [a, b, cc, d] = hf.box;
+    let tag = mm[0];
+    const geo = { LEFT: a, TOP: b, WIDTH: cc - a, HEIGHT: d - b, FONTSIZE: hf.size };
+    for (const [k, v] of Object.entries(geo)) tag = tag.replace(new RegExp(` ${k}="[^"]*"`), ` ${k}="${+Number(v).toFixed(2)}"`);
+    tag = tag.replace(' EDITABLE="true"', ' EDITABLE="false"').replace(/ HALIGN="\d+"/, ` HALIGN="${hf.align === 'right' ? 2 : hf.align === 'center' ? 0 : 1}"`)
+      .replace(/ FGCOLOR="-?\d+"/, ` FGCOLOR="${ozc(hf.color)}"`).replace(/ FONTSTYLE="\d+"/, ` FONTSTYLE="${hf.bold ? 1 : 0}"`).replace(' AUTOSIZE="true"', ' AUTOSIZE="false"');
+    if (hf.todayFallback) tag = tag + ev('OnBind', todayJs);
+    else if (hf.fallback) tag = tag + ev('OnBind', fixedJs(hf.fallback));
+    xml = xml.replace(mm[0], tag);
+  }
   xml = xml.replace(/<OZICSIGNPAD ([^>]*?)FORMID="([^"]+) (\d+)"([^>]*?)ICONSIZE="\d+"/g, (all, a, key, row, b) =>
     `<OZICSIGNPAD ${a}FORMID="${key} ${row}"${b}ICONSIZE="${lay.signIconSizeByRow?.[row] ?? lay.signIconSize}"`);
 }
@@ -188,7 +286,7 @@ if (!xml.includes('FIELDNAME="document_step_name"')) throw new Error('OZFORMPARA
 const wf = m.validateXmlWellFormedness(xml); if (!wf.ok) throw new Error('XML FAIL ' + wf.errors.join('\n'));
 const es = m.validateEventScripts(xml); if (!es.ok) throw new Error('EVENT FAIL ' + JSON.stringify(es.errors));
 const strict = m.validateEventScriptsStrict(xml); if (!strict.ok) throw new Error('STRICT FAIL ' + strict.errors.join('\n'));
-const expected = fields.length;
+const expected = fields.length - (lay.headerFields?.length ?? 0) * (lay.style === 'reception' ? 1 : 0);
 if (injected !== expected) throw new Error(`OnBind injected ${injected} != fields ${expected}`);
 
 const buf = m.wrapOzrWithResources(xml, [{ name: '1', data: fs.readFileSync(pdfPath) }]);

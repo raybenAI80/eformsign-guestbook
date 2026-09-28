@@ -60,6 +60,178 @@
         {"file": "../../assets/brand/eformsign-logo-blue.png", "right": true, "yCenter": 826, "h": 17}
       ]
     },
+    "D": {
+      "_comment": "D안(사용자 결정 2026-09-28 \"추천안으로 알아서해\"): 디자인 방향 1(기업 리셉션 — 네이비 헤더 밴드, 얇은 괘선) + 방향 2 의 방문 목적 체크칸. 10행 1쪽, 행 66pt. style=reception 은 make-pdf-product.py 의 별도 배경 분기. 기관 로고는 오른쪽 상단(모바일 뷰어의 떠 있는 버튼 5개가 좌상단을 가림 — C2 실측). headerFields = 읽기 전용 값칸(문서 생성 API document.fields 로 주입 — 2026-09-28 실측 PASS. 주입이 없으면(공개 URL 등 API 없는 경로) 1단계 OnBind 가 비어 있을 때만 채움: todayFallback=오늘 날짜, fallback=고정 문구. 장번호는 주입 전용). cols[].type: time=읽기 전용·자기 행 OnBind 에서 비어 있을 때만 HH:MM, purpose=체크박스 3개(윗줄)+기타 체크박스+기타 텍스트(아랫줄)",
+      "style": "reception",
+      "rows": 10,
+      "rowsPerPage": 10,
+      "rowH": 66,
+      "inputSize": 13,
+      "numberSize": 11,
+      "coverSize": 13,
+      "coverText": "✓ 작성 완료",
+      "ownNoInverse": true,
+      "purposeGeo": {"_comment": "방문 목적 칸 안 좌표(칸 왼쪽 x0·행 top 기준 pt). 윗줄 선택지 k: 상자 중심 x = x0+itemX0+k*itemDX+boxDX, y = top+topCY. 아랫줄 기타: 상자 중심 x0+otherBoxDX, y top+botCY, 텍스트칸 otherText=[x0+,top+,x0+,top+]. box=인쇄 상자 한 변, touch=체크박스 컴포넌트(터치 영역) 한 변, 라벨은 상자 오른쪽 labelGap", "itemX0": 4, "itemDX": 52, "boxDX": 13, "topCY": 16.5, "botCY": 49.5, "otherBoxDX": 17, "otherText": [50, 38, 156, 61], "box": 10, "touch": 30, "labelGap": 8, "labelSize": 9},
+      "title": "방문자 명부",
+      "titleEn": "VISITOR LOG",
+      "cols": [
+        {
+          "key": "no",
+          "label": "번호",
+          "w": 24
+        },
+        {
+          "key": "시각",
+          "label": "시각",
+          "w": 42,
+          "type": "time"
+        },
+        {
+          "key": "성명",
+          "label": "성명",
+          "w": 78,
+          "type": "text"
+        },
+        {
+          "key": "연락처",
+          "label": "연락처",
+          "w": 86,
+          "type": "text"
+        },
+        {
+          "key": "목적",
+          "label": "방문 목적",
+          "w": 160,
+          "type": "purpose",
+          "options": [
+            "회의",
+            "납품",
+            "면접"
+          ],
+          "otherLabel": "기타"
+        },
+        {
+          "key": "담당자",
+          "label": "담당자",
+          "w": 58,
+          "type": "text"
+        },
+        {
+          "key": "서명",
+          "label": "서명",
+          "w": 75,
+          "type": "signature"
+        }
+      ],
+      "band": {
+        "top": 62,
+        "h": 48,
+        "titleBaseline": 86,
+        "titleSize": 19,
+        "enBaseline": 101,
+        "enSize": 7
+      },
+      "headerTop": 120,
+      "headerH": 24,
+      "headerSize": 9,
+      "noteY": 822,
+      "noteSize": 8,
+      "headerFields": [
+        {
+          "id": "기관명",
+          "fallback": "포시에스 본사",
+          "box": [
+            250,
+            20,
+            452,
+            38
+          ],
+          "size": 12,
+          "bold": true,
+          "color": "#15223F",
+          "align": "right",
+          "sample": "포시에스 본사"
+        },
+        {
+          "id": "부서",
+          "fallback": "1층 안내데스크",
+          "box": [
+            250,
+            38,
+            452,
+            52
+          ],
+          "size": 9,
+          "color": "#64748B",
+          "align": "right",
+          "sample": "1층 안내데스크"
+        },
+        {
+          "id": "방문일",
+          "box": [
+            340,
+            80,
+            480,
+            102
+          ],
+          "size": 13,
+          "bold": true,
+          "color": "#FFFFFF",
+          "align": "right",
+          "label": "방문일",
+          "todayFallback": true,
+          "sample": "2026. 9. 28. (월)"
+        },
+        {
+          "id": "장번호",
+          "box": [
+            496,
+            80,
+            545,
+            102
+          ],
+          "size": 13,
+          "bold": true,
+          "color": "#FFFFFF",
+          "align": "right",
+          "label": "장 번호",
+          "sample": "3장"
+        }
+      ],
+      "logos": [
+        {
+          "file": "../../assets/brand/forcs-ci-en-original.png",
+          "right": true,
+          "y": 20,
+          "h": 32
+        },
+        {
+          "file": "../../assets/brand/eformsign-logo-blue.png",
+          "right": true,
+          "yCenter": 819,
+          "h": 15
+        }
+      ],
+      "colors": {
+        "title": "#FFFFFF",
+        "band": "#15223F",
+        "bandSub": "#9FB0CC",
+        "bandRule": "#3A4A6B",
+        "headerText": "#1F2A44",
+        "outer": "#15223F",
+        "grid": "#E2E8F0",
+        "vgrid": "#EDF1F5",
+        "number": "#B0B9C6",
+        "optLabel": "#64748B",
+        "optBox": "#94A3B8",
+        "note": "#8A94A3",
+        "ownBorder": "#15223F",
+        "ownFill": "#EEF3FA",
+        "coverBg": "#EEF0F3",
+        "coverText": "#8A94A3",
+        "time": "#64748B"
+      }
+    },
     "P": {
       "_comment": "서명칸 빈 자리표시(펜) 아이콘 실측 프로브. 1행=서명(대조), 2행 ICONSIZE=0, 3행 ICONSIZE=1, 4행 기본 12",
       "title": "방명록 (서명칸 아이콘 실측)",

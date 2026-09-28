@@ -9,8 +9,13 @@
 // 2026-09-28 measured: PC UA at 768 wide = view_iframe_pc at 100% (overflows); mobile UA list page bounces to
 // m_document_list (no documentUtil) -> get the open URL with PC UA first, then navigate with the tablet UA.
 // Signature pad in the mobile viewer ignores CDP mouse drags and Input.dispatchTouchEvent times out -> 「텍스트」 tab.
+// D안 (2026-09-28, --layout tools/multirow/layout-product.json --variant D): own row = the visible enabled signature button +
+//   the editable text inputs on the same row band (성명·연락처·기타내용·담당자, 시각 is read-only). 방문 목적 checkboxes are not
+//   <input> elements in the mobile viewer -> clicked at coordinates mapped from layout pt (scale from 성명/연락처 input lefts).
+//   --check "회의,기타"  --manager "<담당자>"  --other "<기타 내용>"  --min (성명+서명 only)
 import fs from 'node:fs';
 import path from 'node:path';
+import { loadLayout, rowTop as rowTopPt } from './layout.mjs';
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const has = (k) => process.argv.includes(k);
 const port = arg('--port', '9223'); const row = Number(arg('--row')); const E = arg('--ev'); const tag = arg('--tag', 'x');
@@ -71,16 +76,26 @@ out.shots.push(await shot(`step${row}-open`));
 // measure: inputs inside the viewer iframe, grouped into rows of 4 (성명·연락처·목적 text + 서명 button) in DOM order
 const OX0 = () => (globalThis.__OFF ?? [0, 0]);
 const measure = `(()=>{const OX=${OX0()[0]},OY=${OX0()[1]};const f=[...document.querySelectorAll('iframe')].find(x=>/view_iframe/.test(x.src));if(!f)return null;const o0=f.getBoundingClientRect();const o={left:o0.left+OX,top:o0.top+OY,x:o0.left+OX,y:o0.top+OY,width:o0.width,height:o0.height,toJSON(){return {x:this.x,y:this.y,width:this.width,height:this.height}}};const dd=f.contentDocument;
-const els=[...dd.querySelectorAll('input')].filter(e=>e.type==='text'||e.type==='button').map(e=>{const r=e.getBoundingClientRect();return {t:e.type,x:r.left+o.left,y:r.top+o.top,w:r.width,h:r.height,vis:r.width>0&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none',dis:e.disabled||e.readOnly}});
+const els=[...dd.querySelectorAll('input')].filter(e=>e.type==='text'||e.type==='button'||e.type==='checkbox').map(e=>{const r=e.getBoundingClientRect();return {t:e.type,ck:e.type==='checkbox'?e.checked:undefined,x:r.left+o.left,y:r.top+o.top,w:r.width,h:r.height,vis:r.width>0&&getComputedStyle(e).visibility!=='hidden'&&getComputedStyle(e).display!=='none',dis:e.disabled||e.readOnly}});
 const sc=dd.scrollingElement?{top:dd.scrollingElement.scrollTop,h:dd.scrollingElement.scrollHeight}:null;
 const scrollers=[...dd.querySelectorAll('div')].filter(x=>x.scrollHeight>x.clientHeight+50&&x.clientHeight>300).map(x=>({top:x.scrollTop,sh:x.scrollHeight,ch:x.clientHeight})).slice(0,3);
-return {frame:o.toJSON(),n:els.length,els,sc,scrollers,inner:[innerWidth,innerHeight]}})()`;
+const probe=${has('--probe') ? 'true' : 'false'}?[...dd.querySelectorAll('input,[role=checkbox],[class*=heck]')].slice(0,400).map(e=>{const r=e.getBoundingClientRect();return [e.tagName,e.type||'',String(e.className).slice(0,40),Math.round(r.left+o.left),Math.round(r.top+o.top),Math.round(r.width),Math.round(r.height),e.disabled||e.readOnly||false,getComputedStyle(e).visibility,e.checked]}):undefined;
+return {frame:o.toJSON(),n:els.length,els,sc,scrollers,inner:[innerWidth,innerHeight],probe}})()`;
 const m = await ev(measure);
 if (!m) throw new Error('viewer iframe not found');
 out.inputCount = m.n; out.frame = m.frame; out.scrollers = m.scrollers;
+if (has('--probe')) { out.probe = m.probe; out.els = m.els.map((e) => [e.t, Math.round(e.x), Math.round(e.y), Math.round(e.w), Math.round(e.h), e.vis, e.dis, e.ck]); console.log(JSON.stringify(out)); ws.close(); globalThis.__FWS?.close(); process.exit(0); }
 // Row identity: the OZ <input> elements carry no FORMID -> the own row = the visible, editable (not readonly) inputs;
 // sorted left->right they are 성명, 연락처, 방문목적 (text) and 서명 (button).
+const LAY = arg('--layout') ? loadLayout() : null;
 const pickOwn = (mm) => {
+  if (LAY?.style === 'reception') {
+    const sp = mm.els.filter((e) => e.t === 'button' && e.vis && e.w > 0 && !e.dis);
+    if (!sp.length) return [];
+    const band = [sp[0].y - 12, sp[0].y + sp[0].h + 12];
+    const tx = mm.els.filter((e) => e.t === 'text' && e.vis && e.w > 0 && !e.dis && e.y >= band[0] && e.y + e.h <= band[1]).sort((p, q) => p.x - q.x);
+    return [...tx, sp[0]];
+  }
   const tx = mm.els.filter((e) => e.t === 'text' && e.vis && e.w > 0 && !e.dis).sort((p, q) => p.x - q.x).slice(0, 3);
   if (!tx.length) return [];
   const sp = mm.els.filter((e) => e.t === 'button' && e.vis && e.w > 0 && Math.abs(e.y + e.h / 2 - (tx[0].y + tx[0].h / 2)) < 8);
@@ -104,7 +119,7 @@ if (has('--start')) {
     // close any input dialog the start button opened (text input dialog / keypad) is not expected in the mobile viewer; continue
   }
 }
-if (own.length !== 4) { console.log(JSON.stringify(out, null, 1)); ws.close(); process.exit(1); }
+if (own.length !== (LAY?.style === 'reception' ? 5 : 4)) { console.log(JSON.stringify(out, null, 1)); ws.close(); process.exit(1); }
 if (!out.ownInViewport && !has('--start')) {
   // scroll the own row into view by clicking needs it on screen -> use element.scrollIntoView inside the viewer iframe
   await ev(`(()=>{const f=[...document.querySelectorAll('iframe')].find(x=>/view_iframe/.test(x.src));const e=[...f.contentDocument.querySelectorAll('input')].find(e=>e.type==='text'&&!e.readOnly&&e.getBoundingClientRect().width>0);e.scrollIntoView({block:'center'});return 1})()`);
@@ -115,9 +130,32 @@ const c = (e) => [Math.round(e.x + e.w / 2), Math.round(e.y + e.h / 2)];
 const vals = [`방문자${row}`, `010-${String(1000 + row).slice(-4)}-${String(5000 + row).slice(-4)}`, ['회의', '납품', '면접', '견학'][row % 4]];
 const active = `(()=>{const f=[...document.querySelectorAll('iframe')].find(x=>/view_iframe/.test(x.src));const a=f.contentDocument.activeElement;return (a&&a.tagName)+' '+(a&&a.id)+' ro='+(a&&a.readOnly)})()`;
 out.clicks = [];
+if (LAY?.style === 'reception') {
+  // g3 = [성명, 연락처, 기타내용, 담당자, 서명]
+  const checks = (arg('--check', '') || '').split(',').filter(Boolean);
+  const dv = [`방문자${row}`, `010-${String(1000 + row).slice(-4)}-${String(5000 + row).slice(-4)}`, checks.includes('기타') ? arg('--other', '견학') : '', arg('--manager', '')];
+  const order = has('--min') ? [0] : [0, 1, 2, 3];
+  for (const i of order) { if (!dv[i]) continue; const [x, y] = c(g3[i]); await click(x, y); await sleep(700); out.clicks.push([x, y, await ev(active)]); await send('Input.insertText', { text: dv[i] }); await sleep(300); }
+  // checkbox coordinates: pt -> px via the 성명/연락처 input lefts (layout cols x0 + textInsetX) and the 성명 input top (rowTop + textInsetY)
+  const col = (k) => LAY.cols.find((q) => q.key === k);
+  const sx = (g3[1].x - g3[0].x) / (col('연락처').x0 - col('성명').x0);
+  const pt2px = (xp, yp) => [Math.round(g3[0].x + (xp - (col('성명').x0 + LAY.textInsetX)) * sx), Math.round(g3[0].y + (yp - (rowTopPt(LAY, row) + LAY.textInsetY)) * sx)];
+  const pc = LAY.cols.find((q) => q.type === 'purpose'); const G = LAY.purposeGeo; const t0 = rowTopPt(LAY, row);
+  const pos = Object.fromEntries(pc.options.map((lab, k) => [lab, pt2px(pc.x0 + G.itemX0 + k * G.itemDX + G.boxDX, t0 + G.topCY)]));
+  pos[pc.otherLabel] = pt2px(pc.x0 + G.otherBoxDX, t0 + G.botCY);
+  out.checkboxTouchPx = Math.round(G.touch * sx * 10) / 10; out.checkboxPos = pos; out.scalePxPerPt = Math.round(sx * 1000) / 1000;
+  // --poke "1:회의,4:면접": tap checkboxes of OTHER rows (lock test — previous rows hidden, later rows disabled; judge by API values)
+  for (const pk of (arg('--poke', '') || '').split(',').filter(Boolean)) {
+    const [pr, lab] = pk.split(':'); const tr = rowTopPt(LAY, Number(pr)); const k = pc.options.indexOf(lab);
+    const xy = k >= 0 ? pt2px(pc.x0 + G.itemX0 + k * G.itemDX + G.boxDX, tr + G.topCY) : pt2px(pc.x0 + G.otherBoxDX, tr + G.botCY);
+    await click(...xy); await sleep(600); out.clicks.push([...xy, 'poke ' + pk]);
+  }
+  for (const lab of checks) { await click(...pos[lab]); await sleep(600); out.clicks.push([...pos[lab], 'check ' + lab]); }
+} else {
 for (let i = 0; i < 3; i++) { const [x, y] = c(g3[i]); await click(x, y); await sleep(700); out.clicks.push([x, y, await ev(active)]); await send('Input.insertText', { text: vals[i] }); await sleep(300); }
+}
 const btn = (label) => ev(`(()=>{const b=[...document.querySelectorAll('button,a,li,span,div')].filter(x=>x.children.length===0&&x.innerText&&x.innerText.trim()===${JSON.stringify(label)}&&x.getBoundingClientRect().width>0).map(x=>{const q=x.getBoundingClientRect();return [q.left+q.width/2,q.top+q.height/2]});return bs=b.pop()||null})()`.replace('return bs=', 'return '));
-{ const [x, y] = c(g3[3]); await click(x, y); await sleep(2500); const tt = await btn('텍스트'); if (tt) { await click(...tt); await sleep(1500); } const ok = await btn('확인'); if (ok) { await click(...ok); await sleep(2500); } out.signDialog = { text: tt, ok }; }
+{ const [x, y] = c(g3[g3.length - 1]); await click(x, y); await sleep(2500); const tt = await btn('텍스트'); if (tt) { await click(...tt); await sleep(1500); } const ok = await btn('확인'); if (ok) { await click(...ok); await sleep(2500); } out.signDialog = { text: tt, ok }; }
 out.shots.push(await shot(`step${row}-filled`));
 out.textFilled = (await text()).slice(0, 200);
 if (!has('--no-send')) {
