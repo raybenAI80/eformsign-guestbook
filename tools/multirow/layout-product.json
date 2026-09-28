@@ -198,13 +198,15 @@
           "sample": "3장"
         }
       ],
+      "logoSlot": {
+        "_comment": "고객 로고 자리(A안 2026-09-28: 고객이 로고 파일 1장을 보내면 우리가 빌드해 OZR 을 전달). build.mjs --logo <png|jpg|svg> 로 지정 — 없으면 로고 없이 기관명 텍스트만(fields 의 오른쪽 끝이 표 오른쪽 끝까지). 있으면 표 오른쪽 끝 정렬, 높이 h 고정·너비 maxW 상한(넘으면 높이를 줄이고 세로 가운데), 기관명·부서 값칸 오른쪽 끝 = 로고 왼쪽 - gap. 이 자리는 밴드(top 62) 위 흰 영역 20~52pt 안이라 행·페이지 수에 영향 없음. 포시에스 CI(3.09:1) 는 --logo ../../assets/brand/forcs-ci-en-original.png 로 v5 와 같은 위치(460~559, 20~52)에 들어간다",
+        "y": 20,
+        "h": 32,
+        "maxW": 140,
+        "gap": 8,
+        "fields": ["기관명", "부서"]
+      },
       "logos": [
-        {
-          "file": "../../assets/brand/forcs-ci-en-original.png",
-          "right": true,
-          "y": 20,
-          "h": 32
-        },
         {
           "file": "../../assets/brand/eformsign-logo-blue.png",
           "right": true,

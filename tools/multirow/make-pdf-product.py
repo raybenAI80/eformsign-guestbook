@@ -1,5 +1,14 @@
 # Background PDF for the product guestbook (design layouts from layout-product.json, resolved by build.mjs).
 # python make-pdf-product.py <resolved-layout.json> <out.pdf>
+# Customer logo (A안 2026-09-28): layout.logoSlot + layout.customerLogo (build.mjs --logo <path>) -> one logo fitted into the
+# top-right slot (height slot.h fixed, width capped at slot.maxW -> height shrinks, vertically centred; aspect kept).
+# Header value fields listed in slot.fields get their right edge moved to (logo left - slot.gap), or to the table's
+# right edge when there is no logo (organisation name text only). The adjusted headerFields are written back to the
+# resolved layout json so build.mjs places the OZR value boxes on the same geometry.
+# Formats (measured with PyMuPDF 1.27.2): PNG (alpha kept) / JPG (no alpha) via insert_image(filename);
+# SVG -> fitz.Pixmap/insert_image reject it ("unknown image file format"), so fitz.open(svg) is rasterised with
+# get_pixmap(alpha=True) at >= 600 px height and inserted as a pixmap (same image path as PNG). SVG <text> is drawn with
+# a fallback font -> ask for outlined SVG or PNG.
 # Fonts are embedded from TTF files (layout.font / fontBold) — the builtin 'korea' CJK font of the probe
 # (make-pdf.py) rendered with wide, uneven letter spacing in the completed PDF (v7-ext-i-complete-p1.png).
 import json, os, sys, fitz
@@ -76,10 +85,42 @@ def reception(pg):
             pg.draw_line((X + ot[0], t + ot[3]), (X + ot[2], t + ot[3]), color=rgb(C['grid']), width=0.6)
     text(pg, x0, lay['noteY'], lay['privacyNote'], lay['noteSize'], C['note'])
 
+LOGO_EXT = ('.png', '.jpg', '.jpeg', '.svg')
+def load_logo(f):
+    ext = os.path.splitext(f)[1].lower()
+    if ext not in LOGO_EXT: raise SystemExit(f'logo format not supported: {ext} (use png / jpg / svg)')
+    if not os.path.isfile(f): raise SystemExit('logo file not found: ' + f)
+    if ext == '.svg':
+        sp = fitz.open(f)[0]; z = max(1.0, 600 / sp.rect.height)
+        return sp.get_pixmap(matrix=fitz.Matrix(z, z), alpha=True), ext
+    return fitz.Pixmap(f), ext
+
+placed = None
+slot = lay.get('logoSlot')
+if slot:
+    text_right = x1
+    if lay.get('customerLogo'):
+        pix, ext = load_logo(lay['customerLogo'])
+        ar = pix.width / pix.height
+        h = slot['h']; w = h * ar
+        if w > slot['maxW']: w = slot['maxW']; h = w / ar
+        lx, ly = x1 - w, slot['y'] + (slot['h'] - h) / 2
+        text_right = lx - slot['gap']
+        placed = {'file': lay['customerLogo'], 'format': ext, 'px': [pix.width, pix.height], 'alpha': bool(pix.alpha),
+                  'rect': [round(v, 2) for v in (lx, ly, lx + w, ly + h)], 'dpi': round(pix.height / (h / 72))}
+        if placed['dpi'] < 150: print(f"WARN logo resolution low: {placed['dpi']} dpi at print size (want >= 150; >= 300 better)")
+        placed['_pix'] = pix if ext == '.svg' else None
+    for hf in lay.get('headerFields', []):
+        if hf['id'] in slot.get('fields', []): hf['box'][2] = round(text_right, 2)
+
 for p in range(lay['pages']):
     pg = doc.new_page(width=W, height=H)
     if lay.get('style') == 'reception':
         reception(pg)
+        if placed:
+            r = fitz.Rect(*placed['rect'])
+            if placed['_pix'] is not None: pg.insert_image(r, pixmap=placed['_pix'], keep_proportion=True)
+            else: pg.insert_image(r, filename=placed['file'], keep_proportion=True)
         for lg in lay.get('logos', []):
             f = lg['file'] if os.path.isabs(lg['file']) else os.path.normpath(os.path.join(os.path.dirname(lay['file']), lg['file']))
             pix = fitz.Pixmap(f); h = lg['h']; w = h * pix.width / pix.height
@@ -121,4 +162,7 @@ for p in range(lay['pages']):
         pg.insert_image(fitz.Rect(lx, ly, lx + w, ly + h), filename=f, keep_proportion=True)
 doc.subset_fonts()
 doc.save(out, garbage=4, deflate=True)
-print('ok', out, 'pages', lay['pages'])
+lay['bgPages'] = doc.page_count
+if placed: placed.pop('_pix'); lay['logoPlaced'] = placed
+json.dump(lay, open(sys.argv[1], 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+print('ok', out, 'pages', doc.page_count, 'logo', json.dumps(placed, ensure_ascii=False) if placed else ('none (text only)' if slot else '-'))

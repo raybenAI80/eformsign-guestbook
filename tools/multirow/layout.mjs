@@ -18,6 +18,14 @@ export function loadLayout() {
   lay.cols = lay.cols.map((c) => { const o = { ...c, x0: x, x1: x + c.w }; x += c.w; return o; });
   lay.rowsPerPage = lay.rowsPerPage ?? lay.rows;
   lay.pages = Math.ceil(lay.rows / lay.rowsPerPage);
+  // customer logo (A안): --logo <png|jpg|svg> (cwd-relative) or variant "customerLogo" (json-relative); needs a logoSlot
+  const logo = arg('--logo') ? path.resolve(arg('--logo')) : lay.customerLogo ? path.resolve(path.dirname(file), lay.customerLogo) : null;
+  if (logo) {
+    if (!lay.logoSlot) throw new Error(`--logo needs a variant with logoSlot (variant ${v} has none)`);
+    if (!fs.existsSync(logo)) throw new Error('logo file not found: ' + logo);
+    lay.customerLogo = logo;
+  }
+  if (lay.headerFields) lay.headerFields = lay.headerFields.map((h) => ({ ...h, box: [...h.box] }));
   return lay;
 }
 // page (1-based) and top y of row r (1-based)

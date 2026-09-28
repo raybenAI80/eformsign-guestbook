@@ -1,5 +1,7 @@
 # 누적형 방명록 OZR — 고객 로고 주입 경로 조사 (2026-09-28)
 
+> **결정: A안(2026-09-28)** — 고객이 로고 파일 1장을 보내면 우리가 경로 1(빌드 시 배경 PDF 삽입)로 OZR 을 만들어 전달한다. 구현 = `build.mjs --variant D --logo <png|jpg|svg>`(`tools/multirow/README.md`).
+
 사용자 지적: "회사로고도 없고" — 고객마다 다른 로고가 방명록 문서 상단(화면·완료 PDF 모두)에 들어가야 한다.
 현 상태: `tools/multirow/build.mjs` + `make-pdf-product.py`(PyMuPDF 배경 PDF 생성 → OZR 입력 컴포넌트 주입) 어디에도
 이미지/로고 처리 코드가 없다(코드 grep 0건). 완전한 공백이다.

@@ -10,6 +10,7 @@
 //      text inputs resized to fill the cell (core builder caps text boxes at 15pt), signpad ICONSIZE per row,
 //      own-row highlight = border-colour box + per-cell fills (both NOPRINT), themed 「작성 완료」 cover, no StepDebug.
 //   The 3-row probe (default layout.json) output is unchanged.
+//   Customer logo (variant with logoSlot, e.g. D): --logo <png|jpg|svg> -> top-right of the background PDF (make-pdf-product.py).
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -29,6 +30,11 @@ if (lay.design) {
   fs.mkdirSync(path.dirname(resolved), { recursive: true });
   fs.writeFileSync(resolved, JSON.stringify(lay, null, 1));
   execFileSync('python', [path.join(here, 'make-pdf-product.py'), resolved, pdfPath], { stdio: 'inherit' });
+  // make-pdf-product.py writes back headerFields moved around the customer logo (logoSlot) + measured page count
+  const back = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+  if (lay.logoSlot) lay.headerFields = back.headerFields;
+  lay.bgPages = back.bgPages; lay.logoPlaced = back.logoPlaced ?? null;
+  if (lay.bgPages !== lay.pages) throw new Error(`background PDF pages ${lay.bgPages} != layout pages ${lay.pages}`);
 } else if (!fs.existsSync(pdfPath)) execFileSync('python', [path.join(here, 'make-pdf.py'), path.join(here, 'layout.json'), pdfPath], { stdio: 'inherit' });
 const m = await core();
 
@@ -290,4 +296,4 @@ const buf = m.wrapOzrWithResources(xml, [{ name: '1', data: fs.readFileSync(pdfP
 fs.mkdirSync(path.dirname(outPath), { recursive: true });
 fs.writeFileSync(outPath, buf);
 if (xmlPath) fs.writeFileSync(xmlPath, xml);
-console.log(JSON.stringify({ out: outPath, bytes: buf.length, fields: expected, onBindInjected: injected, extraShapes: nExtra, pages: lay.pages, formIds: m.extractOzrFormIds(buf).length, coverage: built.coverage.pass }));
+console.log(JSON.stringify({ out: outPath, bytes: buf.length, fields: expected, onBindInjected: injected, extraShapes: nExtra, pages: lay.pages, ...(lay.design ? { bgPages: lay.bgPages, logo: lay.logoPlaced?.rect ?? (lay.logoSlot ? 'none' : undefined) } : {}), formIds: m.extractOzrFormIds(buf).length, coverage: built.coverage.pass }));
