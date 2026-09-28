@@ -316,10 +316,34 @@ function measureD02() {
   const file = shot("D/D02-search.png");
   if (!fs.existsSync(file)) return null;
   const p = new Pix(file);
-  // 파란 헤더 아래 첫 줄의 검색 입력칸(파란 테두리)
-  const headerH = Math.round(p.height * 0.075);
-  const roi = { x: Math.round(p.width * 0.15), y: headerH + 10, w: Math.round(p.width * 0.35), h: Math.round(p.height * 0.1) };
-  const search = p.bbox(isBlue, roi);
+  /* 파란 헤더 아래 첫 줄의 검색 입력칸.
+     🔴 2026-09-28 레인 M4: 예전 검출은 「헤더 높이 = 화면 7.5%」 고정 + 파란 화소 bbox 였다. 재촬영 2차
+        (뷰포트 1600x900·clip scale 0.75)부터 헤더가 화면의 4.3%(58px)로 줄어 ROI 가 검색 칸 아래(y111~)에서
+        시작했고, 칸의 파란 포커스 테두리도 없어 결과 행의 파란 링크(미리보기·전달…)를 잡았다 → 검색 칸의
+        약 2배 크기 사각형(360,111 840x127)이 표 머리글·첫 행을 덮었다.
+     지금: 헤더 하단을 실측(파란 띠가 끝나는 행)하고, 그 아래에서 회색 테두리 가로선의 최장 연속 구간
+        (x 13~50%, 폭 ≥ 8%)을 입력칸의 위·아래 변으로 잡는다. */
+  let headerH = 0;
+  const hx = Math.round(p.width * 0.75);
+  while (headerH < p.height * 0.2 && isBlue(p.at(hx, headerH))) headerH++;
+  const isBorder = (c) => sat(c) <= 6 && c[0] < 235 && c[0] > 150;
+  const x0 = Math.round(p.width * 0.13), x1 = Math.round(p.width * 0.5);
+  const lines = [];
+  for (let y = headerH + 2; y < headerH + Math.round(p.height * 0.12); y++) {
+    let best = null, st = -1;
+    for (let x = x0; x <= x1; x++) {
+      const on = x < x1 && isBorder(p.at(x, y));
+      if (on && st < 0) st = x;
+      if (!on && st >= 0) { if (!best || x - st > best.w) best = { x: st, w: x - st }; st = -1; }
+    }
+    if (best && best.w >= p.width * 0.08) lines.push({ y, ...best });
+  }
+  let search = null;
+  if (lines.length >= 2) {
+    const top = lines[0];
+    const bottom = [...lines].reverse().find((l) => l.y - top.y >= 10 && Math.abs(l.x - top.x) <= 4 && Math.abs(l.w - top.w) <= 8);
+    if (bottom) search = { x: top.x, y: top.y, w: top.w, h: bottom.y - top.y + 1, headerH };
+  }
   // 결과 행 구분선(회색 가로선)
   const scanX = Math.round(p.width * 0.3);
   const seps = [];

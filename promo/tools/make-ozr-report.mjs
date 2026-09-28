@@ -10,11 +10,14 @@
  * 필요한 것(값은 이 파일에 쓰지 않는다 — public 저장소)
  *   - env EFORMSIGN_CLI (모노레포 eformsign-cli/bin/eformsign.mjs)
  *   - .local/report.env (촬영 계정 efstest 자격, DOTENV_CONFIG_PATH 로 전달)
- *   - --live: .local/template-demo-copy.json 의 templateId
+ *   - --live: 대상 템플릿 정보 파일의 templateId — 기본 `.local/template-demo-copy-v2.json`
+ *     (커넥트 「방명록」·K02 시트·D01~D03 이 쓰는 v2). `--template-file <path>` 로 바꾼다.
+ *     🔴 2026-09-28: 예전엔 v1(`template-demo-copy.json`) 로 하드코딩돼 D04 보고서가 K02 시트와
+ *     다른 문서 묶음(이름만 같은 v1 문서)을 실었다. 영상 컷끼리 같은 템플릿을 써야 한다.
  * 결과: promo/out/check/ozr-report-{preview|live}.pdf / .png / .ozr, --live 는 .local/ozr-report.json 기록
  *
  * 사용: node promo/tools/make-ozr-report.mjs --preview
- *       node promo/tools/make-ozr-report.mjs --live [--date 2026-09-23]
+ *       node promo/tools/make-ozr-report.mjs --live [--date 2026-09-23] [--template-file .local/template-demo-copy-v2.json] [--template-name <유일한 서식 이름>]
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -26,6 +29,8 @@ const args = process.argv.slice(2);
 const mode = args.includes('--live') ? 'live' : args.includes('--preview') ? 'preview' : null;
 if (!mode) { console.error('usage: --preview | --live [--date YYYY-MM-DD]'); process.exit(2); }
 const dateIdx = args.indexOf('--date');
+const tplIdx = args.indexOf('--template-file');
+const templateFile = resolve(root, tplIdx >= 0 ? args[tplIdx + 1] : '.local/template-demo-copy-v2.json');
 const date = dateIdx >= 0 ? args[dateIdx + 1] : new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); // KST 오늘
 
 const cli = process.env.EFORMSIGN_CLI;
@@ -60,9 +65,13 @@ let tplName;
 if (mode === 'preview') {
   extra = ['--rows', resolve(root, '.local/ozr-report-sample-rows.json')];
 } else {
-  const tpl = JSON.parse(readFileSync(resolve(root, '.local/template-demo-copy.json'), 'utf8'));
+  if (!existsSync(templateFile)) { console.error('템플릿 정보 파일 없음: ' + templateFile); process.exit(2); }
+  const tpl = JSON.parse(readFileSync(templateFile, 'utf8'));
+  console.error('대상 템플릿: ' + tpl.templateName + ' (' + templateFile.split(/[\/]/).pop() + ')');
   docName = `방문자 기록부 명단 - ${date}`;
-  tplName = `방문자 기록부 명단 보고서 (OZ Report)`;
+  // 서식 이름은 회사 안에서 유일해야 한다(중복이면 HTTP 400 4000048 「connection name already exists」).
+  const tnIdx = args.indexOf('--template-name');
+  tplName = tnIdx >= 0 ? args[tnIdx + 1] : `방문자 기록부 명단 보고서 (OZ Report)`;
   extra = ['--template-id', tpl.templateId, '--require-field', '방문자성명', '--keep',
     '--document-name', docName, '--template-name', tplName];
 }
@@ -81,7 +90,7 @@ execFileSync('python', ['-c',
   base + '.pdf', base + '.png'], { stdio: 'inherit' });
 
 const summary = {
-  mode, date,
+  mode, date, templateFile: mode === 'live' ? templateFile.split(/[\/]/).pop() : undefined,
   rowCount: res.rowCount,
   skippedCount: res.skippedCount,
   documentCompletion: res.documentCompletion,
@@ -95,7 +104,7 @@ const summary = {
 if (mode === 'live') {
   // .local 은 gitignore — 실제 ID 를 남겨도 되는 유일한 자리.
   writeFileSync(resolve(root, '.local/ozr-report.json'), JSON.stringify({
-    createdAt: new Date().toISOString(), date,
+    createdAt: new Date().toISOString(), date, templateFile,
     templateName: res.templateName, templateId: res.templateId,
     documentName: res.documentName, documentId: res.documentId,
     rowCount: res.rowCount, skippedCount: res.skippedCount, tableRows: res.tableRows,
