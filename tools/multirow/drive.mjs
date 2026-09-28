@@ -1,6 +1,8 @@
 // Minimal CDP driver for the logged-in capture Chrome (never logs in / switches accounts).
 // node drive.mjs --port 9223 (--match <urlSubstr> | --new) --steps <steps.json>
 // steps: [{nav:url}|{wait:ms}|{evalFile:path,out?}|{shot:path}|{click:[x,y]}|{type:text}|{key:"Tab"}|{eval:js,out?:path}|{net:{dir,filter}}|{size:[w,h]}|{drag:[[x,y],...]}]
+// {clickIf:{re,at:[x,y]}}: click only if the top document's innerText matches regex re (e.g. a 문서 전송 dialog that
+//   quick_processing may or may not show) -> prints CLICKIF hit|miss. Top frame only (not cross-origin iframes).
 // {drag}: press at the first point, move through the rest, release (e.g. drawing on a signature pad)
 // {net} enables Network capture from that point on; response bodies whose URL matches filter are saved into dir.
 import fs from 'node:fs';
@@ -54,6 +56,11 @@ for (const s of steps) {
     for (const p of ps) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1], button: 'left', buttons: 1 }); await sleep(15); }
     const pl = ps.at(-1) ?? p0;
     await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pl[0], y: pl[1], button: 'left', clickCount: 1 });
+  }
+  if (s.clickIf) {
+    const r = await send('Runtime.evaluate', { expression: `new RegExp(${JSON.stringify(s.clickIf.re)}).test(document.body.innerText)`, returnByValue: true });
+    const hit = r.result?.value === true; console.log('CLICKIF', hit ? 'hit' : 'miss', s.clickIf.re);
+    if (hit) await mouse(s.clickIf.at[0], s.clickIf.at[1]);
   }
   if (s.type) await send('Input.insertText', { text: s.type });
   if (s.key) { await send('Input.dispatchKeyEvent', { type: 'keyDown', key: s.key, code: s.key, windowsVirtualKeyCode: s.key === 'Tab' ? 9 : 13 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: s.key, code: s.key }); }

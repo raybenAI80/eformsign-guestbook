@@ -81,8 +81,9 @@ xml = xml.replace(/<(OZIC[A-Z]+) ([^>]*?)FORMID="([^"]+) (\d+)"([^>]*?)(\/?)>/g,
 // Completed PDF = print/export: it ignores display flags (script SetVisible AND static VISIBLE="false", both measured v3/v5)
 // but honours print flags -> cover/highlight shapes carry static NOPRINT="True" (never in the PDF); OnBind SetVisible drives the viewer.
 //   coverStyleByRow "opaque"     : grey filled box + text (PDF-safe via NOPRINT)
+//   ONESHAPE HALIGN/VALIGN are integer codes 0=center, 1=left/top, 2=right/bottom (v5/v6 used 1/1 -> text stuck top-left)
 //   coverStyleByRow "text-guard" : transparent, empty default text; OnBind SetText only while not complete (also PDF-safe without NOPRINT)
-const shape = (name, l, t, w, h, text, extra, js) => `<ONESHAPE NAME="${name}" LEFT="${l}" TOP="${t}" WIDTH="${w}" HEIGHT="${h}" BGCOLOR="${extra.bg}" TRANSPARENT="${extra.transparent}" BackgroundAlpha="255" DRAWLEFT="0" DRAWTOP="0" DRAWRIGHT="0" DRAWBOTTOM="0" FGCOLOR="${extra.fg}" FONTNAME="맑은 고딕" FONTSIZE="${extra.size}" FONTSTYLE="${extra.style}" HALIGN="${extra.halign}" VALIGN="1"${extra.hidden ? ' NOPRINT="True"' : ''}>${esc(text)}${ev('OnBind', js)}</ONESHAPE>`;
+const shape = (name, l, t, w, h, text, extra, js) => `<ONESHAPE NAME="${name}" LEFT="${l}" TOP="${t}" WIDTH="${w}" HEIGHT="${h}" BGCOLOR="${extra.bg}" TRANSPARENT="${extra.transparent}" BackgroundAlpha="255" DRAWLEFT="0" DRAWTOP="0" DRAWRIGHT="0" DRAWBOTTOM="0" FGCOLOR="${extra.fg}" FONTNAME="맑은 고딕" FONTSIZE="${extra.size}" FONTSTYLE="${extra.style}" HALIGN="${extra.halign}" VALIGN="${extra.valign ?? 1}"${extra.hidden ? ' NOPRINT="True"' : ''}>${esc(text)}${ev('OnBind', js)}</ONESHAPE>`;
 const coverJs = (row, guard) => `try {
 ${stepJs}
 var _row = ${row};
@@ -106,7 +107,7 @@ if (lay.coverLabel) {
   for (let r = 1; r < lay.rows; r++) {
     const guard = (lay.coverStyleByRow?.[r] ?? 'opaque') === 'text-guard';
     extraKids.push(shape(`Cover${r}`, rx0, rowTop(r) + 1, rx1 - rx0, lay.rowH - 2, guard ? '' : '작성 완료',
-      { bg: guard ? -1 : -1118482, transparent: guard ? 'true' : 'false', fg: -10066330, size: 12, style: 1, halign: 1, hidden: true }, coverJs(r, guard)));
+      { bg: guard ? -1 : -1118482, transparent: guard ? 'true' : 'false', fg: -10066330, size: 12, style: 1, halign: 0, valign: 0, hidden: true }, coverJs(r, guard)));
   }
 }
 if (lay.highlightOwnRow) {

@@ -1,9 +1,11 @@
 // Deploy the multirow probe OZR to the account in EFORMSIGN_ENV_FILE.
 // Workflow = 시작 + 참여자 N (step names "방문자 1..N", recipient mode "문서 전송 시 지정 가능") + 완료.
 // Step shape source = an existing template that has a participant step (--shape-name, looked up by name at runtime).
-// Usage: node deploy.mjs --ozr <f.ozr> --name "<template name>" --shape-name "<source template name>" [--category 키오스크] [--dry-run]
+// Usage: node deploy.mjs --ozr <f.ozr> --name "<template name>" --shape-name "<source template name>" [--category 키오스크] [--skip-send-popup] [--dry-run]
+// --skip-send-popup: form.quick_processing=true (콘솔 일반 설정 > 문서 설정 「문서 전송 시 팝업 생략」; 임베딩 가이드 template_option 표의 같은 이름 필드).
+//   deployTemplateFile hardcodes quick_processing:false -> after create: GET form -> set flag -> save (create-shape auth) -> release again.
 import fs from 'node:fs';
-import { client } from './env.mjs';
+import { client, core } from './env.mjs';
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const lay = JSON.parse(fs.readFileSync(new URL('./layout.json', import.meta.url), 'utf8'));
 const c = await client();
@@ -41,6 +43,22 @@ const res = await c.ozw.deployTemplateFile({
   dryRun: process.argv.includes('--dry-run'),
 });
 const out = { ...res }; delete out.payload;
+if (process.argv.includes('--skip-send-popup') && !process.argv.includes('--dry-run')) {
+  // same save path as templates.repairConnectOutputs: POST members/{id}/forms/{formId} with create-shape auth, then release (save leaves is_release:false)
+  const m = await core(); const http = c.templates.opts.http; const mid = c.templates.resolveMemberId(undefined, 'deploy'); const tk = c.templates.resolveMemberToken(undefined, 'deploy');
+  const cid = (await http.getCompany()).id; const enc = encodeURIComponent(mid);
+  const t = (await c.templates.list()).templates.find((x) => x.name === arg('--name')); const fid = t.form_id ?? t.id;
+  const url = `/v1.0/companies/${cid}/members/${enc}/forms/${encodeURIComponent(fid)}`;
+  const get = async () => (await http.requestService(url, { method: 'GET', tokenKind: tk, query: { lang: 'ko', include_config: 'Y' } }))?.result?.form;
+  const f = await get(); const before = { quick_processing: f.quick_processing, version: f.version };
+  const patched = JSON.parse(JSON.stringify(f)); patched.quick_processing = true;
+  patched.auth = { ...(patched.auth ?? {}), ...m.toCreateShapeAuthFromForm(f) };
+  await http.requestServiceMultipart(url, { method: 'POST', tokenKind: tk, query: { lang: 'ko' }, fields: { json: JSON.stringify({ idf: {}, input: { form: patched } }) }, files: [] });
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  await http.requestService(`/v1.0/companies/${cid}/forms/${encodeURIComponent(fid)}/release/request`, { method: 'POST', tokenKind: tk, body: { idf: {}, input: { target_date: start.getTime(), request_message: '팝업 생략 적용', responder: mid } } });
+  const a = await get();
+  out.skipSendPopup = { before, after: { quick_processing: a.quick_processing, version: a.version, is_release: a.is_release, form_member: Boolean(a.auth?.form_member) } };
+}
 if (process.argv.includes('--dry-run')) out.payloadSteps = res.payload?.config?.step_settings?.map((s) => `${s.type}:${s.name}:${s.option?.specified_recipient_type ?? '-'}`) ?? JSON.stringify(res.payload).slice(0, 400);
 console.log(JSON.stringify(out, null, 1));
 // --dump <file>: fresh GET of the managed template (step ico required / fields) -> .local only (contains IDs)
