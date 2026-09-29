@@ -331,9 +331,14 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 | `KIOSK_MULTIROW_DOC_NAME` / `KIOSK_TIMEZONE` | (선택) 문서 이름 앞부분(기본 `방명록`) / 이름에 붙는 시각 기준(기본 `Asia/Seoul`) |
 | `KIOSK_MULTIROW_ORG_NAME` / `KIOSK_MULTIROW_DEPT` | (선택) 기본 서식(D안) 머리 칸 「기관명」·「부서」 값. 새 장을 만들 때 문서 생성 요청 `document.fields` 로 채운다. 비우면 안 보냄 |
 | `KIOSK_MULTIROW_DATE` / `KIOSK_MULTIROW_SHEET_NO` | (선택) `auto` 면 「방문일」= 새 장을 연 날(`KIOSK_TIMEZONE`), 「장번호」= 그날 몇 번째 장인지(문서 목록 기준 `N장`). 그 밖의 값이면 안 보냄 |
+| `KIOSK_MULTIROW_NEW_SHEET` | (선택) `never`(기본·현행) / `daily` = 진행 중 장이 오늘(`KIOSK_TIMEZONE`)·같은 운영 구간(운영 전/중/후)에 만든 장이 아니면 그대로 둔 채 새 장 |
+| `KIOSK_MULTIROW_OPEN_AT` / `KIOSK_MULTIROW_CLOSE_AT` | (선택) 운영 시각 `HH:MM`. 시작 정각 = 운영 중, 종료 정각 = 마감. 형식 오류·종료≤시작이면 `400 bad_env` + `invalid:[이름]` |
+| `KIOSK_MULTIROW_AFTER_CLOSE` | (선택) 운영 시간 밖 요청: `new`(기본) = 새 장 / `closed` = `200 {ok:false, code:'CLOSED', openAt, closeAt}` (이폼사인 호출 0), 화면은 방문자용 「받지 않습니다」 + 60초마다 재확인 |
 
 로컬 검증: `node --env-file=.local/report.env tools/multirow-option/probe.mjs --template-name "<서식 이름>" plan|call|doc|serve`,
 판정 로직 단위 검사 `node tools/multirow-option/test-lib.mjs`.
+응답 `sheet = {dayKey, inWindow, reason}` — `reason` 은 `reuse`·`new_day`·`after_close`·`before_open`·`first`(이어 쓸 장 없음: 첫 장·앞 장이 다 참).
+🔴 이폼사인 API 에는 문서 강제 완료가 없다(취소·반려·삭제뿐) — 종료 시각은 **장 마감 + 다음 방문자 새 장**이고, 마감된 장은 취소하지 않고 진행 중으로 남긴다. 크론 없이 요청 시점에 판정한다.
 
 ---
 

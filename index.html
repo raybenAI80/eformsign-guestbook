@@ -230,6 +230,13 @@
       </div>
     </section>
 
+    <!-- 운영 시간 밖(누적형 + 「받지 않기」) — 방문자용 안내. 시작 시각이 되면 저절로 열린다 -->
+    <section class="overlay" id="ovClosed" role="status" aria-live="polite" hidden>
+      <h2>지금은 방명록을 받지 않습니다.</h2>
+      <p id="closedHours" class="nb">운영 시간에 다시 와 주세요.</p>
+      <p class="hint">운영 시간이 되면 이 화면이 저절로 바뀝니다.</p>
+    </section>
+
     <!-- 오류 -->
     <section class="overlay" id="ovError" hidden>
       <h2>작성 화면을 열지 못했습니다.</h2>
@@ -275,6 +282,7 @@
   var els = {
     stage: $('stage'), host: $('frameHost'),
     loading: $('ovLoading'), thanks: $('ovThanks'), error: $('ovError'),
+    closed: $('ovClosed'), closedHours: $('closedHours'),
     idle: $('ovIdle'), idleRing: $('idleRing'), idleSub: $('idleSub'), btnKeep: $('btnKeep'),
     errBox: $('errBox'), errHint: $('errHint'), countdown: $('countdown'),
     hTitle: $('hTitle'), hSub: $('hSub'),
@@ -342,7 +350,9 @@
     els.loading.hidden = which !== 'loading';
     els.thanks.hidden = which !== 'thanks';
     els.error.hidden = which !== 'error';
-    els.btnRestart.hidden = which === 'thanks';   // 감사 화면에서는 되돌릴 것이 없다
+    els.closed.hidden = which !== 'closed';
+    els.btnRestart.hidden = which === 'thanks' || which === 'closed';   // 감사·닫힘 화면에서는 되돌릴 것이 없다
+    if (which !== 'closed') stopClosedPoll();
     if (which !== null) closeRestartConfirm();
     if (which) cancelWarn('show:' + which);      // 무응답 경고는 작성 화면에서만 뜬다
     state.phase = which || 'form';
@@ -628,6 +638,7 @@
       }, function (err) {
         if (my !== state.session) return;
         clearTimeout(loadWatchTimer);
+        if (err.closed) { showClosed(err.closed); return; }
         onError({ code: 'MULTIROW', message: err.message, hint: err.hint });
       });
       return;
@@ -642,8 +653,10 @@
       return r.json().catch(function () { return {}; }).then(function (b) {
         if (r.ok && b && b.ok && b.token_id) return b;
         var e = new Error((b && b.message) || ('HTTP ' + r.status));
+        if (r.ok && b && b.code === 'CLOSED') { e.closed = b; throw e; }   // 운영 시간 밖 — 오류가 아니다
         e.hint = r.status === 404 ? '누적형 옵션이 꺼져 있습니다(KIOSK_MULTIROW_ENABLED).'
           : (b && b.reason === 'missing_env') ? '빠진 설정값: ' + (b.missing || []).join(', ')
+          : (b && b.reason === 'bad_env') ? '모양이 틀린 설정값: ' + (b.invalid || []).join(', ') + ' (시각은 10:00 처럼 적습니다)'
           : '관리자에게 알려 주세요.';
         throw e;
       });
@@ -719,6 +732,31 @@
     els.errHint.textContent = (res && res.hint) || '관리자에게 알려 주세요.';
     els.errBox.textContent = JSON.stringify(res, null, 2);
     show('error');
+  }
+
+  // ---------- 운영 시간 밖(누적형 CLOSED) ----------
+  // 🔴 이 화면은 방문자가 본다 — 관리자 안내·오류 상자를 보이지 않는다.
+  //    일정 간격으로 서버에 조용히 물어보고, 열리면 새 작성 화면을 연다(로딩 화면을 번쩍이지 않는다).
+  var closedPollTimer = null;
+  function stopClosedPoll() { clearTimeout(closedPollTimer); closedPollTimer = null; }
+  function showClosed(info) {
+    var o = info && info.openAt, c = info && info.closeAt;
+    els.closedHours.textContent = (o || c)
+      ? '운영 시간 ' + (o || '') + '~' + (c || '')
+      : '운영 시간에 다시 와 주세요.';
+    log('운영 시간 밖', info && info.sheet);
+    if (state.phase !== 'closed') show('closed');
+    stopClosedPoll();
+    var sec = Number(C.closedRetrySeconds) > 0 ? Number(C.closedRetrySeconds) : 60;
+    closedPollTimer = setTimeout(function () {
+      if (state.phase !== 'closed') return;
+      fetchMultirow('').then(function () {
+        if (state.phase === 'closed') startSession('opened');
+      }, function (err) {
+        if (state.phase !== 'closed') return;
+        showClosed(err.closed || info);   // 아직 닫힘이거나 잠깐 연결이 끊김 — 같은 화면에서 다시 기다린다
+      });
+    }, sec * 1000);
   }
 
   // 서식은 불러오는데 작성 화면이 끝내 뜨지 않는 경우 = 서식 설정 문제일 가능성이 가장 높다.

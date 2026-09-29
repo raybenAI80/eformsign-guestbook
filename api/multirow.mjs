@@ -25,19 +25,25 @@
  *   KIOSK_MULTIROW_DEPT=1층 안내데스크     (선택) 「부서」 칸
  *   KIOSK_MULTIROW_DATE=auto               (선택) 「방문일」 칸 = 새 장을 연 날(고객 시간대). off/빈칸 = 안 채움
  *   KIOSK_MULTIROW_SHEET_NO=auto           (선택) 「장번호」 칸 = 그날 몇 번째 장인지(문서 목록 기준). off/빈칸 = 안 채움
+ *   ── 시간창·하루 단위 새 장(2026-09-29) — 시간대는 KIOSK_TIMEZONE ──
+ *   KIOSK_MULTIROW_NEW_SHEET=daily         (선택) never(기본·현행) | daily = 날짜가 바뀌거나 종료 시각이 지나면 다음 방문자는 새 장
+ *   KIOSK_MULTIROW_OPEN_AT=10:00           (선택) 운영 시작 시각 HH:MM
+ *   KIOSK_MULTIROW_CLOSE_AT=16:00          (선택) 운영 종료 시각 HH:MM(시작보다 늦어야 한다). 이 시각 정각부터 그 장은 마감
+ *   KIOSK_MULTIROW_AFTER_CLOSE=new         (선택) new(기본) = 운영 시간 밖 방문자는 새 장 | closed = 「운영 시간이 아닙니다」 응답
+ *   🔴 이폼사인 API 에는 문서를 강제로 완료시키는 호출이 없다 — 「종료」는 장 마감 + 다음 방문자 새 장이다.
+ *      마감된 장은 취소하지 않고 진행 중으로 남는다(적힌 기록 그대로).
  *
  * 호출
  *   GET /api/multirow            → 지금 열 단계
  *   GET /api/multirow?last=<id>  → 화면이 직전에 쓰던 문서를 먼저 확인(완료 직후 목록 반영 지연 대비)
  *
- * 응답(200): { ok, document_id, step_no, step_name, token_id, company_id, created, rows, embed }
+ * 응답(200): { ok, document_id, step_no, step_name, token_id, company_id, created, rows, sheet, embed }
+ *   sheet = { dayKey, inWindow, reason: reuse|new_day|after_close|before_open|first }
+ * 닫힘(200): { ok:false, code:'CLOSED', openAt, closeAt, message, sheet }  — afterClose=closed 이고 운영 시간 밖
+ * 시각 형식 오류(400): { ok:false, reason:'bad_env', invalid:[이름], message }
  * 🔴 API 키·개인키·액세스 토큰은 싣지 않는다. CORS 헤더를 주지 않는다 — 같은 주소의 화면만 쓴다.
- *
- * 설계 메모(구현하지 않음): 「하루 단위 새 장」 — KIOSK_MULTIROW_NEW_SHEET=daily 를 두고, 진행 중
- * 문서의 created_date 가 오늘(고객 시간대)이 아니면 그 문서를 그대로 둔 채 새 문서를 만든다.
- * 남은 빈 단계는 관리자가 문서 관리에서 정리한다. docs/multirow-option.md 「하루 단위 새 장」 참조.
  */
-import { resolveMultirowStep, headerFromEnv } from './lib/eformsign-multirow.mjs';
+import { resolveMultirowStep, headerFromEnv, sheetOptionsFromEnv } from './lib/eformsign-multirow.mjs';
 
 const json = (res, status, body) => {
   res.statusCode = status;
@@ -89,6 +95,12 @@ export default async function handler(req, res) {
     return json(res, 500, { ok: false, reason: 'missing_env', missing, message: '설정값이 비어 있습니다: ' + missing.join(', ') });
   }
 
+  const hours = sheetOptionsFromEnv(env);
+  if (hours.errors.length) {
+    return json(res, 400, { ok: false, reason: 'bad_env', invalid: hours.errors,
+      message: '설정값 형식이 틀렸습니다: ' + hours.errors.join(', ') + ' (시각은 10:00 처럼 HH:MM, 종료가 시작보다 늦어야 합니다. NEW_SHEET 는 never|daily, AFTER_CLOSE 는 new|closed)' });
+  }
+
   const last = new URL(req.url || '/', 'http://localhost').searchParams.get('last') || '';
 
   try {
@@ -107,7 +119,11 @@ export default async function handler(req, res) {
       timeZone: env.KIOSK_TIMEZONE || 'Asia/Seoul',
       validDays: Number(env.KIOSK_MULTIROW_VALID_DAYS) || 50,
       header: headerFromEnv(env),
+      ...hours.options,
     });
+    if (r.closed) {
+      return json(res, 200, { ok: false, code: 'CLOSED', openAt: r.openAt, closeAt: r.closeAt, message: '운영 시간이 아닙니다', sheet: r.sheet });
+    }
     if (r.warnings.length) console.warn('[multirow] 서식 설정 확인 필요:', r.warnings.join(', '));
     if (r.log.some((s) => s.startsWith('extra_open:'))) console.warn('[multirow] 진행 중 문서가 여러 건입니다 — 가장 최근 1건만 씁니다.', r.log.join(' '));
     return json(res, 200, {
@@ -119,6 +135,7 @@ export default async function handler(req, res) {
       company_id: r.company_id,
       created: r.created,
       rows: r.rows,
+      sheet: r.sheet,
       // 새 장을 만들 때만 채워진다: view_auth_on · send_auth_on · cert_sign_on · outsider_complete_mail_on
       warnings: r.warnings,
       trace: r.log,

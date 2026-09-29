@@ -154,6 +154,105 @@ export function sheetIndexToday(documents = [], { now = Date.now(), timeZone = '
   return same.length + 1;
 }
 
+// ── 시간창·하루 단위 새 장(2026-09-29) ─────────────────────────────────────────
+// 🔴 이폼사인 API 에는 문서를 강제로 「완료」시키는 호출이 없다(취소·반려·삭제뿐). 그래서 「종료 시각」은
+//    문서를 끝내는 것이 아니라 **그 장을 마감(더는 이어 쓰지 않음)하고 다음 방문자에게 새 장**을 여는 뜻이다.
+//    마감된 장은 취소하지 않고 진행 중으로 남긴다(적힌 기록 보존). 크론 없이 요청 시점에 판정한다.
+
+/** 'HH:MM'(또는 'H:MM') → 자정부터 분. 빈 값 = null. 형식이 틀리면 NaN. */
+export function parseClock(v) {
+  const s = String(v ?? '').trim();
+  if (!s) return null;
+  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(s);
+  return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+}
+
+/** 고객 시간대 기준 자정부터 분. */
+function localMinutes(t, timeZone) {
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(new Date(Number(t))).map((x) => [x.type, x.value]));
+    return (Number(p.hour) % 24) * 60 + Number(p.minute);
+  } catch { const d = new Date(Number(t)); return d.getUTCHours() * 60 + d.getUTCMinutes(); }
+}
+
+/** 시각 설정 검사. 틀린 이름 목록을 돌려준다(빈 배열 = 정상). 종료 시각이 시작 시각보다 늦어야 한다(자정 넘는 운영은 받지 않는다). */
+export function sheetOptionErrors({ newSheet = 'never', openAt = null, closeAt = null, afterClose = 'new' } = {}) {
+  const bad = [];
+  if (!['never', 'daily'].includes(newSheet)) bad.push('KIOSK_MULTIROW_NEW_SHEET');
+  if (!['new', 'closed'].includes(afterClose)) bad.push('KIOSK_MULTIROW_AFTER_CLOSE');
+  const o = parseClock(openAt), c = parseClock(closeAt);
+  if (Number.isNaN(o)) bad.push('KIOSK_MULTIROW_OPEN_AT');
+  if (Number.isNaN(c)) bad.push('KIOSK_MULTIROW_CLOSE_AT');
+  if (o != null && c != null && !Number.isNaN(o) && !Number.isNaN(c) && c <= o) bad.push('KIOSK_MULTIROW_OPEN_AT', 'KIOSK_MULTIROW_CLOSE_AT');
+  return [...new Set(bad)];
+}
+
+/** 환경변수 → 시간창 옵션 + 틀린 이름. api/multirow.mjs 가 400 으로 답할 때 쓴다. */
+export function sheetOptionsFromEnv(env = {}) {
+  const low = (v, d) => String(v ?? '').trim().toLowerCase() || d;
+  const options = {
+    newSheet: low(env.KIOSK_MULTIROW_NEW_SHEET, 'never'),
+    openAt: String(env.KIOSK_MULTIROW_OPEN_AT ?? '').trim() || null,
+    closeAt: String(env.KIOSK_MULTIROW_CLOSE_AT ?? '').trim() || null,
+    afterClose: low(env.KIOSK_MULTIROW_AFTER_CLOSE, 'new'),
+  };
+  return { options, errors: sheetOptionErrors(options) };
+}
+
+/**
+ * 지금이 운영 시간 안인지. 경계: 시작 시각 정각 = 안, 종료 시각 정각 = 밖(마감).
+ * @returns {{dayKey:string, inWindow:boolean, beforeOpen:boolean, afterClose:boolean}}
+ */
+export function sheetWindow(now = Date.now(), { tz = 'Asia/Seoul', timeZone, openAt = null, closeAt = null } = {}) {
+  const zone = timeZone || tz;
+  const errs = sheetOptionErrors({ openAt, closeAt });
+  if (errs.length) throw new Error('운영 시각 형식이 틀렸습니다: ' + errs.join(', '));
+  const m = localMinutes(now, zone), o = parseClock(openAt), c = parseClock(closeAt);
+  const beforeOpen = o != null && m < o;
+  const afterClose = c != null && m >= c;
+  return { dayKey: localDay(now, zone), inWindow: !beforeOpen && !afterClose, beforeOpen, afterClose };
+}
+
+/** 문서가 오늘(고객 시간대) 만든 장인지. created_date 가 없으면 false. */
+export function isSheetOfToday(doc, now = Date.now(), tz = 'Asia/Seoul') {
+  return !!(doc && doc.created_date) && localDay(doc.created_date, tz) === localDay(now, tz);
+}
+
+/** 하루를 운영 전·운영 중·마감 뒤 세 구간으로 나눈다. 같은 날·같은 구간에 만든 장만 이어 쓴다. */
+function segmentOf(t, opts) {
+  const w = sheetWindow(t, opts);
+  return w.beforeOpen ? 'before' : w.afterClose ? 'after' : 'in';
+}
+
+/**
+ * 이 장을 지금 방문자에게 이어 쓰게 할지(열린 장이 아니면 false).
+ *   newSheet 'never' → 열린 장이면 항상 이어 쓴다(현행).
+ *   newSheet 'daily' → 오늘 만든 장이고, 지금과 같은 구간(운영 중이면 운영 중에 만든 장)이어야 한다.
+ *     = 날짜가 바뀌면 새 장, 종료 시각이 지나면 새 장(운영 중에 만든 장은 마감).
+ *       마감 뒤에 연 장은 마감 뒤 방문자끼리 이어 쓴다(방문자마다 새 장이 생기지 않게).
+ * opts = { templateId, newSheet, openAt, closeAt, tz|timeZone }
+ */
+export function shouldReuse(doc, now = Date.now(), opts = {}) {
+  if (!judgeDocument(doc, { templateId: opts.templateId, now }).open) return false;
+  if ((opts.newSheet || 'never') !== 'daily') return true;
+  const tz = opts.timeZone || opts.tz || 'Asia/Seoul';
+  if (!isSheetOfToday(doc, now, tz)) return false;
+  return segmentOf(doc.created_date, opts) === segmentOf(now, opts);
+}
+
+/** 새 장을 여는 이유(응답 sheet.reason). staleOpen = 진행 중이지만 이어 쓰지 않기로 한 장들. 'first' = 이어 쓸 장이 없음(첫 장·앞 장이 다 참). */
+export function newSheetReason(now, staleOpen = [], opts = {}) {
+  if ((opts.newSheet || 'never') === 'daily') {
+    const w = sheetWindow(now, opts);
+    if (w.afterClose) return 'after_close';
+    if (w.beforeOpen) return 'before_open';
+    const tz = opts.timeZone || opts.tz || 'Asia/Seoul';
+    if (staleOpen.some((d) => d && d.created_date && !isSheetOfToday(d, now, tz))) return 'new_day';
+  }
+  return 'first';
+}
+
 /** 새 장: 참여자 N 단계에 자리표시 외부 수신자를 넣어 문서를 만든다. fields = document.fields[{id,value}](머리 칸 값, 선택). */
 export function buildCreateBody({ rows, email, visitorPrefix = '방문자 ', documentName, splitEmail = true, stepNames = [], validDays = 50, fields = [] }) {
   // 🔴 기한을 주지 않으면 API 로 만든 외부 수신자 단계의 기한은 「수신일로부터 7일」이다(2026-09-28 실측:
@@ -187,7 +286,8 @@ export function stamp(d = new Date(), timeZone = 'Asia/Seoul') {
 
 /**
  * 지금 열어야 할 단계를 정한다.
- * @returns {Promise<{company_id, template_id, document_id, step_no, step_name, token_id, visitor_name, created, rows, log}>}
+ * @returns {Promise<{company_id, template_id, document_id, step_no, step_name, token_id, visitor_name, created, rows, sheet, log}
+ *   | {closed:true, openAt, closeAt, sheet, log}>}  closed = 운영 시간 밖 + afterClose 'closed'
  */
 export async function resolveMultirowStep(opts) {
   const {
@@ -196,18 +296,26 @@ export async function resolveMultirowStep(opts) {
     lookbackDays = 50, now = Date.now(), timeZone = 'Asia/Seoul', validDays = 50,
     forceNew = false,   // 검증 도구 전용: 진행 중 문서가 있어도 새 장을 만든다(핸들러는 쓰지 않는다)
     header = {},        // 머리 칸(기관명·부서·방문일·장번호) — headerFieldValues 참고. 비어 있으면 fields 를 보내지 않는다
+    newSheet = 'never', openAt = null, closeAt = null, afterClose = 'new',   // 시간창·하루 단위 새 장(sheetWindow·shouldReuse)
   } = opts;
   if (!templateId) throw new Error('KIOSK_MULTIROW_FORM_ID 가 없습니다.');
   if (!email) throw new Error('KIOSK_MULTIROW_EMAIL 이 없습니다.');
   let n = Math.max(1, Math.min(30, Math.floor(Number(rows) || 20)));   // 참여자 상한 30명
   const log = [];
   let warnings = [];
+  const sheetOpts = { templateId, newSheet, openAt, closeAt, timeZone };
+  const win = sheetWindow(now, sheetOpts);
+  const sheetInfo = (reason) => ({ dayKey: win.dayKey, inWindow: win.inWindow, reason });
+  // 운영 시간 밖 + 「받지 않기」 → 이폼사인을 부르지 않고 닫힘으로 답한다(토큰 발급도 하지 않는다).
+  if (afterClose === 'closed' && !win.inWindow) {
+    return { closed: true, openAt, closeAt, sheet: sheetInfo(win.beforeOpen ? 'before_open' : 'after_close'), log: ['closed'] };
+  }
 
   const { accessToken, apiUrl, company } = await issueToken({ apiKey, privateKey, memberId, tokenUrl });
   const companyId = company?.company_id || company?.id || '';
   const getDoc = (id) => api(apiUrl, accessToken, `/v2.0/api/documents/${id}`, { query: { include_external_token: 'true' } });
 
-  const answer = (doc, created) => {
+  const answer = (doc, created, reason) => {
     const tok = currentStepToken(doc);
     if (!tok) throw new Error('현재 단계 수신자의 외부 처리 토큰을 찾지 못했습니다(서식의 참여자 단계가 외부 수신자용인지 확인).');
     const cs = doc.current_status || {};
@@ -221,6 +329,7 @@ export async function resolveMultirowStep(opts) {
       visitor_name: tok.name,
       created,
       rows: (doc.recipients || []).filter((x) => x && x.token_id).length || n,
+      sheet: sheetInfo(reason),
       warnings,
       log,
     };
@@ -233,8 +342,10 @@ export async function resolveMultirowStep(opts) {
       const d = await getDoc(lastDocumentId);
       const j = judgeDocument(d, { templateId, now });
       log.push(`last:${j.reason}`);
-      if (j.open && currentStepToken(d)) return answer(d, false);
-      exclude.add(lastDocumentId);
+      // daily 인데 상세에 created_date 가 없으면 여기서 정하지 않고 목록(created_date 있음)으로 넘긴다.
+      const decidable = newSheet !== 'daily' || !!d?.created_date;
+      if (j.open && decidable && shouldReuse(d, now, sheetOpts) && currentStepToken(d)) return answer(d, false, 'reuse');
+      if (!j.open || decidable) exclude.add(lastDocumentId);
     } catch (e) {
       log.push(`last:error_${e.status || 'x'}`);
       exclude.add(lastDocumentId);
@@ -249,17 +360,21 @@ export async function resolveMultirowStep(opts) {
       start_create_date: now - lookbackDays * 86400000, end_create_date: now + 60000,
     },
   });
-  const cands = (list?.documents || [])
+  const open = (list?.documents || [])
     .filter((d) => d && d.id && !exclude.has(d.id))
     .filter((d) => judgeDocument(d, { templateId, now }).open)
     .sort((a, b) => Number(b.created_date || 0) - Number(a.created_date || 0));
+  // daily: 어제 장·마감된 장은 진행 중으로 그대로 두고(취소하지 않는다) 이어 쓰지 않는다.
+  const cands = open.filter((d) => shouldReuse(d, now, sheetOpts));
+  const stale = open.filter((d) => !cands.includes(d));
   log.push(`list:${(list?.documents || []).length}/open:${cands.length}`);
-  if (cands.length > 1) log.push(`extra_open:${cands.length - 1}`);   // 나머지는 그대로 둔다(삭제 금지)
+  if (stale.length) log.push(`closed_sheet:${stale.length}`);
+  if (cands.length > 1) log.push(`extra_open:${cands.length - 1}`);   // 가장 최근 1건만 쓴다. 나머지는 그대로 둔다(삭제 금지)
 
   for (const c of (forceNew ? [] : cands)) {
     const d = await getDoc(c.id);                     // 목록은 오래됐을 수 있다 — 상세로 다시 판정
     const j = judgeDocument(d, { templateId, now });
-    if (j.open && currentStepToken(d)) return answer(d, false);
+    if (j.open && currentStepToken(d)) return answer(d, false, 'reuse');
     log.push(`cand:${j.reason}`);
   }
 
@@ -283,5 +398,5 @@ export async function resolveMultirowStep(opts) {
   const newId = created?.document?.id;
   if (!newId) throw new Error('새 문서를 만들었지만 문서 번호가 응답에 없습니다.');
   log.push('created');
-  return answer(await getDoc(newId), true);
+  return answer(await getDoc(newId), true, newSheetReason(now, stale, sheetOpts));
 }

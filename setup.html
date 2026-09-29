@@ -67,7 +67,7 @@
   section.step > p.desc { margin: 0 0 14px; color: var(--ink-weak); font-size: 14px; }
 
   label.field { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 14px; }
-  input[type=text], input[type=url], input[type=number], select, textarea {
+  input[type=text], input[type=url], input[type=number], input[type=time], select, textarea {
     width: 100%; padding: 10px 12px; font: inherit; color: inherit;
     border: 1px solid var(--line-strong); border-radius: 8px; background: #fff;
     min-height: 44px;   /* 터치 타깃 44px 이상 */
@@ -812,6 +812,35 @@
             </div>
             <p class="hint">비워 둔 칸에는 서식에 정해 둔 문구가 그대로 남습니다.<br>
                방문 시각은 방문자가 줄을 열 때 저절로 적힙니다.</p>
+            <div class="checkline">
+              <input type="checkbox" id="fMrDaily">
+              <label for="fMrDaily">하루에 한 장씩 씁니다(날짜가 바뀌면 새 장)</label>
+            </div>
+            <div id="mrDailyBody" hidden>
+              <p class="hint">운영 시간을 적으면 끝나는 시각에 그날 장을 마감합니다.<br>
+                 마감한 장은 문서 관리에서 그날 방문자 목록으로 볼 수 있습니다.<br>
+                 적힌 기록은 그대로 남습니다.</p>
+              <div class="grid2">
+                <div>
+                  <label class="field" for="fMrOpenAt">시작 시각</label>
+                  <input type="time" id="fMrOpenAt" step="60">
+                </div>
+                <div>
+                  <label class="field" for="fMrCloseAt">끝나는 시각</label>
+                  <input type="time" id="fMrCloseAt" step="60">
+                </div>
+              </div>
+              <div class="msg err" id="mrHoursErr" role="alert" hidden>끝나는 시각은 시작 시각보다 늦어야 합니다.</div>
+              <p class="field" style="margin-top:12px;font-weight:600">끝나는 시각이 지난 뒤 온 방문자</p>
+              <div class="checkline">
+                <input type="radio" name="fMrAfter" id="fMrAfterNew" value="new">
+                <label for="fMrAfterNew">새 장에 적게 합니다</label>
+              </div>
+              <div class="checkline">
+                <input type="radio" name="fMrAfter" id="fMrAfterClosed" value="closed">
+                <label for="fMrAfterClosed">받지 않습니다(「지금은 방명록을 받지 않습니다」 화면)</label>
+              </div>
+            </div>
             <p>아래 이름들을 <span class="nb">Vercel</span> 프로젝트의
                <b>Settings &gt; Environment Variables</b> 화면에 넣고
                <span class="nb"><b data-term-ok>Redeploy</b>를</span> 누르세요.<br>
@@ -984,6 +1013,8 @@
     deployPath: '', deployDone: {}, deployedUrl: '', reportEnabled: false, multirowEnabled: false, tabletTab: 'android',
     // ⑦ 한 장에 여러 명 — 기본 서식 머리 칸(새 장을 열 때 서버가 채운다)
     multirowOrgName: '', multirowDept: '', multirowAutoDate: true, multirowAutoSheet: true,
+    // ⑦ 하루에 한 장 + 운영 시간(시작·끝) + 끝난 뒤 방문자 처리
+    multirowDaily: false, multirowOpenAt: '', multirowCloseAt: '', multirowAfterClose: 'new',
     trouble: {},
     // 지금 보고 있는 카드 번호(0부터). 새로 고쳐도 보던 자리로 돌아온다.
     cardIdx: 0
@@ -1889,8 +1920,18 @@
       String(state.multirowOrgName || '').trim() ? ['KIOSK_MULTIROW_ORG_NAME=' + String(state.multirowOrgName).trim()] : [],
       String(state.multirowDept || '').trim() ? ['KIOSK_MULTIROW_DEPT=' + String(state.multirowDept).trim()] : [],
       state.multirowAutoDate ? ['KIOSK_MULTIROW_DATE=auto'] : [],
-      state.multirowAutoSheet ? ['KIOSK_MULTIROW_SHEET_NO=auto'] : []
+      state.multirowAutoSheet ? ['KIOSK_MULTIROW_SHEET_NO=auto'] : [],
+      // 하루에 한 장 — 시각은 비운 것은 넣지 않는다. 시각 순서가 틀리면 넣지 않는다(서버가 400 으로 막는다)
+      state.multirowDaily ? ['KIOSK_MULTIROW_NEW_SHEET=daily'] : [],
+      state.multirowDaily && mrHoursOk() && state.multirowOpenAt ? ['KIOSK_MULTIROW_OPEN_AT=' + state.multirowOpenAt] : [],
+      state.multirowDaily && mrHoursOk() && state.multirowCloseAt ? ['KIOSK_MULTIROW_CLOSE_AT=' + state.multirowCloseAt] : [],
+      state.multirowDaily && (state.multirowOpenAt || state.multirowCloseAt) ? ['KIOSK_MULTIROW_AFTER_CLOSE=' + (state.multirowAfterClose === 'closed' ? 'closed' : 'new')] : []
     ).join('\n');
+  }
+  // 시작·끝 시각이 둘 다 있으면 끝이 더 늦어야 한다('HH:MM' 문자열 비교로 충분하다)
+  function mrHoursOk() {
+    var o = state.multirowOpenAt, c = state.multirowCloseAt;
+    return !(o && c && c <= o);
   }
 
   function subList() { return SUBS[state.deployPath] || []; }
@@ -2124,6 +2165,13 @@
     $('fMrDept').value = state.multirowDept || '';
     $('fMrDate').checked = !!state.multirowAutoDate;
     $('fMrSheet').checked = !!state.multirowAutoSheet;
+    $('fMrDaily').checked = !!state.multirowDaily;
+    $('mrDailyBody').hidden = !state.multirowDaily;
+    $('fMrOpenAt').value = state.multirowOpenAt || '';
+    $('fMrCloseAt').value = state.multirowCloseAt || '';
+    $('fMrAfterNew').checked = state.multirowAfterClose !== 'closed';
+    $('fMrAfterClosed').checked = state.multirowAfterClose === 'closed';
+    $('mrHoursErr').hidden = mrHoursOk();
     $('multirowEnvList').textContent = multirowEnvText();
   }
   function pullMultirowHeader() {
@@ -2131,10 +2179,17 @@
     state.multirowDept = $('fMrDept').value;
     state.multirowAutoDate = $('fMrDate').checked;
     state.multirowAutoSheet = $('fMrSheet').checked;
+    state.multirowDaily = $('fMrDaily').checked;
+    state.multirowOpenAt = $('fMrOpenAt').value || '';
+    state.multirowCloseAt = $('fMrCloseAt').value || '';
+    state.multirowAfterClose = $('fMrAfterClosed').checked ? 'closed' : 'new';
+    $('mrDailyBody').hidden = !state.multirowDaily;
+    $('mrHoursErr').hidden = mrHoursOk();
     save(); $('multirowEnvList').textContent = multirowEnvText();
   }
   ['fMrOrg', 'fMrDept'].forEach(function (id) { $(id).addEventListener('input', pullMultirowHeader); });
-  ['fMrDate', 'fMrSheet'].forEach(function (id) { $(id).addEventListener('change', pullMultirowHeader); });
+  ['fMrDate', 'fMrSheet', 'fMrDaily', 'fMrOpenAt', 'fMrCloseAt', 'fMrAfterNew', 'fMrAfterClosed'].forEach(function (id) { $(id).addEventListener('change', pullMultirowHeader); });
+  ['fMrOpenAt', 'fMrCloseAt'].forEach(function (id) { $(id).addEventListener('input', pullMultirowHeader); });
   $('fMultirow').addEventListener('change', function () {
     state.multirowEnabled = $('fMultirow').checked;
     save(); renderMultirow();
