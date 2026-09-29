@@ -40,6 +40,8 @@ await send('Page.enable');
 let evSend = null; // set in --embed mode: Runtime.evaluate goes to the eformsign OOPIF (m_view_service) target
 const ev = async (js) => { const r = await (evSend ?? send)('Runtime.evaluate', { expression: js, awaitPromise: true, returnByValue: true }); if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails.exception?.description ?? r.exceptionDetails)); return r.result.value; };
 const click = async (x, y) => { for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 }); };
+// frame-relative click: coords measured inside the eformsign OOPIF (start/sign/send buttons) + the wrapper iframe offset (0,0 in --embed; wrapper top bar in --attach, D v6 2026-09-29)
+const clickF = async (x, y) => { const [ox, oy] = globalThis.__OFF ?? [0, 0]; return click(x + ox, y + oy); };
 const shot = async (name) => { const r = await send('Page.captureScreenshot', { format: 'png' }); fs.mkdirSync(E, { recursive: true }); const f = path.join(E, `${tag}-${name}.png`); fs.writeFileSync(f, Buffer.from(r.data, 'base64')); return f; };
 const text = () => ev("document.body.innerText.split(String.fromCharCode(10)).filter(x=>x.trim()).slice(0,40).join(' | ')");
 const out = { row, shots: [] };
@@ -120,7 +122,7 @@ await send('Emulation.setDeviceMetricsOverride', { width: 768, height: 1024, dev
 if (has('--start')) {
   const r = await ev(`(()=>{const b=[...document.querySelectorAll('button,a')].find(x=>x.innerText.trim()==='입력 시작'&&x.getBoundingClientRect().width>0);if(!b)return null;const q=b.getBoundingClientRect();return [q.left+q.width/2,q.top+q.height/2]})()`);
   out.startButton = r;
-  if (r) { await click(r[0], r[1]); await sleep(2500); out.shots.push(await shot(`step${row}-after-start`)); const m2 = await ev(measure); const g2 = pickOwn(m2); out.ownAfterStart = g2.map((e) => ({ x: Math.round(e.x), y: Math.round(e.y), h: Math.round(e.h) })); out.ownInViewportAfterStart = g2[0].y >= m2.frame.y && g2[0].y + g2[0].h <= 1024 - 70; out.textAfterStart = (await text()).slice(0, 200);
+  if (r) { await clickF(r[0], r[1]); await sleep(2500); out.shots.push(await shot(`step${row}-after-start`)); const m2 = await ev(measure); const g2 = pickOwn(m2); out.ownAfterStart = g2.map((e) => ({ x: Math.round(e.x), y: Math.round(e.y), h: Math.round(e.h) })); out.ownInViewportAfterStart = g2[0].y >= m2.frame.y && g2[0].y + g2[0].h <= 1024 - 70; out.textAfterStart = (await text()).slice(0, 200);
     // close any input dialog the start button opened (text input dialog / keypad) is not expected in the mobile viewer; continue
   }
 }
@@ -159,16 +161,16 @@ if (LAY?.style === 'reception') {
 for (let i = 0; i < 3; i++) { const [x, y] = c(g3[i]); await click(x, y); await sleep(700); out.clicks.push([x, y, await ev(active)]); await send('Input.insertText', { text: vals[i] }); await sleep(300); }
 }
 const btn = (label) => ev(`(()=>{const b=[...document.querySelectorAll('button,a,li,span,div')].filter(x=>x.children.length===0&&x.innerText&&x.innerText.trim()===${JSON.stringify(label)}&&x.getBoundingClientRect().width>0).map(x=>{const q=x.getBoundingClientRect();return [q.left+q.width/2,q.top+q.height/2]});return bs=b.pop()||null})()`.replace('return bs=', 'return '));
-{ const [x, y] = c(g3[g3.length - 1]); await click(x, y); await sleep(2500); const tt = await btn('텍스트'); if (tt) { await click(...tt); await sleep(1500); } const ok = await btn('확인'); if (ok) { await click(...ok); await sleep(2500); } out.signDialog = { text: tt, ok }; }
+{ const [x, y] = c(g3[g3.length - 1]); await click(x, y); await sleep(2500); const tt = await btn('텍스트'); if (tt) { await clickF(...tt); await sleep(1500); } const ok = await btn('확인'); if (ok) { await clickF(...ok); await sleep(2500); } out.signDialog = { text: tt, ok }; }
 out.shots.push(await shot(`step${row}-filled`));
 out.textFilled = (await text()).slice(0, 200);
 if (!has('--no-send')) {
   const b = await ev(`(()=>{const bs=[...document.querySelectorAll('button,a')].filter(x=>x.innerText.trim()==='전송'&&x.getBoundingClientRect().width>0).map(x=>{const q=x.getBoundingClientRect();return [q.left+q.width/2,q.top+q.height/2]});return bs.pop()||null})()`);
   if (!b) { console.log(JSON.stringify(out, null, 1)); throw new Error('send button not found: ' + out.textFilled); }
-  await click(b[0], b[1]); await sleep(4000);
+  await clickF(b[0], b[1]); await sleep(4000);
   out.shots.push(await shot(`step${row}-send`));
   const tx = await text(); out.sendDialog = /문서 전송/.test(tx) ? tx.slice(0, 160) : null;
-  if (out.sendDialog) { const b2 = await btn('전송'); if (b2) await click(...b2); await sleep(8000); }
+  if (out.sendDialog) { const b2 = await btn('전송'); if (b2) await clickF(...b2); await sleep(8000); }
   else await sleep(5000);
   out.shots.push(await shot(`step${row}-after-send`));
 }
