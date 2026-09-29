@@ -97,7 +97,7 @@ if (_nm.indexOf(_pre) === 0) { _cur = parseInt(_nm.substring(_pre.length), 10); 
 const inputJs = (row, method, req) => `try {
 ${stepJs}
 var _row = ${row};
-${req ? "if (_cur !== 0) This.SetRequired(_cur === _row);" : ""}
+${req ? "This.SetRequired(_cur === _row);" : ""}
 if (_cur === _row) { This.SetEnable(true); This.SetVisible(true); }
 else if (_cur !== 0 && Math.max(_row, _cur) === _cur) { This.SetEnable(false); ${method === 'visible' ? 'This.SetVisible(false);' : ''} }
 else if (_cur !== 0) { This.SetEnable(false); }
@@ -150,7 +150,8 @@ let injected = 0;
 xml = xml.replace(/<(OZIC[A-Z]+) ([^>]*?)FORMID="([^"]+) (\d+)"([^>]*?)(\/?)>/g, (all, tag, a, key, row, b, selfClose) => {
   const method = lay.hideMethodByRow[row] ?? 'visible';
   injected++;
-  // v5: ozrRequired "static" -> REQUIRED="true" on requiredCols of every row (b1 probe); "own-row" -> plus OnBind SetRequired(own row only)
+  // v5: ozrRequired "static" -> REQUIRED="true" on requiredCols of every row (b1 probe); "own-row" (D v7) -> same static attr (send blocking needs it)
+  //     plus OnBind SetRequired(_cur === _row) on every bind, also when _cur 0 (editor / completed PDF) -> only the own row keeps the required badge
   const reqAttr = lay.ozrRequired && (lay.requiredCols ?? []).includes(key) ? ' REQUIRED="true"' : '';
   const open = `<${tag} ${a}FORMID="${key} ${row}"${b}${reqAttr}>`;
   if (colTypeByKey.get(key) === 'time') {

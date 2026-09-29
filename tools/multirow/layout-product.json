@@ -63,6 +63,7 @@
     "D": {
       "_comment": "D안(사용자 결정 2026-09-28 \"추천안으로 알아서해\"): 디자인 방향 1(기업 리셉션 — 네이비 헤더 밴드, 얇은 괘선) + 방향 2 의 방문 목적 체크칸. 10행 1쪽, 행 66pt. style=reception 은 make-pdf-product.py 의 별도 배경 분기. 기관 로고는 오른쪽 상단(모바일 뷰어의 떠 있는 버튼 5개가 좌상단을 가림 — C2 실측). headerFields = 읽기 전용 값칸(문서 생성 API document.fields 로 주입 — 2026-09-28 실측 PASS. 주입이 없으면(공개 URL 등 API 없는 경로) 1단계 OnBind 가 비어 있을 때만 채움: todayFallback=오늘 날짜, fallback=고정 문구. 장번호는 주입 전용). cols[].type: time=읽기 전용·자기 행 OnBind 에서 비어 있을 때만 HH:MM, purpose=체크박스 3개(윗줄)+기타 체크박스+기타 텍스트(아랫줄)",
       "style": "reception",
+      "ozrRequired": "own-row",
       "rows": 10,
       "rowsPerPage": 10,
       "rowH": 66,
