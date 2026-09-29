@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveCoords, passConsentGate, locateTextInputs, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
+import { resolveCoords, passConsentGate, locateTextInputs, sendPopupVisible, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > -1 ? process.argv[i + 1] : d; };
 // 🔴 이 도구는 **이미 떠 있는** 헤드리스 크롬에 붙는다(직접 띄우지 않는다).
@@ -131,9 +131,20 @@ for (let round = 1; round <= ROUNDS; round++) {
   await click(COORDS.send[0], COORDS.send[1], 6000);     // 전송
   await shot(`${TAG}-r${round}-4-send-clicked`);
 
-  // 확인 팝업(문서 전송)의 전송 버튼. reCAPTCHA 유무로 팝업 높이가 달라지므로 두 위치를 모두 누른다.
-  await click(COORDS.popup1[0], COORDS.popup1[1], 3000);
-  if (!(await evalJs(`window.__kioskState.submits > ${before}`))) await click(COORDS.popup2[0], COORDS.popup2[1], 4000);
+  // 확인 팝업(문서 전송)의 전송 버튼 — 창이 보일 때만 누른다(창 없이 바로 제출되는 서식이면 건너뜀).
+  // 창은 전송 클릭 뒤 몇 초 늦게 뜬다(reCAPTCHA 로딩) — 제출 감지 또는 창 표시 중 먼저 오는 것을 최대 15초 기다린다.
+  // 판정 불가(null)면 예전처럼 좌표를 누른다. reCAPTCHA 유무로 팝업 높이가 달라지므로 두 위치를 모두 누른다.
+  const submitted = async () => evalJs(`window.__kioskState.submits > ${before}`);
+  let popup = null;
+  for (const t0 = Date.now(); Date.now() - t0 < 15000; await sleep(500)) {
+    if (await submitted()) { popup = false; break; }
+    if (await sendPopupVisible({ cdpPort: PORT })) { popup = true; break; }
+  }
+  console.log('  SEND_POPUP ' + (popup === null ? 'unknown(좌표 폴백)' : popup ? 'shown' : 'none(바로 제출)'));
+  if (popup !== false) {
+    await click(COORDS.popup1[0], COORDS.popup1[1], 3000);
+    if (!(await submitted())) await click(COORDS.popup2[0], COORDS.popup2[1], 4000);
+  }
 
   await waitFor(`window.__kioskState.submits > ${before}`, 60000, '제출 감지');
   const docs = await evalJs('JSON.stringify(window.__kioskState.docs)');

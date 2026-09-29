@@ -5,7 +5,7 @@
 //        [--layout tools/multirow/layout-product.json --variant A|B|P]  (participant step count = layout rows)
 // --skip-send-popup: form.quick_processing=true (콘솔 일반 설정 > 문서 설정 「문서 전송 시 팝업 생략」; 임베딩 가이드 template_option 표의 같은 이름 필드).
 //   deployTemplateFile hardcodes quick_processing:false -> after create: GET form -> set flag -> save (create-shape auth) -> release again.
-// Settings-only mode (no redeploy): node deploy.mjs --apply-to "<template name>" [--skip-send-popup] [--outsider-complete-mail-off] [--dump-before f] [--dump <f>]
+// Settings-only mode (no redeploy): node deploy.mjs --apply-to "<template name>" [--skip-send-popup | --restore-send-popup] [--outsider-complete-mail-off] [--dump-before f] [--dump <f>]
 // --outsider-complete-mail-off: 외부 수신자 완료 알림 끔 — config.notification.processing_status.{mail,sms} complete_outsider_document
 //   is_step_recipients/is_recipient/is_attach_pdf(pdf_download)=false + 단계별 alert_option.{mail,sms} complete_outsider_document is_used/is_attach_pdf=false.
 //   (누적형: 켜져 있으면 한 장이 끝날 때마다 전 명단 완료 PDF 가 방문자 전원에게 나간다.)
@@ -20,6 +20,8 @@ const c = await client();
 const has = (k) => process.argv.includes(k);
 // mutate helpers (in place on a form object)
 const setQuick = (f) => { f.quick_processing = true; };
+// --restore-send-popup (with --apply-to, 2026-09-29): quick_processing=false 로 되돌린다(팝업 생략을 켰다가 효과가 없거나 부작용이 있을 때의 되돌림).
+const unsetQuick = (f) => { f.quick_processing = false; };
 const outsiderMailOff = (f) => {
   const ps = f.config?.notification?.processing_status ?? {};
   for (const x of ps.mail?.sending_points ?? []) if (x.sending_point === 'complete_outsider_document') Object.assign(x, { is_step_recipients: false, is_recipient: false, is_attach_pdf: false });
@@ -48,14 +50,14 @@ async function patchForm(name, mutate, message, dumpBefore) {
 }
 // --rename-to <name> (with --apply-to, 2026-09-29): 이름만 바꾼다 — 같은 이름으로 고친 판을 다시 배포하기 전에 앞 판을 비켜 두는 용도(삭제 대신)
 const renameTo = (f) => { f.name = arg('--rename-to'); };
-const mutators = () => [has('--skip-send-popup') && setQuick, has('--outsider-complete-mail-off') && outsiderMailOff, arg('--rename-to') && renameTo].filter(Boolean);
+const mutators = () => [has('--skip-send-popup') && setQuick, has('--restore-send-popup') && unsetQuick, has('--outsider-complete-mail-off') && outsiderMailOff, arg('--rename-to') && renameTo].filter(Boolean);
 async function dumpManaged(name, file) {
   const t = (await c.templates.list()).templates.find((x) => x.name === name);
   const g = t ? await c.templates.getManaged(t.form_id ?? t.id) : { error: 'not found' };
   fs.writeFileSync(file, JSON.stringify(g, null, 1)); return g;
 }
 if (arg('--apply-to')) {
-  const ms = mutators(); if (!ms.length) throw new Error('--apply-to needs --skip-send-popup, --outsider-complete-mail-off and/or --rename-to');
+  const ms = mutators(); if (!ms.length) throw new Error('--apply-to needs --skip-send-popup, --restore-send-popup, --outsider-complete-mail-off and/or --rename-to');
   if (arg('--dump-before')) await dumpManaged(arg('--apply-to'), arg('--dump-before'));
   const r = await patchForm(arg('--apply-to'), (f) => ms.forEach((fn) => fn(f)), '설정 변경(재배포 없음)');
   console.log(JSON.stringify(r, null, 1));

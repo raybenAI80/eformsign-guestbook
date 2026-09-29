@@ -281,3 +281,31 @@ export async function locateTextInputs({ cdpPort, evalTop }) {
     return val.map(o => ({ id: o.id, x: Math.round(o.x + off[0]), y: Math.round(o.y + off[1]) }));
   } catch (e) { return []; }
 }
+
+/**
+ * 🔴 전송 확인창(「문서 전송」) 유무를 작성 프레임 DOM 에서 판정한다(2026-09-29 실측).
+ * 확인창 좌표를 맹목 클릭하면 창이 없을 때 다음 서식의 엉뚱한 곳을 누른다 — 창이 보일 때만 누르게 하는 판정.
+ * 🔴 공개 URL 작성(mode 01)에서는 서식에 `quick_processing:true` 를 켜도 창이 그대로 뜬다(실측) — 창은 전송 클릭 뒤
+ * 몇 초 늦게 뜨므로 호출부는 폴링해야 한다. 창 제목은 `h3.pophead_tit`(보이는 것 1개, 숨은 사본 여러 개).
+ * @param {{cdpPort: string|number}} o
+ * @returns {Promise<boolean|null>} true=보임, false=안 보임, null=프레임에 못 붙음
+ */
+export async function sendPopupVisible({ cdpPort }) {
+  try {
+    const ts = await (await fetch(`http://127.0.0.1:${cdpPort}/json`)).json();
+    const ft = ts.find(x => x.type === 'iframe' && /eformsign\.com\/.*view_service/.test(x.url || ''));
+    if (!ft) return null;
+    const ws = new WebSocket(ft.webSocketDebuggerUrl);
+    await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+    const val = await new Promise((res) => {
+      const t = setTimeout(() => res(null), 5000);
+      ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id === 1) { clearTimeout(t); res(m.result?.result?.value ?? null); } };
+      ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { returnByValue: true, expression:
+        "(()=>{const vis=e=>{const r=e.getBoundingClientRect();const s=getComputedStyle(e);return r.width>0&&r.height>0&&s.visibility!=='hidden'&&s.display!=='none'};" +
+        "const docs=[document];for(const f of document.querySelectorAll('iframe')){try{if(f.contentDocument)docs.push(f.contentDocument)}catch(e){}}" +
+        "return docs.some(d=>[...d.querySelectorAll('body *')].some(e=>e.children.length===0&&/문서 *전송/.test(e.textContent||'')&&vis(e)))})()" } }));
+    });
+    ws.close();
+    return val;
+  } catch (e) { return null; }
+}
