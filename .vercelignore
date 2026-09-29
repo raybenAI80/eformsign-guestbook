@@ -1,0 +1,13 @@
+# Vercel CLI 로 이 폴더를 직접 올릴 때 빠지는 것(Git 연결 배포에는 영향 없음).
+# 비밀값·실측 자산이 든 로컬 폴더와 대용량 홍보 영상 작업 폴더를 올리지 않는다.
+.local
+.work
+.claude
+.gates
+.sysint
+.env*
+evidence
+reports
+promo
+node_modules
+public

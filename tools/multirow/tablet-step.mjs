@@ -4,7 +4,9 @@
 // the editable row (+ text-tab signature), then sends. Never logs in / switches accounts.
 //
 // node tablet-step.mjs --doc <.local/.../doc.json> --row N --ev <evidence dir> --tag <name> [--port 9223] [--tab <id prefix>]
-//        [--no-send] [--start]   (--start: tap header 「입력 시작」 first and record where the viewer scrolls)
+//        [--no-send] [--start] [--no-step-check]   (--start: tap header 「입력 시작」 first and record where the viewer scrolls)
+// Send check (2026-09-29): the document step is read from the API before/after 「전송」; unchanged => exit 2, stderr FAIL: <reason>
+//   (+ HINT for the embedded-external blank-next-step setEmbeddingReceipients TypeError). Needs EFORMSIGN_CORE_DIR + EFORMSIGN_ENV_FILE.
 // Output (stdout JSON): own-row input rects (CSS px, viewport), name box height, page/scroll info, send result.
 // 2026-09-28 measured: PC UA at 768 wide = view_iframe_pc at 100% (overflows); mobile UA list page bounces to
 // m_document_list (no documentUtil) -> get the open URL with PC UA first, then navigate with the tablet UA.
@@ -34,9 +36,16 @@ if (!t) throw new Error('no target');
 await fetch(`http://127.0.0.1:${port}/json/activate/${t.id}`);
 const ws = new WebSocket(t.webSocketDebuggerUrl); let id = 0; const pend = new Map();
 const send = (method, params = {}) => new Promise((res, rej) => { const i = ++id; pend.set(i, { res, rej }); ws.send(JSON.stringify({ id: i, method, params })); setTimeout(() => { if (pend.has(i)) { pend.delete(i); rej(new Error('timeout ' + method)); } }, 45000); });
-ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { const p = pend.get(m.id); pend.delete(m.id); m.error ? p.rej(new Error(JSON.stringify(m.error))) : p.res(m.result); } };
+// page exceptions / console errors from the viewer (top page + eformsign OOPIF) -> used to explain a silent send failure (D v6 #49)
+const pageErrors = [];
+const onEvt = (m) => {
+  if (m.method === 'Runtime.exceptionThrown') { const x = m.params.exceptionDetails; pageErrors.push(String(x.exception?.description ?? x.text ?? '').slice(0, 300)); }
+  else if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') pageErrors.push(m.params.args.map((a) => a.value ?? a.description ?? '').join(' ').slice(0, 300));
+};
+ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) { const p = pend.get(m.id); pend.delete(m.id); m.error ? p.rej(new Error(JSON.stringify(m.error))) : p.res(m.result); } else if (m.method) onEvt(m); };
 await new Promise((r) => (ws.onopen = r));
 await send('Page.enable');
+await send('Runtime.enable');
 let evSend = null; // set in --embed mode: Runtime.evaluate goes to the eformsign OOPIF (m_view_service) target
 const ev = async (js) => { const r = await (evSend ?? send)('Runtime.evaluate', { expression: js, awaitPromise: true, returnByValue: true }); if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails.exception?.description ?? r.exceptionDetails)); return r.result.value; };
 const click = async (x, y) => { for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 }); };
@@ -59,9 +68,10 @@ if (embed || attach) {
   const fr = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).filter((x) => x.type === 'iframe' && (attach ? /view_service/ : /m_view_service/).test(x.url) && (!x.parentId || x.parentId === t.id));
   if (!fr.length) throw new Error('embedded view_service frame not found');
   const fws = new WebSocket(fr.at(-1).webSocketDebuggerUrl); const fp = new Map(); let fid = 0;
-  fws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && fp.has(m.id)) { const p = fp.get(m.id); fp.delete(m.id); m.error ? p.rej(new Error(JSON.stringify(m.error))) : p.res(m.result); } };
+  fws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && fp.has(m.id)) { const p = fp.get(m.id); fp.delete(m.id); m.error ? p.rej(new Error(JSON.stringify(m.error))) : p.res(m.result); } else if (m.method) onEvt(m); };
   await new Promise((r) => (fws.onopen = r));
   evSend = (method, params = {}) => new Promise((res, rej) => { const i = ++fid; fp.set(i, { res, rej }); fws.send(JSON.stringify({ id: i, method, params })); setTimeout(() => { if (fp.has(i)) { fp.delete(i); rej(new Error('timeout ' + method)); } }, 45000); });
+  await evSend('Runtime.enable');
   const off = (await send('Runtime.evaluate', { expression: "(()=>{const r=document.getElementById('eformsign_iframe').getBoundingClientRect();return [r.left,r.top]})()", returnByValue: true })).result.value;
   globalThis.__OFF = off; out.embed = true; globalThis.__FWS = fws;
 } else {
@@ -164,7 +174,13 @@ const btn = (label) => ev(`(()=>{const b=[...document.querySelectorAll('button,a
 { const [x, y] = c(g3[g3.length - 1]); await click(x, y); await sleep(2500); const tt = await btn('텍스트'); if (tt) { await clickF(...tt); await sleep(1500); } const ok = await btn('확인'); if (ok) { await clickF(...ok); await sleep(2500); } out.signDialog = { text: tt, ok }; }
 out.shots.push(await shot(`step${row}-filled`));
 out.textFilled = (await text()).slice(0, 200);
+// Send judgement (D v6 2026-09-29, #49): rc=0 alone proved nothing — the send could fail silently. The document step is read
+// from the API before and after; unchanged step => rc 2 + reason. --no-step-check skips the API read (no EFORMSIGN_* env).
+const docStep = async () => { const { client } = await import('./env.mjs'); const g = await (await client()).documents.get(d.documentId, {}); const cs = g.current_status ?? {}; return [cs.status_type, cs.step_index, cs.step_name].join('|'); };
+const fail = (reason, hint) => { out.fail = reason; if (hint) out.hint = hint; process.exitCode = 2; console.error('FAIL: ' + reason + (hint ? '\nHINT: ' + hint : '')); };
 if (!has('--no-send')) {
+  const stepCheck = !has('--no-step-check');
+  if (stepCheck) { try { out.stepBefore = await docStep(); } catch (e) { fail('document status not readable before send (set EFORMSIGN_CORE_DIR/EFORMSIGN_ENV_FILE or pass --no-step-check): ' + e.message); console.log(JSON.stringify(out, null, 1)); ws.close(); globalThis.__FWS?.close(); process.exit(2); } }
   const b = await ev(`(()=>{const bs=[...document.querySelectorAll('button,a')].filter(x=>x.innerText.trim()==='전송'&&x.getBoundingClientRect().width>0).map(x=>{const q=x.getBoundingClientRect();return [q.left+q.width/2,q.top+q.height/2]});return bs.pop()||null})()`);
   if (!b) { console.log(JSON.stringify(out, null, 1)); throw new Error('send button not found: ' + out.textFilled); }
   await clickF(b[0], b[1]); await sleep(4000);
@@ -173,6 +189,15 @@ if (!has('--no-send')) {
   if (out.sendDialog) { const b2 = await btn('전송'); if (b2) await clickF(...b2); await sleep(8000); }
   else await sleep(5000);
   out.shots.push(await shot(`step${row}-after-send`));
+  if (pageErrors.length) out.pageErrors = pageErrors.slice(-8);
+  const embCrash = pageErrors.find((x) => /setEmbeddingReceipients|reading 'company_member'/.test(x));
+  const crashHint = embCrash ? 'eformsign setEmbeddingReceipients TypeError (' + embCrash.split('\n')[0].slice(0, 120) + ') — 임베딩(래퍼 iframe) 외부 작성자 + 다음 단계 수신자 공란이면 「문서 전송」 창이 안 뜨고 전송이 조용히 실패한다. 상품 경로(api/multirow, 수신자 수=단계 수)에는 생기지 않는다; --fill N 공란 단계 실측이면 수신자를 모두 지정하거나 래퍼 밖 직접 외부 URL 로 구동할 것.' : null;
+  if (stepCheck && out.stepBefore) {
+    let after = out.stepBefore;
+    for (let i = 0; i < 6 && after === out.stepBefore; i++) { try { after = await docStep(); } catch (e) { out.stepReadError = e.message; } if (after === out.stepBefore) await sleep(3000); }
+    out.stepAfter = after; out.stepChanged = after !== out.stepBefore;
+    if (!out.stepChanged) fail(`document step unchanged after send (${out.stepBefore})` + (out.sendDialog ? '' : ' — sendDialog null (「문서 전송」 창이 뜨지 않음)'), crashHint);
+  } else if (!out.sendDialog && crashHint) fail('sendDialog null', crashHint);
 }
 console.log(JSON.stringify(out, null, 1));
 ws.close();
