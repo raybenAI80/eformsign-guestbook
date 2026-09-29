@@ -45,7 +45,8 @@ window.KIOSK_CONFIG = {
   //  · idleResetSeconds    : 아직 아무도 작성 프레임을 건드리지 않은 빈 화면 기준(0 이면 리셋 끔).
   //  · abandonResetSeconds : 방문자가 작성을 시작한 뒤 자리를 뜬 경우 기준.
   //    🔴 작성 프레임은 다른 도메인의 iframe 이라 그 안의 터치·키 입력이 이 페이지에 보이지 않는다.
-  //       포커스가 프레임 안에 머무는 동안은 활동으로 보고, 프레임 밖에 있는 시간만 센다.
+  //       포커스가 프레임 안에 머무는 동안은 idle·abandon 중 긴 쪽을 기다리고,
+  //       포커스가 프레임 밖으로 나간 뒤에는 나간 순간부터 abandon 초를 센다.
   //  · countdownSeconds    : 리셋 직전 「계속 작성하시겠습니까?」 복귀 카운트다운 시간.
   //  권장값: 로비·전시 부스 60~90초 / 사무실 접수대 180초, abandon > idle, countdown 5~10초.
   idleResetSeconds: 120,

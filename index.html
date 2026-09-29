@@ -377,7 +377,7 @@
   //    오래 쓰는 작성자는 카운트다운 덮개를 한 번 터치하면 계속 쓸 수 있다(덮개가 화면
   //    전체를 덮으므로 어디를 터치해도 부모가 받는다).
   var WARN_SECONDS = C.countdownSeconds;      // 복귀 카운트다운(초) — config.countdownSeconds / ?countdown=
-  var idle = { last: Date.now(), source: 'boot', engaged: false, warnLeft: 0, inFrame: false };
+  var idle = { last: Date.now(), source: 'boot', engaged: false, warnLeft: 0, inFrame: false, outside: false, warnLimit: 0 };
   window.__kioskIdle = idle;
 
   function frameFocused() {
@@ -393,9 +393,10 @@
   function noteFrameFocus() {
     if (idle.inFrame) return false;
     idle.inFrame = true;
+    idle.outside = false;
     if (!idle.engaged) {
       idle.engaged = true;
-      log('작성 프레임 진입(engaged) — 이후 리셋 기준 abandonResetSeconds=' + C.abandonResetSeconds + 's');
+      log('작성 프레임 진입(engaged) — 이후 리셋 기준: 프레임 안 ' + Math.max(C.abandonResetSeconds, C.idleResetSeconds) + 's · 프레임 밖 ' + C.abandonResetSeconds + 's');
     } else {
       log('작성 프레임 재진입 — 활동으로 기록(frame-focus)');
     }
@@ -403,16 +404,26 @@
     return true;
   }
   ['pointerdown', 'touchstart', 'keydown', 'wheel'].forEach(function (ev) {
-    window.addEventListener(ev, function () { armIdle('parent:' + ev); }, { passive: true });
+    window.addEventListener(ev, function () {
+      armIdle('parent:' + ev);
+      if (idle.engaged) idle.outside = true;        // 작성을 시작한 뒤 프레임 밖을 만졌다 = 이탈 후보
+    }, { passive: true });
   });
   // window blur 시 포커스가 iframe 으로 넘어갔으면 = 작성자가 작성 프레임 안에 있다
   window.addEventListener('blur', function () {
     setTimeout(function () { if (frameFocused()) noteFrameFocus(); }, 0);
   });
 
+  // 🔴 2026-09-29: 포커스가 프레임 안에 머무는 동안은 "입력 중"과 "쓰다 떠남"을 구분할 수 없다.
+  //    그 구간에 짧은 abandon(데모 15초)을 그대로 쓰면 입력 중인 방문자에게 10초마다
+  //    「계속 작성하시겠습니까?」가 뜬다(태블릿 실사용 보고). 그래서
+  //      · 포커스가 프레임 안 = max(abandon, idle) — 떠난 방문자도 이 한도에서는 리셋된다(09-16 결함 재발 없음)
+  //      · 프레임 밖(머리글·여백·덮개)을 만진 뒤 포커스가 프레임 밖에 있음(실제 이탈 신호) = abandon
+  //    프레임 밖을 만지지 않았는데 포커스만 빠진 경우(헤드리스 실측 3회 중 1회 관측)는 이탈로 보지 않는다.
   function idleLimitSeconds() {
     if (!(C.idleResetSeconds > 0)) return 0;          // 0 = 리셋 끔
-    return idle.engaged ? C.abandonResetSeconds : C.idleResetSeconds;
+    if (!idle.engaged) return C.idleResetSeconds;
+    return (idle.inFrame || !idle.outside) ? Math.max(C.abandonResetSeconds, C.idleResetSeconds) : C.abandonResetSeconds;
   }
 
   // 낭독기가 초마다 떠들지 않도록, 처음 뜰 때와 3초 남았을 때만 문장을 새로 읽힌다.
@@ -445,6 +456,7 @@
   function cancelWarn(by) {
     if (idle.warnLeft > 0 || !els.idle.hidden) log('무응답 경고 취소 by=' + (by || 'unknown'));
     idle.warnLeft = 0;
+    idle.warnLimit = 0;
     els.idle.hidden = true;
     idleSpokenAt = 0;
     var sp = document.getElementById('idleSpoken');
@@ -454,11 +466,15 @@
 
   setInterval(function () {
     if (state.phase !== 'form') { cancelWarn('phase=' + state.phase); return; }
-    var limit = idleLimitSeconds();
-    if (!limit) { cancelWarn('disabled'); return; }
     // 포커스가 프레임 안으로 들어간 순간만 활동 1회. 머무는 동안은 타이머를 멈추지 않는다.
+    // 프레임 밖으로 나간 순간도 활동 1회 — abandon 은 그 순간부터 센다.
+    // 🔴 경고 덮개가 뜨면서 포커스를 가져간 것(상품판은 「계속 작성하기」로 옮긴다)은 이탈이 아니다 —
+    //    덮개가 떠 있는 동안에는 활동으로 치지 않고, 한도도 덮개가 뜬 순간의 값으로 고정한다.
     if (frameFocused()) noteFrameFocus();
-    else idle.inFrame = false;
+    else if (idle.inFrame) { idle.inFrame = false; if (els.idle.hidden) armIdle('frame-leave'); }
+    var limit = (!els.idle.hidden && idle.warnLimit) ? idle.warnLimit : idleLimitSeconds();
+    if (!limit) { cancelWarn('disabled'); return; }
+    if (els.idle.hidden) idle.warnLimit = limit;
     var elapsed = (Date.now() - idle.last) / 1000;
     if (elapsed >= limit) {
       log('무응답 리셋 실행 — 사유=' + (idle.engaged ? 'abandon' : 'idle') +
@@ -625,6 +641,7 @@
     }, (Number(C.loadWatchSeconds) > 0 ? Number(C.loadWatchSeconds) : LOAD_WATCH_SECONDS) * 1000);
     idle.engaged = false;            // 새 세션 = 아직 아무도 입력을 시작하지 않았다
     idle.inFrame = false;            // 포커스 진입 판정도 초기화한다
+    idle.outside = false;
     armIdle('session-start');
 
     if (MULTI) {

@@ -1,4 +1,4 @@
-// 무응답 리셋 5케이스 실기 검증 — 헤드리스 CDP
+// 무응답 리셋 7케이스 실기 검증 — 헤드리스 CDP
 //
 // 사용:
 //   CDP_PORT=9240 KIOSK_BASE=http://127.0.0.1:8699 \
@@ -155,9 +155,45 @@ const c5again = await waitFor(v => v.session > c5start.session, 25000);   // 타
 report.case5 = { start: c5start, warn: c5warn, cancelled: c5cancel, mid: c5mid, again: c5again,
   pass: !!c5warn && c5cancel.warn === false && c5mid.session === c5start.session && !!c5again, logs: await logs() };
 
-console.log(JSON.stringify({case1:report.case1.pass,case2:report.case2.pass,case3:report.case3.pass,case4:report.case4.pass,case5:report.case5.pass}));
+// ── CASE 6 (2026-09-29 신설): 짧은 abandon(데모 15초 설정) + 프레임 안에서 **계속 입력 중** → 경고가 뜨면 안 된다
+//    2026-09-29 태블릿 보고: abandon=15 인 데모에서 입력 중 10초마다 「계속 작성하시겠습니까?」가 떴다.
+//    프레임 안 입력은 부모가 못 보므로, 포커스가 프레임 안에 있는 동안은 max(abandon, idle) 을 한도로 쓴다.
+//    뒤이어 계속 방치하면(포커스는 프레임 안) 그 한도(40s)에서 여전히 리셋되어야 한다 = 09-16 결함 재발 방지.
+await nav(`${BASE}/?idle=40&abandon=10&countdown=5&debug=1`);
+await enterWriter();
+await click(TAP_X, TAP_Y);
+await sleep(800);
+const c6start = JSON.parse(await st());
+let c6warnWhileTyping = false;
+for (let i = 0; i < 8; i++) {                    // 약 24초 동안 3초마다 한 글자씩 입력
+  await send('Input.insertText', { text: '가' });
+  await sleep(3000);
+  const v = JSON.parse(await st());
+  if (v.warn || v.session !== c6start.session) { c6warnWhileTyping = true; break; }
+}
+const c6mid = JSON.parse(await st());
+await shot('idle-case6-a-typing-no-warn');
+const c6after = await waitFor(v => v.session > c6start.session, 35000);   // 계속 방치 → 한도 40s 에서 리셋
+report.case6 = { start: c6start, warnWhileTyping: c6warnWhileTyping, mid: c6mid, after: c6after,
+  pass: c6start.engaged === true && !c6warnWhileTyping && !!c6after, logs: await logs() };
+
+// ── CASE 7 (2026-09-29 신설): 입력 뒤 포커스가 프레임 **밖으로** 나감(실제 이탈 신호) → 짧은 abandon(10s) 으로 리셋
+await nav(`${BASE}/?idle=40&abandon=10&countdown=5&debug=1`);
+await enterWriter();
+await click(TAP_X, TAP_Y);
+await sleep(800);
+for (const ch of '이탈') await send('Input.insertText', { text: ch });
+await sleep(500);
+await click(8, 8);                               // 부모 머리글 모서리 = 포커스가 프레임 밖으로
+await sleep(1200);
+const c7start = JSON.parse(await st());
+const c7after = await waitFor(v => v.session > c7start.session, 20000);
+report.case7 = { start: c7start, after: c7after,
+  pass: c7start.engaged === true && !!c7after, logs: await logs() };
+
+console.log(JSON.stringify({case1:report.case1.pass,case2:report.case2.pass,case3:report.case3.pass,case4:report.case4.pass,case5:report.case5.pass,case6:report.case6.pass,case7:report.case7.pass}));
 fs.writeFileSync(`${OUT}/idle-cases-report.json`, JSON.stringify(report, null, 1));
-const allPass = report.case1.pass && report.case2.pass && report.case3.pass && report.case4.pass && report.case5.pass;
+const allPass = report.case1.pass && report.case2.pass && report.case3.pass && report.case4.pass && report.case5.pass && report.case6.pass && report.case7.pass;
 console.log('ALL_PASS=' + allPass);
 ws.close();
 process.exit(allPass ? 0 : 1);
