@@ -43,6 +43,12 @@ const rowTop = (i) => rowTopOf(lay, i);
 const fields = [];
 // D안(style reception): explicit geometry per FORMID (time / purpose sub-fields / header value fields)
 const geoByFid = new Map(); const colTypeByKey = new Map();
+// v8 signHint: bottom strip [fromKey col .. last col] reserved for the own-row 「서명 후 … [전송]」 hint -> inputs there end above it
+const SH = lay.signHint ?? null;
+const shFrom = SH ? lay.cols.findIndex((c) => c.key === SH.fromKey) : -1;
+if (SH && shFrom < 0) throw new Error('signHint.fromKey not in cols: ' + SH.fromKey);
+const shKeys = new Set(SH ? lay.cols.slice(shFrom).map((c) => c.key) : []);
+const shTop = (top) => top + lay.rowH - 1.8 - SH.h; // own-row fills end at rowH - 1.8
 if (lay.style === 'reception') {
   const g = lay.purposeGeo;
   for (let r = 1; r <= lay.rows; r++) {
@@ -60,9 +66,10 @@ if (lay.style === 'reception') {
         continue;
       }
       const si = lay.signInset ?? 6;
-      const bbox = c.type === 'signature' ? [c.x0 + si, top + si, c.x1 - si, top + lay.rowH - si] : [c.x0 + 3, top + lay.rowH / 2 - 11, c.x1 - 3, top + lay.rowH / 2 + 11];
+      const hinted = shKeys.has(c.key);
+      const bbox = c.type === 'signature' ? [c.x0 + si, top + si, c.x1 - si, hinted ? shTop(top) : top + lay.rowH - si] : [c.x0 + 3, top + lay.rowH / 2 - 11, c.x1 - 3, top + lay.rowH / 2 + 11];
       fields.push({ id: fid(c.key, r), page: rowPage(lay, r), bbox, type: c.type === 'signature' ? 'signature' : 'text' });
-      if (c.type !== 'signature') geoByFid.set(fid(c.key, r), { LEFT: c.x0 + lay.textInsetX, TOP: top + lay.textInsetY, WIDTH: c.w - 2 * lay.textInsetX, HEIGHT: lay.rowH - 2 * lay.textInsetY, FONTSIZE: c.type === 'time' ? 11 : lay.inputSize });
+      if (c.type !== 'signature') geoByFid.set(fid(c.key, r), { LEFT: c.x0 + lay.textInsetX, TOP: top + lay.textInsetY, WIDTH: c.w - 2 * lay.textInsetX, HEIGHT: (hinted ? shTop(top) : top + lay.rowH - lay.textInsetY) - (top + lay.textInsetY), FONTSIZE: c.type === 'time' ? 11 : lay.inputSize });
     }
   }
   for (const hf of lay.headerFields ?? []) fields.push({ id: hf.id, page: 1, type: 'text', bbox: hf.box });
@@ -236,6 +243,12 @@ if (!lay.design) {
       purposeItems(lay, pcol, t).forEach(([lab, cx, cy], k) => extraKids.push(shape(`OwnOpt${r}_${k}`, +(cx + g.box / 2 + g.labelGap - 5).toFixed(2), +(cy - 8).toFixed(2), g.inline ? +(g.itemDX - g.touch / 2 - g.box / 2 - g.labelGap + 5).toFixed(2) : 26, 16, lab,
         { bg: -1, transparent: 'true', fg: ozc(C.optLabel), size: g.labelSize, style: 0, halign: 1, valign: 0, hidden: true }, hiJs(r)), rowPage(lay, r)));
     }
+  }
+  if (SH) {
+    // v8: own-row hint strip (opaque own fill so the inner accent gap line does not cross the text), right-aligned toward the viewer's 전송 button
+    const hl = lay.cols[shFrom].x0 + 0.4, hr = X1 - 1.8 - (SH.padR ?? 0); // padR: keep the closing bracket off the accent border (v8 200% crop)
+    for (let r = 1; r <= lay.rows; r++) extraKids.push(shape(`SignHint${r}`, +hl.toFixed(2), +shTop(rowTop(r)).toFixed(2), +(hr - hl).toFixed(2), SH.h, SH.text,
+      { bg: ozc(C.ownFill), transparent: 'false', fg: ozc(C.ownBorder), size: SH.size, style: 1, halign: 2, valign: 0, hidden: true }, hiJs(r)), rowPage(lay, r));
   }
   if (lay.highlightOwnRow) {
     // own-row number is drawn in the PDF background and would be covered by the fills -> NOPRINT accent number on top

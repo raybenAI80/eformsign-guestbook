@@ -18,6 +18,14 @@ EFORMSIGN_CORE_DIR=<eformsign-core> node tools/multirow/build.mjs --layout tools
 - 확인: 빌드 xml 에서 `REQUIRED="true"` 20 · `SetRequired(_cur === _row)` 20. 열람 화면 트래커 「필수 입력 항목(0/2)」, 입력 없이 「입력 시작 → 다음」을 눌러도 「전송」 버튼이 생기지 않고 문서 단계가 그대로면 차단 성립.
 - `"static"`(v6 까지)은 정적 속성만이라 편집기·뷰어에서 10행 성명·서명이 전부 분홍으로 보인다.
 
+## 자기 행 「서명 후 오른쪽 아래 [전송]」 안내 (D v8, 2026-09-29 — `signHint`)
+
+- 태블릿 시험에서 방문자가 서명 뒤 무엇을 누를지 몰랐다. variant D `signHint` = 담당자~서명 칸 아래 13pt 띠(8pt 굵게·오른쪽 정렬·`padR` 3.5pt), NOPRINT + OnBind 자기 행만 표시(편집기·완료 PDF 미표시). 두 칸 입력칸은 띠 위에서 끝나게 줄인다(담당자 62→49.2pt, 서명 60→46.2pt).
+- 서명 뒤에만 보이게 하는 이벤트(SIGNPAD OnValueChanged)는 매뉴얼 기재뿐이고 실증이 없어 쓰지 않는다 — 자기 행이면 항상 보인다.
+- 확인: 빌드 xml `SignHint` 10건. 열람 캡처 200% 크롭에서 띠와 입력칸·오른쪽 테두리가 안 겹치는지, 진행 중 PDF 텍스트에 「서명 후」 0건.
+- 래퍼 머리글도 누적형이면 고정 문구(「…서명까지 마치면 오른쪽 아래 「전송」을 눌러 주세요.」, index.html) — 설정값 문구를 덮는다.
+- 같은 이름으로 고친 판을 다시 올릴 때는 앞 판을 `deploy.mjs --apply-to "<이름>" --rename-to "<새 이름>"` 로 비켜 둔다(삭제 아님).
+
 ## 다른 회사로 서식 복제 (2026-09-29 실측, efstest v6 → 테스트 회사)
 
 `eformsign templates copy-to-company <원본 ID> --target-api-key … --target-private-key-file … --target-member-id … --name "<이름>" --category 키오스크 --copy-kiosk-config -y`(원본 env) 한 줄 → `verify-template.mjs --template-name "<이름>"`(대상 env) = MULTIROW_TEMPLATE_READY. `--copy-kiosk-config` 가 기본 config 5키 + 알림·외부 접근·외부 사용자 플래그(URL 로 문서 생성 허용·본인확인)·팝업 생략(quick_processing)을 멤버·회사 ID 치환해 복사하고 배포(release)까지 한다 — 후처리 스크립트·`deploy.mjs --apply-to` 불필요(2026-09-29 SDK 옵션화 검증). 🔴 `--copy-config` 만 쓰면 이 네 가지가 빠지고, `--no-release` 를 주면 미배포로 남아 verify-template 이 이름으로 못 찾는다. 문서 관리자(form_manager.members)는 복사되지 않는다(서버가 빈 배열로 돌려줌). 모노레포 CLI 에 `--copy-kiosk-config` 가 있어야 한다(브랜치 feat/copy-to-company-release, 머지 전).

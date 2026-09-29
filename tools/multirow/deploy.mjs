@@ -46,14 +46,16 @@ async function patchForm(name, mutate, message, dumpBefore) {
   await http.requestService(`/v1.0/companies/${cid}/forms/${encodeURIComponent(fid)}/release/request`, { method: 'POST', tokenKind: tk, body: { idf: {}, input: { target_date: start.getTime(), request_message: message, responder: mid } } });
   return { before, after: snap(await get()) };
 }
-const mutators = () => [has('--skip-send-popup') && setQuick, has('--outsider-complete-mail-off') && outsiderMailOff].filter(Boolean);
+// --rename-to <name> (with --apply-to, 2026-09-29): 이름만 바꾼다 — 같은 이름으로 고친 판을 다시 배포하기 전에 앞 판을 비켜 두는 용도(삭제 대신)
+const renameTo = (f) => { f.name = arg('--rename-to'); };
+const mutators = () => [has('--skip-send-popup') && setQuick, has('--outsider-complete-mail-off') && outsiderMailOff, arg('--rename-to') && renameTo].filter(Boolean);
 async function dumpManaged(name, file) {
   const t = (await c.templates.list()).templates.find((x) => x.name === name);
   const g = t ? await c.templates.getManaged(t.form_id ?? t.id) : { error: 'not found' };
   fs.writeFileSync(file, JSON.stringify(g, null, 1)); return g;
 }
 if (arg('--apply-to')) {
-  const ms = mutators(); if (!ms.length) throw new Error('--apply-to needs --skip-send-popup and/or --outsider-complete-mail-off');
+  const ms = mutators(); if (!ms.length) throw new Error('--apply-to needs --skip-send-popup, --outsider-complete-mail-off and/or --rename-to');
   if (arg('--dump-before')) await dumpManaged(arg('--apply-to'), arg('--dump-before'));
   const r = await patchForm(arg('--apply-to'), (f) => ms.forEach((fn) => fn(f)), '설정 변경(재배포 없음)');
   console.log(JSON.stringify(r, null, 1));

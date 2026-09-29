@@ -308,7 +308,13 @@
   })();
 
   els.hTitle.textContent = C.title || '문서 작성';
-  els.hSub.textContent = C.subtitle || '내용을 작성한 뒤 전송을 눌러 주세요.';
+  // 누적형은 한 장에 여러 명이 차례로 쓰는 다른 흐름이라 안내 문구를 고정한다(설정값의 한 사람 한 장용
+  // 문구가 남아 있어도 덮는다). 2026-09-29 태블릿 시험: 서명을 마친 뒤 다음에 무엇을 누를지 몰랐다 —
+  // 프레임 안 활동은 관측할 수 없으므로(아래 무응답 리셋 주석) 이 머리글이 래퍼 층의 유일한 안내다.
+  // 하단 고정 띠는 뷰어 하단 바(필수 입력 항목 n/2 · 전송)를 가려서 넣지 않는다.
+  els.hSub.textContent = MULTI
+    ? '차례대로 한 줄씩 적고, 서명까지 마치면 오른쪽 아래 「전송」을 눌러 주세요.'
+    : (C.subtitle || '내용을 작성한 뒤 전송을 눌러 주세요.');
   els.thanksTitle.textContent = C.thanksMessage || '작성해 주셔서 감사합니다.';
   els.thanksSub.textContent = C.thanksSubMessage || '';
   els.idleRing.textContent = String(C.countdownSeconds);

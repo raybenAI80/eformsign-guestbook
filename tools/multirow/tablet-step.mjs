@@ -109,8 +109,9 @@ const pickOwn = (mm) => {
   if (LAY?.style === 'reception') {
     const sp = mm.els.filter((e) => e.t === 'button' && e.vis && e.w > 0 && !e.dis);
     if (!sp.length) return [];
+    // v8 (2026-09-29): the signHint strip shortens the signpad/담당자 boxes -> own-row band tests the input TOP only (성명 box now ends below the signpad)
     const band = [sp[0].y - 12, sp[0].y + sp[0].h + 12];
-    const tx = mm.els.filter((e) => e.t === 'text' && e.vis && e.w > 0 && !e.dis && e.y >= band[0] && e.y + e.h <= band[1]).sort((p, q) => p.x - q.x);
+    const tx = mm.els.filter((e) => e.t === 'text' && e.vis && e.w > 0 && !e.dis && e.y >= band[0] && e.y <= band[1]).sort((p, q) => p.x - q.x);
     return [...tx, sp[0]];
   }
   const tx = mm.els.filter((e) => e.t === 'text' && e.vis && e.w > 0 && !e.dis).sort((p, q) => p.x - q.x).slice(0, 3);
