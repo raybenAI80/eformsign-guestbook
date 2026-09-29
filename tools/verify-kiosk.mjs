@@ -3,10 +3,11 @@
  * node verify-kiosk.mjs --port 9240 --mode immediate|thanks --rounds 2 --name 홍길동
  * 좌표는 768x1024 태블릿 뷰포트 기준.
  *
- * 🔴 서식 항목이 바뀌면 좌표가 어긋난다(2026-09-16).
- *    작성 프레임은 다른 도메인의 iframe 이고 그 안의 OZ 뷰어는 입력칸을 DOM 으로 노출하지
- *    않는다 — 즉 **입력칸 위치를 자동으로 찾아낼 방법이 없다**(실측 부정 결과).
- *    그래서 좌표를 코드에서 빼내 옵션으로 만든다. 서식을 고친 고객은 다음 중 하나를 쓴다.
+ * 🔴 서식 항목이 바뀌면 고정 좌표는 어긋난다(2026-09-16).
+ *    2026-09-29 정정: 작성 프레임(외부 도메인 OOPIF)은 별도 CDP 타깃이고, 그 안의 PC 뷰어는 입력칸을
+ *    `<input id="ozinput_N">` 으로 둔다 — 그래서 **성명·소속(첫·둘째 칸)은 DOM 에서 위치를 읽어 누른다**
+ *    (form-coords.mjs locateTextInputs). 좌표 옵션을 주면 그 값이 우선하고, DOM 을 못 읽으면 기본 좌표로 폴백한다.
+ *    동의·전송·팝업 버튼은 여전히 좌표다. 서식을 고친 고객은 다음 중 하나를 쓴다.
  *      · 값 입력을 건너뛴다:            --notype        ← 항목 변경과 무관하게 항상 동작
  *      · 좌표를 직접 준다:              --name-x 480 --name-y 464 --org-x 520 --org-y 518
  *      · 좌표 묶음을 파일로 준다:        --coords <json>   (키: consent, continue, name, org, send, popup1, popup2)
@@ -15,7 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveCoords, passConsentGate, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
+import { resolveCoords, passConsentGate, locateTextInputs, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > -1 ? process.argv[i + 1] : d; };
 // 🔴 이 도구는 **이미 떠 있는** 헤드리스 크롬에 붙는다(직접 띄우지 않는다).
@@ -111,10 +112,16 @@ for (let round = 1; round <= ROUNDS; round++) {
   await shot(`${TAG}-r${round}-2-editable`);
 
   if (!process.argv.includes('--notype')) {
-    await click(COORDS.name[0], COORDS.name[1], 1500);   // 첫 번째 텍스트 입력칸
+    // 좌표를 직접 주지 않았으면 입력칸 위치를 작성 프레임 DOM 에서 읽는다(첫 칸 = 성명, 둘째 칸 = 소속).
+    const explicit = COORD_SRC.some(s => s !== 'default');
+    const inputs = explicit ? [] : await locateTextInputs({ cdpPort: PORT, evalTop: evalJs });
+    const nameAt = inputs[0] ? [inputs[0].x, inputs[0].y] : COORDS.name;
+    const orgAt = inputs[1] ? [inputs[1].x, inputs[1].y] : COORDS.org;
+    console.log('  INPUTS ' + (explicit ? 'coords(' + COORD_SRC.join(',') + ')' : inputs.length ? 'dom ' + JSON.stringify(inputs.slice(0, 2).map(o => [o.x, o.y])) + ' of ' + inputs.length : 'fallback default'));
+    await click(nameAt[0], nameAt[1], 1500);   // 첫 번째 텍스트 입력칸
     await type(visitor);
     await sleep(800);
-    await click(COORDS.org[0], COORDS.org[1], 1200);     // 두 번째 텍스트 입력칸
+    await click(orgAt[0], orgAt[1], 1200);     // 두 번째 텍스트 입력칸
     await type('검증팀');
     await sleep(1200);
   }
