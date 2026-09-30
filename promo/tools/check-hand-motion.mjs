@@ -251,7 +251,7 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
   const spec = hand.handLayerSpec();
   const hi = process.argv.indexOf("--hand-cutout");
   const cutout = hi > 0 ? path.resolve(process.cwd(), process.argv[hi + 1]) : path.join(root, "public/gen", spec.file);
-  const r = spawnSync(process.platform === "win32" ? "python" : "python3", [path.join(root, "tools/make-hand-layer.py"), "--check", cutout, "--origin", spec.origin.join(",")], {
+  const r = spawnSync(process.platform === "win32" ? "python" : "python3", [path.join(root, "tools/make-hand-layer.py"), "--check", cutout, "--origin", spec.origin.join(","), "--tip", spec.tip.join(",")], {
     cwd: root,
     encoding: "utf8",
     env: { ...process.env, PYTHONIOENCODING: "utf-8" },
@@ -261,7 +261,7 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
   report.handEdge = edge ?? { error: (r.stderr || "").slice(-400) };
   if (!edge) fail.push(`손 컷아웃 경계 검사 실행 실패: ${(r.stderr || "").slice(-200)}`);
   else {
-    console.log(`\n손 컷아웃 경계: 윗선 홈 ${edge.topNotchPx}px(≤${edge.limits.topNotchPx}) · 후광 ${edge.haloL}L(≤${edge.limits.haloL}) · 티끌 ${edge.darkFringePx}(≤${edge.limits.darkFringePx}) · 이음매 반투명 ${edge.seamPartialPx}(=0) — ${path.relative(root, cutout)}`);
+    console.log(`\n손 컷아웃 경계: 윗선 홈 ${edge.topNotchPx}px(≤${edge.limits.topNotchPx}) · 후광 ${edge.haloL}L(≤${edge.limits.haloL}) · 티끌 ${edge.darkFringePx}(≤${edge.limits.darkFringePx}) · 이음매 반투명 ${edge.seamPartialPx}(=0) · 윗 윤곽 내각 ${edge.silhouetteMinDeg}°(≥${edge.silhouetteLimitDeg}) — ${path.relative(root, cutout)}`);
     if (!edge.pass) fail.push(`손 컷아웃 경계 불통과: ${edge.fail.join(", ")}`);
   }
   const hl = fs.readFileSync(path.join(root, "src/components/HandLayer.tsx"), "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
@@ -397,6 +397,73 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
     report.straightCut = { exit: r.status, summary: out, selftest };
     console.log(`화면 변 직선 절단(렌더): ${out}${selftest ? " [음성 대조]" : ""}`);
     if (r.status !== 0) fail.push(`화면 변 직선 절단 검출: ${out || (r.stderr || "").slice(-300)}`);
+  }
+}
+
+/*
+ * 레인 HF(2026-09-30) — 손 실루엣 스파이크(접힌 가운데·약지 마디가 삼각형으로 솟음, 사용자 지적 v3.4 631f).
+ *   ① 소재: make-hand-layer.py --check 안의 tools/silhouette_spikes.py(윗 윤곽 k=8 현 내각 ≥ 한도) — 위 컷아웃 블록.
+ *   ② 렌더: 같은 윤곽을 3D 격자 투영(projectTexel = HandLayer 가 그리는 식)으로 옮겨, 접촉 프레임마다 투영 실루엣의
+ *      윗 윤곽 내각 최솟값 ≥ 한도. 평면(HAND3D_VARIANTS.hF) 투영과의 차 = 렌더 단계 기여(진단 출력).
+ *      음성 대조: `--hand-cutout <d6ead93 의 hand-03.png>` → 소재·렌더 모두 불통과.
+ */
+{
+  const spec = hand.handLayerSpec();
+  const hi = process.argv.indexOf("--hand-cutout");
+  const cutout = hi > 0 ? path.resolve(process.cwd(), process.argv[hi + 1]) : path.join(root, "public/gen", spec.file);
+  const dump = path.join(os.tmpdir(), `hf-contour-${process.pid}.json`);
+  const r = spawnSync(process.platform === "win32" ? "python" : "python3", [path.join(root, "tools/silhouette_spikes.py"), cutout, "--origin", spec.origin.join(","), "--tip", spec.tip.join(","), "--dump-contour", dump], {
+    cwd: root, encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" },
+  });
+  if (!fs.existsSync(dump)) fail.push(`실루엣 윤곽 추출 실패: ${(r.stderr || "").slice(-200)}`);
+  else {
+    const C = JSON.parse(fs.readFileSync(dump, "utf8"));
+    fs.rmSync(dump, { force: true });
+    const K = C.k, LIMIT = C.limit, n = C.points.length;
+    // silhouette_spikes.interior_angles 와 같은 식(볼록 = 180 미만). 투영이 방향을 뒤집지 않으므로 부호 면적으로 판별
+    const minAngle = (P) => {
+      let area = 0;
+      for (let i = 0; i < n; i++) { const a = P[i], b = P[(i + 1) % n]; area += a[0] * b[1] - b[0] * a[1]; }
+      let mn = 999, at = null;
+      for (let i = 0; i < n; i++) {
+        if (!C.include[i]) continue;
+        const p = P[i], a = P[(i - K + n) % n], b = P[(i + K) % n];
+        const ax = a[0] - p[0], ay = a[1] - p[1], bx = b[0] - p[0], by = b[1] - p[1];
+        const cos = (ax * bx + ay * by) / (Math.hypot(ax, ay) * Math.hypot(bx, by) + 1e-9);
+        let deg = (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI;
+        const convex = Math.sign(ax * by - ay * bx) === -Math.sign(area);
+        if (!convex) deg = 360 - deg;
+        if (deg < mn) { mn = deg; at = C.points[i]; }
+      }
+      return { mn, at };
+    };
+    const src = minAngle(C.points);
+    const rs = { limitDeg: LIMIT, k: K, sourceMinDeg: +src.mn.toFixed(1), frames: [], minDeg: 999, flatMinDeg: 999, maxRenderDeltaDeg: 0 };
+    for (const [name, keys, total] of [["fill", fill, fillTotal], ["repeat-1", rep1, FIRST_LEN + 12], ["repeat-2", rep2, repTotal - FIRST_LEN]]) {
+      const contact = [];
+      for (const k of keys) {
+        if (k.kind === "tap") for (let f = k.t - hand.TAP_HOLD; f <= k.t; f++) contact.push(f);
+        if (k.kind === "sign") for (let f = k.t - hand.SIGN_LEN; f <= k.t; f++) contact.push(f);
+      }
+      for (const f of [...new Set(contact)].filter((f) => f >= 0 && f < total)) {
+        const p = h3.hand3dPose(spec, keys, f);
+        if (!p.visible) continue;
+        const pf = h3.hand3dPose(spec, keys, f, h3.HAND3D_VARIANTS.hF);
+        const P3 = C.points.map(([u, v]) => h3.projectTexel(spec, p, u, v));
+        const PF = C.points.map(([u, v]) => { const w = h3.texelWorld(spec, pf, u, v, h3.HAND3D_VARIANTS.hF); return h3.project(w[0], w[1], w[2]); });
+        const a3 = minAngle(P3).mn, af = minAngle(PF).mn;
+        rs.frames.push({ cut: name, f, deg: +a3.toFixed(1), flatDeg: +af.toFixed(1) });
+        rs.minDeg = Math.min(rs.minDeg, a3);
+        rs.flatMinDeg = Math.min(rs.flatMinDeg, af);
+        rs.maxRenderDeltaDeg = Math.max(rs.maxRenderDeltaDeg, Math.abs(a3 - af));
+      }
+    }
+    rs.minDeg = +rs.minDeg.toFixed(1); rs.flatMinDeg = +rs.flatMinDeg.toFixed(1); rs.maxRenderDeltaDeg = +rs.maxRenderDeltaDeg.toFixed(2);
+    report.silhouette = rs;
+    console.log(`\n손 실루엣 스파이크(윗 윤곽, k=${K}): 소재 ${rs.sourceMinDeg}° · 접촉 ${rs.frames.length}프레임 투영 최소 ${rs.minDeg}°(평면 ${rs.flatMinDeg}°, 렌더 기여 최대 ${rs.maxRenderDeltaDeg}°) — 한도 ≥${LIMIT}° — ${path.relative(root, cutout)}`);
+    if (rs.frames.length < 3) fail.push(`실루엣 검사 접촉 프레임 ${rs.frames.length} < 3`);
+    if (rs.sourceMinDeg < LIMIT) fail.push(`손 소재 윗 윤곽 스파이크 ${rs.sourceMinDeg}° < ${LIMIT}° (${src.at?.map((x) => x.toFixed(0)).join(",")})`);
+    if (rs.minDeg < LIMIT) fail.push(`렌더 투영 실루엣 스파이크 ${rs.minDeg}° < ${LIMIT}°`);
   }
 }
 

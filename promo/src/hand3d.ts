@@ -167,12 +167,14 @@ export const shadowPoint = (x: number, y: number, z: number, P: Hand3DParams = H
 /**
  * 레인 B 판정용 후보 변형(본편 미사용). A = 들림 2배 + 그림자 진하고 멀리 · B = A + 구름 12° + 접촉 눌림 강화 · C = B(+카메라 궤도는 HandLayer/Fill 쪽)
  */
-export const HAND3D_VARIANTS: Record<"hA" | "hB" | "hC", Hand3DParams> = (() => {
+export const HAND3D_VARIANTS: Record<"hA" | "hB" | "hC" | "hF", Hand3DParams> = (() => {
   const A: Hand3DParams = {
     ...HAND3D,
     tipLift: 68, kneeBase: 30, kneeLift: 76, armSlope: 0.19, armMax: 200,
     light: [-0.5, 0.62, 1], blur0: 1.4, blurPerZ: 0.16, shadowNear: 0.58, shadowFar: 0.34,
   };
   const B: Hand3DParams = { ...A, rollPerPx: 0.6, rollMaxDeg: 12, press: 22 };
-  return { hA: A, hB: B, hC: B };
+  // 레인 HF 진단: 평면(휨·들림·누름·구름 0) — 같은 프레임의 3D 실루엣과 대조해 렌더 단계 기여를 가른다
+  const F: Hand3DParams = { ...HAND3D, tipLift: 0, kneeBase: 0, kneeLift: 0, press: 0, armSlope: 0, rollPerPx: 0 };
+  return { hA: A, hB: B, hC: B, hF: F };
 })();

@@ -5,12 +5,13 @@ import { createContext, useContext } from "react";
  * 후보는 컴포지션 `CandB`(props.cand) 에서만 켜진다. 🔴 ThreeCanvas 안(R3F 별도 렌더러)으로는 컨텍스트가
  * 넘어가지 않는다 — 캔버스 **밖**에서 읽어 prop 으로 넘긴다.
  *   hA/hB/hC = 손 존재감 변형 · c2 = 태블릿 층·먼 층 패럴랙스 · c3 = 문서함 행 3D 카드 · c4 = 종이 전환 깊이 강화
+ *   hF = 레인 HF 진단용 평면(격자 휨·들림·구름 0 — 렌더 단계 실루엣 기여 대조)
  *   c5 = CTA 로고 3D 강화 · c6 = 문서함 캡처 판 3D 기울기(워커 제안)
  */
-export type CandId = "" | "hA" | "hB" | "hC" | "c2" | "c3" | "c4" | "c5" | "c6";
+export type CandId = "" | "hA" | "hB" | "hC" | "hF" | "c2" | "c3" | "c4" | "c5" | "c6";
 export const CandContext = createContext<CandId>("");
 export const useCand = (): CandId => useContext(CandContext);
-export const isHandCand = (c: CandId): c is "hA" | "hB" | "hC" => c === "hA" || c === "hB" || c === "hC";
+export const isHandCand = (c: CandId): c is "hA" | "hB" | "hC" | "hF" => c === "hA" || c === "hB" || c === "hC" || c === "hF";
 
 /** 후보 C·2 의 카메라 궤도 — 프레임 결정적. 장면 로컬 프레임 → 도(°) / px */
 export const orbitDeg = (f: number) => 6 * Math.sin((2 * Math.PI * f) / 240);

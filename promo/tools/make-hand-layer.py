@@ -28,9 +28,13 @@ ap.add_argument('--extend', type=int, default=420)
 ap.add_argument('--plate-out', default='public/gen/gen-03-plate.png')
 ap.add_argument('--hand-out', default='public/gen/hand-03.png')
 ap.add_argument('--debug', default=None)
+ap.add_argument('--knuckle-zone', default='856,968',
+                help='레인 HF: 윗 윤곽(손등 쪽) 재추적 구간(사진 x0,x1). 접힌 가운데·약지 마디가 검지 뒤로 솟는 자리')
+ap.add_argument('--knuckle-sigma', type=float, default=3.0, help='레인 HF: 재추적 윤곽 1D 평활 σ(열)')
 ap.add_argument('--check', default=None, metavar='HAND_PNG',
                 help='레인 H: 컷아웃 경계 품질만 판정(JSON 출력, 불통과 exit 1). 생성은 하지 않는다')
 ap.add_argument('--origin', default='783,500', help='--check 용: 컷아웃 원점(prompts.json handLayer.origin)')
+ap.add_argument('--tip', default='790,510', help='--check 용: 손끝(prompts.json handLayer.tip) — 스파이크 검사 제외 구역 중심')
 A = ap.parse_args()
 
 # 레인 H 판정 한도 — HEAD 684cbc0 컷아웃: 윗선 홈 5px·후광 +14L·베젤 티끌 다수·이음매 반투명 320px
@@ -88,6 +92,16 @@ def check_cutout(path, origin, cut_x):
         "limits": LIMITS,
     }
     bad = [k for k in LIMITS if res[k] > LIMITS[k]]
+    # 레인 HF — 윗 윤곽(손등 쪽) 스파이크: 접힌 마디가 삼각형으로 솟으면 불통과 (tools/silhouette_spikes.py)
+    import os, sys as _sys
+    _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import silhouette_spikes as _ss
+    sp = _ss.check(path, origin, (origin[0] + 7, origin[1] + 10) if A.tip is None else tuple(map(int, A.tip.split(','))), cut_x)
+    res["silhouetteMinDeg"] = sp["minInteriorDeg"]
+    res["silhouetteSpikes"] = sp["spikes"]
+    res["silhouetteLimitDeg"] = sp["limitDeg"]
+    if not sp["pass"]:
+        bad.append("silhouetteMinDeg")
     res["pass"] = not bad
     res["fail"] = bad
     return res
@@ -182,6 +196,34 @@ yy = np.arange(H)[:, None].repeat(W, 1)
 xx2 = np.arange(W)[None, :].repeat(H, 0)
 add = (cl > 0) & (mh == 0) & (yy < topy[None, :]) & (xx2 < A.cut_x - 60)
 mh[add] = 1
+# b2) 레인 HF(2026-09-30) — 접힌 마디 윗 윤곽 재추적. 사용자 지적: 검지 뒤로 솟는 접힌 가운데·약지 마디가
+#     둥근 돔이 아니라 뾰족한 삼각 스파이크(왼쪽 절벽 + 반경 ~4px 꼭짓점). 원인 = 마디 왼쪽의 밝은 역광 테두리
+#     (L 218~229, 채도 ≈5 — 배경 베이지와 구별 안 됨)를 GrabCut 이 배경으로 버려 홈 → 절벽 → 꼭짓점이 생겼다.
+#     사진 근거 윤곽 = 「바탕 변형본과 다르거나(d>12) 피부 채도(a+b>12)」인 첫 화소(열마다, 기존 윗선 −10~+8 안).
+#     그 윤곽을 열 방향 σ 로 평활해(돔) 구간 끝 8열은 기존 윗선과 섞는다. 🔴 GrabCut 재추출 아님(두 번 실패).
+kx0, kx1 = map(int, A.knuckle_zone.split(','))
+chk = (la[:, :, 1] - 128) + (la[:, :, 2] - 128)
+ev = []
+for X in range(kx0, kx1 + 1):
+    t0 = int(np.argmax(mh[:, X] > 0))
+    y = max(0, t0 - 10)
+    while y < t0 + 8 and not (d[y, X] > 12 or chk[y, X] > 12):
+        y += 1
+    ev.append((t0, y))
+ev = np.array(ev, np.float64)
+old_t, ev_t = ev[:, 0], ev[:, 1]
+rk = int(3 * A.knuckle_sigma)
+ker = np.exp(-0.5 * (np.arange(-rk, rk + 1) / A.knuckle_sigma) ** 2); ker /= ker.sum()
+sm_t = np.convolve(np.pad(ev_t, rk, mode='edge'), ker, mode='valid')
+nz = len(sm_t); ramp = np.clip(np.minimum(np.arange(nz), np.arange(nz)[::-1]) / 8.0, 0, 1)
+new_t = old_t * (1 - ramp) + sm_t * ramp
+for i, X in enumerate(range(kx0, kx1 + 1)):
+    tn = int(round(new_t[i])); to = int(old_t[i])
+    mh[:tn, X] = 0
+    if tn < to:
+        mh[tn:to, X] = 1
+knuckle_trace = {"zone": [kx0, kx1], "oldTop": old_t.astype(int).tolist(), "evidenceTop": ev_t.astype(int).tolist(),
+                 "newTop": np.round(new_t, 1).tolist()}
 # c) 윤곽 매끈하게(계단 제거) → 가장 큰 덩어리·구멍 메우기
 mh = (cv2.GaussianBlur(mh.astype(np.float32), (0, 0), 1.2) > 0.5).astype(np.uint8)
 mh = fill(biggest(mh))
@@ -241,6 +283,8 @@ info = {
     "handPixels": int(m.sum()),
     "plate": A.plate_out.split('public/gen/')[-1],
 }
+if A.debug:
+    json.dump(knuckle_trace, open(A.debug.rsplit('.', 1)[0] + '-knuckle.json', 'w'))
 if A.debug:
     e = cv2.Canny(m * 255, 50, 150) > 0; v = a.copy(); v[e] = (0, 255, 0)
     cv2.imwrite(A.debug, v[420:880, 700:1400])
