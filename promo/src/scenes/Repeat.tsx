@@ -6,7 +6,9 @@ import { Inbox } from "../components/Inbox";
 import { Photo } from "../components/Photo";
 import { Caption } from "../components/Caption";
 import { Narration } from "../components/Narration";
-import { Cut, Occluder, QuadShot, StagePane } from "../components/ShotView";
+import { Cut, QuadShot, StagePane } from "../components/ShotView";
+import { HandLayer } from "../components/HandLayer";
+import { centeredOverlayArea, handPlate, repeatKeys, thanksTransitionFrame, type HandKey } from "../hand";
 import { scene, sceneFrames } from "../script";
 import { inboxShot } from "../shots";
 import {
@@ -65,53 +67,51 @@ const COUNTDOWN = countdownSeq();
  *      영역이 608px 로 줄어 fitCrop 이 가로 기준으로 바뀌고 약 2.2배 확대돼, 제목 한 줄이
  *      태블릿 화면 좌우를 넘쳐 잘렸다(스틸 v3l-fix-repeat 1차에서 확인). 배율은 v3 와 같아야 한다.
  */
-const centeredOverlayArea = (vp: Rect | null | undefined, capHeight: number): Rect | null => {
-  if (!vp) return null;
-  const h = Math.min(vp.h, capHeight);
-  const y = Math.round(Math.min(Math.max(0, capHeight / 2 - h / 2), capHeight - h));
-  return { x: vp.x, y, w: vp.w, h };
-};
+/* centeredOverlayArea 는 손 좌표와 같은 함수를 써야 해서 src/hand.ts 로 옮겼다(레인 V) */
 
-const Visitor: React.FC<{
-  gen: string;
-  sceneNo: number;
+/**
+ * 한 방문자 컷의 **화면 캡처 층 + 손 층**(사진 children 좌표).
+ *
+ * 🔴 레인 V(2026-09-30): 두 컷이 **같은 바탕 한 장**을 쓰므로 사진(Photo)은 장면 전체에 하나만 두고,
+ *    컷 전환은 이 층들만 크로스페이드한다. 컷마다 Photo 를 따로 두면 두 번째 사진의 줌(pan)이
+ *    1.0 에서 다시 시작해 전환 12프레임 동안 바탕이 이중으로 겹쳐 보였다(바탕 연속프레임 차 2.46).
+ */
+const ScreenLayers: React.FC<{
+  quad: ReturnType<typeof screenQuad>;
+  /** 이 컷의 손 궤적(컷 로컬 프레임) */
+  hand?: HandKey[];
   /** 태블릿 화면에 순서대로 얹을 캡처(공용 경로) */
   frames: {
     rel: string;
     cap: { width: number; height: number; viewport?: Rect | null };
     len: number;
   }[];
-  zoom?: number;
-}> = ({ gen, sceneNo, frames, zoom = 1.55 }) => {
-  const quad = screenQuad(sceneNo);
-  const focus = quad ? quadCentroid(quad) : ([960, 540] as [number, number]);
+}> = ({ quad, frames, hand }) => {
   const aspect = quad ? quadAspect(quad) : 1;
   let at = 0;
   return (
-    <StagePane paneWidth={PANE_W} paneHeight={1080} focus={focus} zoom={zoom}>
-      <Photo src={gen} pan="in" from={1.0} to={1.05} durationInFrames={TOTAL}>
-        {quad
-          ? frames.map((f, i) => {
-              const from = at;
-              at += f.len;
-              return (
-                <Sequence key={`${f.rel}-${i}`} from={from} durationInFrames={f.len + 8}>
-                  <Cut fade={i === 0 ? 0 : 8}>
-                    <QuadShot
-                      {...shotLayer(f.rel)}
-                      capture={f.cap}
-                      crop={screenCrop(f.cap, aspect)}
-                      corners={quad}
-                    />
-                  </Cut>
-                </Sequence>
-              );
-            })
-          : null}
-        {/* 🔴 캡처 층 **위** — 사진에서 화면 앞에 있던 손끝을 되돌린다 */}
-        <Occluder gen={gen} />
-      </Photo>
-    </StagePane>
+    <>
+      {quad
+        ? frames.map((f, i) => {
+            const from = at;
+            at += f.len;
+            return (
+              <Sequence key={`${f.rel}-${i}`} from={from} durationInFrames={f.len + 8}>
+                <Cut fade={i === 0 ? 0 : 8}>
+                  <QuadShot
+                    {...shotLayer(f.rel)}
+                    capture={f.cap}
+                    crop={screenCrop(f.cap, aspect)}
+                    corners={quad}
+                  />
+                </Cut>
+              </Sequence>
+            );
+          })
+        : null}
+      {/* 🔴 캡처 층 **위** — 손은 언제나 화면 앞(레인 V: v3 의 손끝 Occluder 를 대체) */}
+      {hand ? <HandLayer keys={hand} /> : null}
+    </>
   );
 };
 
@@ -179,6 +179,34 @@ export const Repeat: React.FC<{ mute?: boolean }> = ({ mute }) => {
       ]
     : [{ rel: blankSrc, cap: blankCap, len: secondLen }];
 
+  /* 🔴 레인 V(2026-09-30): 두 컷 모두 **같은 바탕(손 없는 gen-03)·같은 손**. 예전엔 gen-04·05
+     로 사람(손)이 컷마다 바뀌었다. 화면 4점도 바탕과 같은 scene 3 의 것을 쓴다. */
+  const quad3 = screenQuad(3);
+  const aspect3 = quad3 ? quadAspect(quad3) : 1;
+  const tIdx = seqUse.indexOf(thanksTransitionFrame() ?? "");
+  const firstHand: HandKey[] = quad3
+    ? repeatKeys({
+        quad: quad3,
+        aspect: aspect3,
+        thanksCap: seqCap,
+        thanksTapAt: tIdx > 0 ? tIdx * perSeq - 1 : null,
+        cdCap,
+        cdTapAt: null,
+        blankCap,
+      })
+    : [];
+  const secondHand: HandKey[] = quad3
+    ? repeatKeys({
+        quad: quad3,
+        aspect: aspect3,
+        thanksCap: seqCap,
+        thanksTapAt: null,
+        cdCap,
+        cdTapAt: cdPicked.length ? cdLen - 1 : null,
+        blankCap,
+      })
+    : [];
+
   return (
     <Stage variant="light" logo="none">
       <Narration id="repeat" mute={mute} />
@@ -189,18 +217,25 @@ export const Repeat: React.FC<{ mute?: boolean }> = ({ mute }) => {
            컷 직후 문서함이 통째로 사라졌다 나타난다 — 실제로 그렇게 보였다. */
         from={-18}
         left={
-          <AbsoluteFill>
-            <Sequence from={0} durationInFrames={FIRST_LEN + FADE}>
-              <Cut fade={0}>
-                <Visitor gen="gen-04.png" sceneNo={4} frames={firstFrames} />
-              </Cut>
-            </Sequence>
-            <Sequence from={FIRST_LEN} durationInFrames={TOTAL - FIRST_LEN}>
-              <Cut fade={FADE}>
-                <Visitor gen="gen-05.png" sceneNo={5} frames={secondFrames} />
-              </Cut>
-            </Sequence>
-          </AbsoluteFill>
+          <StagePane
+            paneWidth={PANE_W}
+            paneHeight={1080}
+            focus={quad3 ? quadCentroid(quad3) : [960, 540]}
+            zoom={1.55}
+          >
+            {/* 🔴 앞 장면 Fill 이 같은 바탕을 1.00→1.05 로 밀고 끝난다 — 여기서 1.00 으로 돌아가면
+                같은 사진이 컷에서 5% 튀어 「점프 컷」이 된다(레인 V). 1.05 에서 이어 민다. */}
+            <Photo src={handPlate()} pan="in" from={1.05} to={1.08} durationInFrames={TOTAL}>
+              <Sequence from={0} durationInFrames={FIRST_LEN + FADE}>
+                <ScreenLayers quad={quad3} frames={firstFrames} hand={firstHand} />
+              </Sequence>
+              <Sequence from={FIRST_LEN} durationInFrames={TOTAL - FIRST_LEN}>
+                <Cut fade={FADE}>
+                  <ScreenLayers quad={quad3} frames={secondFrames} hand={secondHand} />
+                </Cut>
+              </Sequence>
+            </Photo>
+          </StagePane>
         }
         right={
           <AbsoluteFill style={{ padding: 48, alignItems: "center", justifyContent: "center" }}>

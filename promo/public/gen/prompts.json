@@ -317,7 +317,7 @@
         },
         "ink": {
           "$comment": "손글씨 표현값 — **측정치(ruling)에서 파생된 연출 결정**이다(측정이 아니다). 글자 높이 = ruling.pitch × glyphOfPitch, 한 칸 = 괘선 한 줄, 세로 위치 = 괘선 + baselineDropOfPitch×pitch. 🔴 px 를 직접 적지 않는다 — 이미지가 바뀌어 pitch 가 달라지면 글씨 크기가 저절로 따라가야 한다.",
-          "glyphOfPitch": 1.0,
+          "glyphOfPitch": 1,
           "rulesPerEntry": 1,
           "baselineDropOfPitch": 0.86,
           "nameAtX": 0.1,
@@ -512,7 +512,32 @@
         "order": "tl,tr,br,bl",
         "measure": "auto(low-saturation flat-region detection)+육안 오버레이 확인"
       },
-      "note": "④·⑤ 의 배경·조명 기준 레퍼런스로 사용."
+      "note": "④·⑤ 의 배경·조명 기준 레퍼런스로 사용.",
+      "handLayer": {
+        "$comment": "레인 V(2026-09-30). Fill·Repeat 공용 바탕과 손 층의 정본. 🔴 손으로 고치지 말고 python tools/make-hand-layer.py --coarse public/gen/cand/gen-03-hand-canva-alpha.png 출력으로 갱신한다. 좌표 = 1920x1080 사진 좌표",
+        "plate": "gen-03-plate.png",
+        "plateMethod": "gen-03 에서 손·소매 영역만 gpt-image 손 없음 변형(cand/gen-03-nohand-a.png, 위상상관 0.4px 정렬)으로 교체 — 마스크 밖 95% 화소 바이트 동일, screenQuad 재측정 불필요",
+        "nohandPrompt": "gen-03 을 레퍼런스로 첨부, 같은 구도·조명·태블릿·카운터, 손과 팔만 없는 장면(이전 워커 생성, 원문 미기록)",
+        "file": "hand-03.png",
+        "origin": [
+          783,
+          500
+        ],
+        "size": [
+          882,
+          343
+        ],
+        "tip": [
+          790,
+          510
+        ],
+        "pivot": [
+          1500,
+          810
+        ],
+        "pivotNote": "팔꿈치 추정점(화면 밖 오른쪽 아래). 손끝 이동의 일부를 이 점 기준 회전으로 흡수해 팔 방향이 자연스럽게 따라온다",
+        "cutoutMethod": "차분 키잉 씨앗 + Canva remove-background 저해상 알파(200x140)를 GrabCut 사전으로, 베젤(L<95·d<12) 제외, x≥1245 절단 후 소매 420px 가로 늘임 연장"
+      }
     },
     {
       "scene": 4,

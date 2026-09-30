@@ -6,7 +6,9 @@ import { Inbox } from "../components/Inbox";
 import { Photo } from "../components/Photo";
 import { Caption } from "../components/Caption";
 import { Narration } from "../components/Narration";
-import { Cut, Occluder, QuadShot, StagePane } from "../components/ShotView";
+import { Cut, QuadShot, StagePane } from "../components/ShotView";
+import { HandLayer } from "../components/HandLayer";
+import { fillKeys, handPlate } from "../hand";
 import { scene, sceneFrames } from "../script";
 import { inboxShot } from "../shots";
 import {
@@ -57,9 +59,26 @@ const TAIL_CUTS: { key: ShotKey; at: number; len: number }[] = [
   { key: "B05", at: 256, len: TOTAL - 256 },
 ];
 
+/** 시퀀스 한 장이 머무는 프레임 — 손 궤적도 이 값으로 캡처와 맞춘다 */
+const SEQ_PER = Math.max(1, Math.floor(196 / Math.max(1, SEQ.frames.length)));
+
 export const Fill: React.FC<{ mute?: boolean }> = ({ mute }) => {
   const aspect = QUAD ? quadAspect(QUAD) : 1;
   const focus = QUAD ? quadCentroid(QUAD) : ([960, 540] as [number, number]);
+  const b05 = TAIL_CUTS.find((c) => c.key === "B05");
+  /* 🔴 손 = 한 장의 컷아웃이 입력 칸 → 서명 → 전송 순으로 움직인다(레인 V). 좌표는 캡처 차분에서 파생 */
+  const handKeys =
+    QUAD && SEQ.frames.length
+      ? fillKeys({
+          per: SEQ_PER,
+          seqCap: { width: SEQ.width, height: SEQ.height, viewport: SEQ.viewport },
+          b04Cap: geo("B04"),
+          b05At: b05?.at ?? TOTAL,
+          total: TOTAL,
+          quad: QUAD,
+          aspect,
+        })
+      : [];
 
   /* 🔴 자르기는 `screenCrop` 한 곳에서만 계산한다 — 캡처의 **내용 있는 영역**(viewport,
      측정값)을 화면 사각형 비율에 맞춰 담는다. 캡처 전체를 담던 v2 는 서식 아래 백지가
@@ -85,12 +104,12 @@ export const Fill: React.FC<{ mute?: boolean }> = ({ mute }) => {
         from={8}
         left={
           <StagePane paneWidth={PANE_W} paneHeight={1080} focus={focus} zoom={1.55}>
-            <Photo src="gen-03.png" pan="in" from={1.0} to={1.05} durationInFrames={TOTAL}>
+            <Photo src={handPlate()} pan="in" from={1.0} to={1.05} durationInFrames={TOTAL}>
               {SEQ.frames.length > 0 ? (
                 <>
                   {/* 채워지는 과정 — 연속 캡처를 그대로 넘긴다 */}
                   {SEQ.frames.map((rel, i) => {
-                    const per = Math.max(1, Math.floor(196 / SEQ.frames.length));
+                    const per = SEQ_PER;
                     return (
                       <Sequence key={rel} from={i * per} durationInFrames={per + 4}>
                         <Cut fade={i === 0 ? 0 : 4}>
@@ -126,8 +145,8 @@ export const Fill: React.FC<{ mute?: boolean }> = ({ mute }) => {
                   );
                 })
               )}
-              {/* 🔴 캡처 층 **위** — 사진에서 화면 앞에 있던 손끝을 되돌린다 */}
-              <Occluder gen="gen-03.png" />
+              {/* 🔴 캡처 층 **위** — 손은 언제나 화면 앞(레인 V: v3 의 손끝 Occluder 를 대체) */}
+              <HandLayer keys={handKeys} />
             </Photo>
           </StagePane>
         }
