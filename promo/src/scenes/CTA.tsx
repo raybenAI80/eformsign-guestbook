@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Img, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Stage } from "../components/Stage";
 import { KO_WRAP } from "../components/Caption";
 import { Narration } from "../components/Narration";
@@ -23,6 +23,8 @@ const S = scene("cta");
  * 로고를 텍스처로 다시 그리지 않으므로 정면이 된 뒤에는 v3.2 와 같은 화소 조판이다.
  */
 const TILT_FRAMES = 24;
+/** cta-reveal.wav 정점까지 프레임(레인 U 계약) */
+const REVEAL_HIT = 18;
 const PANEL = { w: 1240, h: 780 };
 
 export const CTA: React.FC<{ mute?: boolean }> = ({ mute }) => {
@@ -39,6 +41,12 @@ export const CTA: React.FC<{ mute?: boolean }> = ({ mute }) => {
   return (
     <Stage variant="blue" logo="none">
       <Narration id="cta" mute={mute} />
+      {/* v3.3 레인 T2 — cta-reveal.wav 정점(0.60초 = 18f)을 패널 회전이 멈추는 프레임(TILT_FRAMES-1)에 */}
+      {mute ? null : (
+        <Sequence name="효과음 cta-reveal" from={TILT_FRAMES - 1 - REVEAL_HIT} durationInFrames={48}>
+          <Audio src={staticFile("sfx/cta-reveal.wav")} />
+        </Sequence>
+      )}
       <CtaPanel3D progress={tilt} w={PANEL.w} h={PANEL.h} opacity={panelIn} />
       <div style={ctaFaceStyle(tilt, height)}>
       <AbsoluteFill

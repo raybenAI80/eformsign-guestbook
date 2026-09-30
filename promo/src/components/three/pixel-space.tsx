@@ -12,11 +12,9 @@ import * as THREE from "three";
  * 그래서 위치·크기를 화면 px 로 적을 수 있고, 같은 거리를 CSS `perspective` 에 넣으면
  * DOM(로고 PNG 등)이 three 메시와 똑같이 기운다(CTA 패널에서 사용).
  */
-export const PIXEL_FOV = 30;
-
-/** 캔버스 높이 h(px) 일 때 z=0 평면이 1단위=1px 이 되는 카메라 거리 */
-export const pixelDistance = (h: number, fov = PIXEL_FOV) =>
-  h / 2 / Math.tan(((fov / 2) * Math.PI) / 180);
+/** 정본 = moments-geometry.ts(게이트가 React 없이 같은 식을 쓰도록 순수 TS 로 옮겼다) */
+import { PIXEL_FOV, pixelDistance, seg, lerp } from "./moments-geometry";
+export { PIXEL_FOV, pixelDistance, seg, lerp };
 
 /** 캔버스 좌상단 기준 px 좌표 → three 월드 좌표(가운데 원점, y 위) */
 export const px = (x: number, y: number, w: number, h: number): [number, number] => [
@@ -86,7 +84,3 @@ export const useCanvasTexture = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
-/** 0~1 구간 잘라 다시 0~1 로(클램프) */
-export const seg = (t: number, a: number, b: number) =>
-  Math.min(1, Math.max(0, (t - a) / (b - a)));
-export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;

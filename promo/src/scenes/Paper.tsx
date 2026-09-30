@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Sequence, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, Sequence, staticFile, useVideoConfig } from "remotion";
 import { Stage } from "../components/Stage";
 import { Photo } from "../components/Photo";
 import { BookCamera, CameraScrim } from "../components/BookCamera";
@@ -11,7 +11,7 @@ import { Caption } from "../components/Caption";
 import { Narration } from "../components/Narration";
 import { scene, sec } from "../script";
 import { PaperLiftTransition } from "../components/three/Moments3D";
-import { CARD_RECT, PAPER_LIFT_FRAMES } from "./Designer";
+import { PAPER_CAPTION, PAPER_LIFT_FRAMES } from "../components/three/moments-geometry";
 import {
   bookInk,
   bookPageLeft,
@@ -35,6 +35,8 @@ import {
  * 🔴 노트북 화면은 이폼사인 UI 가 아니다 — 그냥 스프레드시트다.
  */
 const S = scene("paper");
+/** whoosh-in.wav 정점까지 프레임(0.55초, 레인 U 계약) */
+const WHOOSH_IN_HIT = 17;
 
 /**
  * 방명록 지면 4점은 **코드에 박지 않는다**.
@@ -150,24 +152,30 @@ const SHEET_ROWS = [
   { name: "정OO", phone: "010-0000-0000", at: "09:52" },
 ];
 
-export const Paper: React.FC<{ mute?: boolean }> = ({ mute }) => {
-  const { fps } = useVideoConfig();
-  const total = sec(S.endSec - S.startSec);
-  /** 앞 컷(종이) 길이 — 비율의 정본은 camera.ts(훅이 램프 길이를 알아야 속도를 맞춘다) */
-  const firstCut = paperFirstCutFrames(total);
-
-  return (
-    <Stage variant="photo" logo="none">
-      <Narration id="paper" mute={mute} />
-
-      {/* 앞 컷 — 종이 방명록에 줄 선 사람들 + 지면 위에 써지는 앞사람 정보 */}
-      <Sequence durationInFrames={firstCut}>
-        <BookCamera phase="paper">
-        <Photo src="gen-01.png" pan="in" from={1} to={1} durationInFrames={firstCut} scrim={0}>
+/**
+ * 앞 컷의 **책 층** = gen-01 사진 + 지면 위 손글씨(PaperInk 3벌). 카메라(BookCamera)는 바깥에서 건다.
+ * 🔴 v3.3 레인 T2: 3D 종이 전환의 텍스처(PageTexture 컴포지션)가 **이 층을 그대로** 펴서 쓴다 —
+ *    손글씨 구성을 두 곳에 적지 않기 위해 컴포넌트로 뺐다(DOM 구조는 그대로).
+ */
+export const BookSpread: React.FC<{
+  durationInFrames: number;
+  /** false = 사진 없이 손글씨만(텍스처 굽기에서 손글씨를 원근 없이 선명하게 그릴 때) */
+  photo?: boolean;
+  /** false = 손글씨 없이 사진만 */
+  ink?: boolean;
+  /** 페이지 네 점(페이지 로컬 순서) 대체 — 텍스처 굽기용. 없으면 prompts.json 측정값 */
+  pageCorners?: { left: Corners; right: Corners };
+}> = ({ durationInFrames, photo = true, ink = true, pageCorners }) => {
+  const left = pageCorners?.left ?? PAGE_LEFT;
+  const right = pageCorners?.right ?? PAGE_RIGHT;
+  const active = WRITER_SIDE === "left" ? left : right;
+  const filled = WRITER_SIDE === "left" ? right : left;
+  const inks = ink ? (
+    <>
           {/* 앞사람들이 이미 적어 둔 면 — 펜이 놓이지 않은 쪽. 괘선 한 줄에 한 사람 */}
-          {PAGE_FILLED ? (
+          {filled ? (
             <PaperInk
-              corners={PAGE_FILLED}
+              corners={filled}
               rows={FAKE_ROWS_FILLED}
               pitch={RULE_FILLED.pitch}
               firstRuleAt={RULE_FILLED.firstRuleAt}
@@ -182,9 +190,9 @@ export const Paper: React.FC<{ mute?: boolean }> = ({ mute }) => {
             />
           ) : null}
           {/* 펜이 놓인 면 — 바로 앞 몇 줄은 이미 써져 있고 */}
-          {PAGE_ACTIVE ? (
+          {active ? (
             <PaperInk
-              corners={PAGE_ACTIVE}
+              corners={active}
               rows={FAKE_ROWS_ACTIVE_LEAD}
               pitch={RULE_ACTIVE.pitch}
               firstRuleAt={RULE_ACTIVE.firstRuleAt}
@@ -199,9 +207,9 @@ export const Paper: React.FC<{ mute?: boolean }> = ({ mute }) => {
             />
           ) : null}
           {/* 지금 펜 끝에서 써지는 중인 한 줄 — 칸 번호는 펜 끝 역매핑(PEN_SLOT) */}
-          {PAGE_ACTIVE ? (
+          {active ? (
             <PaperInk
-              corners={PAGE_ACTIVE}
+              corners={active}
               rows={FAKE_ROWS_ACTIVE}
               pitch={RULE_ACTIVE.pitch}
               firstRuleAt={RULE_ACTIVE.firstRuleAt}
@@ -215,7 +223,31 @@ export const Paper: React.FC<{ mute?: boolean }> = ({ mute }) => {
               strokeFrames={26}
             />
           ) : null}
-        </Photo>
+    </>
+  ) : null;
+  return photo ? (
+    <Photo src="gen-01.png" pan="in" from={1} to={1} durationInFrames={durationInFrames} scrim={0}>
+      {inks}
+    </Photo>
+  ) : (
+    <AbsoluteFill>{inks}</AbsoluteFill>
+  );
+};
+
+export const Paper: React.FC<{ mute?: boolean }> = ({ mute }) => {
+  const { fps } = useVideoConfig();
+  const total = sec(S.endSec - S.startSec);
+  /** 앞 컷(종이) 길이 — 비율의 정본은 camera.ts(훅이 램프 길이를 알아야 속도를 맞춘다) */
+  const firstCut = paperFirstCutFrames(total);
+
+  return (
+    <Stage variant="photo" logo="none">
+      <Narration id="paper" mute={mute} />
+
+      {/* 앞 컷 — 종이 방명록에 줄 선 사람들 + 지면 위에 써지는 앞사람 정보 */}
+      <Sequence durationInFrames={firstCut}>
+        <BookCamera phase="paper">
+          <BookSpread durationInFrames={firstCut} />
         </BookCamera>
         <CameraScrim strength={0.5} />
       </Sequence>
@@ -242,14 +274,25 @@ export const Paper: React.FC<{ mute?: boolean }> = ({ mute }) => {
         from={total - PAPER_LIFT_FRAMES / 2}
         durationInFrames={PAPER_LIFT_FRAMES / 2}
       >
-        <PaperLiftTransition durationInFrames={PAPER_LIFT_FRAMES} target={CARD_RECT} />
+        <PaperLiftTransition />
       </Sequence>
+
+      {/* v3.3 레인 T2 — 효과음 whoosh-in: 정점(0.55s = 17f)을 **전환 첫 프레임**에 맞춘다(레인 U 계약표) */}
+      {mute ? null : (
+        <Sequence
+          name="효과음 whoosh-in"
+          from={total - PAPER_LIFT_FRAMES / 2 - WHOOSH_IN_HIT}
+          durationInFrames={Math.round(0.8 * fps)}
+        >
+          <Audio src={staticFile("sfx/whoosh-in.wav")} />
+        </Sequence>
+      )}
 
       {/* 자막은 두 컷에 걸쳐 계속 떠 있다 */}
       <AbsoluteFill
-        style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 120 }}
+        style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: PAPER_CAPTION.bottom }}
       >
-        <Caption lines={S.captions} from={Math.round(fps * 0.3)} size={84} tone="dark" />
+        <Caption lines={S.captions} from={Math.round(fps * 0.3)} size={PAPER_CAPTION.size} tone="dark" />
       </AbsoluteFill>
     </Stage>
   );

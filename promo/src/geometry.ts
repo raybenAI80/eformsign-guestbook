@@ -197,6 +197,22 @@ export const bookWriterSide = (): "left" | "right" => {
   return g?.writerSide === "left" ? "left" : "right";
 };
 
+/**
+ * 페이지 네 점을 **화면 라벨 그대로**(tl = 화면 좌상) 돌려준다 — 페이지 로컬 배정(rot180)을 하지 않는다.
+ * 지면을 「보이는 그대로」 잘라 쓰는 곳(v3.3 레인 T2 Paper→Designer 3D 종이 텍스처)용.
+ */
+export const bookPageScreen = (side: "left" | "right"): Corners | null => {
+  const g = scenes.find((s) => s.scene === 1)?.geometry;
+  const q = g?.pages?.[side];
+  return q ? toCorners(q) : null;
+};
+
+/** 화면 라벨 → 페이지 로컬 라벨 배정(위 배정표) — "rot180" | "rot0" */
+export const bookPageLocalFromScreen = (): string => {
+  const g = scenes.find((s) => s.scene === 1)?.geometry;
+  return g?.pageLocalFromScreen === "rot180" ? "rot180" : "rot0";
+};
+
 /** 펼친 지면 전체(양쪽 페이지). 카메라 프레이밍 계산용 */
 export const bookSpread = (): Corners | null => {
   const g = scenes.find((s) => s.scene === 1)?.geometry;

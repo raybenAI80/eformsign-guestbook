@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Sequence, interpolate, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, Sequence, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { Stage } from "../components/Stage";
 import { Photo } from "../components/Photo";
 import { CaptionBar } from "../components/Caption";
@@ -19,6 +19,7 @@ import {
   type Rect,
 } from "../shots-scenes";
 import { DocStackDrop } from "../components/three/Moments3D";
+import { DOC_BOX, DOC_INTRO_FRAMES, docLandFrame } from "../components/three/moments-geometry";
 
 /**
  * 35–46초 — 행사가 끝나면 옮겨 적을 게 없다. 목록에서 찾고, 완료 문서를 바로 연다.
@@ -56,7 +57,9 @@ const SCRIM = 0.10;
  * (three.js). 🔴 실캡처 **위**가 아니라 **등장 직전**이다 — D01 은 카드가 다 앉은 뒤
  * INTRO_REVEAL 구간에서 나타나고, 같은 구간에 카드가 사라진다. 카메라·컷 배분은 그대로다.
  */
-const INTRO_FRAMES = 30;
+const INTRO_FRAMES = DOC_INTRO_FRAMES;
+/** stack-shimmer.wav 정점까지 프레임(0.30초, 레인 U 계약) → 첫 카드 착지 프레임에 정점 */
+const SHIMMER_HIT = 9;
 const INTRO_REVEAL: [number, number] = [22, 32];
 
 export const Manage: React.FC<{ mute?: boolean }> = ({ mute }) => {
@@ -178,6 +181,11 @@ export const Manage: React.FC<{ mute?: boolean }> = ({ mute }) => {
   return (
     <Stage variant="photo" logo="none">
       <Narration id="manage" mute={mute} />
+      {mute ? null : (
+        <Sequence name="효과음 stack-shimmer" from={Math.max(0, docLandFrame(0) - SHIMMER_HIT)} durationInFrames={30}>
+          <Audio src={staticFile("sfx/stack-shimmer.wav")} />
+        </Sequence>
+      )}
 
       <Photo
         src="gen-06.png"
@@ -224,9 +232,8 @@ export const Manage: React.FC<{ mute?: boolean }> = ({ mute }) => {
           <div style={{ position: "absolute", inset: 0, opacity: 1 - reveal }}>
             <DocStackDrop
               progress={Math.min(1, frame / (INTRO_FRAMES - 1))}
-              box={{ x: 700, y: 180, w: 720, h: 640 }}
+              box={DOC_BOX}
               land={center}
-              cardW={150}
             />
           </div>
         ) : null}

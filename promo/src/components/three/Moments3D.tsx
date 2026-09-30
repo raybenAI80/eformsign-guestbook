@@ -1,7 +1,14 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import { ThreeCanvas } from "@remotion/three";
-import { AbsoluteFill, Easing, useCurrentFrame, useVideoConfig } from "remotion";
+import {
+  AbsoluteFill,
+  continueRender,
+  delayRender,
+  staticFile,
+  useCurrentFrame,
+  useVideoConfig,
+} from "remotion";
 import { C, EASE } from "../../theme";
 import {
   SoftDaylight,
@@ -13,13 +20,24 @@ import {
   seg,
   useCanvasTexture,
 } from "./pixel-space";
+import {
+  SPREAD,
+  TEXTURE_FILE,
+  docCardPose,
+  docCardSize,
+  liftCamera,
+  paperLiftState,
+  type Rect,
+} from "./moments-geometry";
 
 /**
  * v3.3 레인 T — three.js 연출 세 곳(YAGNI: 이 세 곳 밖에는 쓰지 않는다).
- *   ① PaperLiftTransition  Paper → Designer 경계 0.6초 — 종이 방명록 한 장이 들려 올라
- *      Designer 카드 자리에 포개지고 사라진다(종이 → 디지털 서식).
- *   ② DocStackDrop          Manage 도입 1초 — 완료 문서 카드 3장이 노트북 화면 자리로 차례로 내려앉는다.
- *                           실캡처(D01)는 그 뒤에 나타난다.
+ *   ① PaperLiftTransition  Paper → Designer 경계 0.6초 — Paper 앞 컷 끝에서 보였던 **실제 gen-01 펼친 지면**
+ *      (손글씨 층 합성, public/three/guestbook-spread.png)이 누운 채 나타나 들려 서며 Designer 카드 자리로
+ *      줄어 포개지고 사라진다. 🔴 v3.3 레인 T2(2026-09-30): 1차의 선·지그재그 가짜 지면이 화면을 덮어
+ *      자막을 가려 불통과 → 자리·크기는 moments-geometry.ts 가 측정값에서 풀고 게이트가 자막 겹침 0 을 잰다.
+ *   ② DocStackDrop          Manage 도입 1초 — 완료 문서 카드 3장(D01 목록 한 행의 1.75배)이 노트북 화면 안으로
+ *                           차례로 내려앉는다. 실캡처(D01)는 그 뒤에 나타난다.
  *   ③ CtaPanel3D            CTA 0.8초 — 살짝 기운 패널이 정면으로 돈다. 로고·주소는 DOM(제공 PNG)이
  *                           같은 원근으로 함께 돈다(`ctaFaceStyle`).
  *
@@ -27,59 +45,6 @@ import {
  */
 
 /* ────────────────────────── 텍스처(선·도형만, 글자 없음) ────────────────────────── */
-
-/** 펼친 방명록 지면 — 가운데 접힘 그늘 + 괘선 + 손글씨 흉내(결정적 곡선) */
-const drawGuestbookSpread = (g: CanvasRenderingContext2D, w: number, h: number) => {
-  g.fillStyle = "#FBFAF5";
-  g.fillRect(0, 0, w, h);
-  const fold = g.createLinearGradient(w / 2 - 60, 0, w / 2 + 60, 0);
-  fold.addColorStop(0, "rgba(90,80,60,0)");
-  fold.addColorStop(0.5, "rgba(90,80,60,0.16)");
-  fold.addColorStop(1, "rgba(90,80,60,0)");
-  g.fillStyle = fold;
-  g.fillRect(w / 2 - 60, 0, 120, h);
-  const margin = w * 0.05;
-  const pitch = h / 13;
-  for (const side of [0, 1]) {
-    const x0 = side === 0 ? margin : w / 2 + margin;
-    const x1 = side === 0 ? w / 2 - margin : w - margin;
-    g.fillStyle = "rgba(14,115,195,0.10)";
-    g.fillRect(x0, pitch * 0.9, x1 - x0, pitch * 0.8);
-    g.strokeStyle = "rgba(60,90,130,0.28)";
-    g.lineWidth = 2;
-    for (let r = 2; r < 13; r++) {
-      g.beginPath();
-      g.moveTo(x0, r * pitch);
-      g.lineTo(x1, r * pitch);
-      g.stroke();
-    }
-    g.beginPath();
-    g.moveTo(x0 + (x1 - x0) * 0.38, pitch * 0.9);
-    g.lineTo(x0 + (x1 - x0) * 0.38, 12 * pitch);
-    g.stroke();
-    const rows = side === 0 ? 10 : 4;
-    g.strokeStyle = "rgba(20,30,60,0.72)";
-    g.lineWidth = 3;
-    for (let r = 0; r < rows; r++) {
-      const y = (r + 2) * pitch + pitch * 0.62;
-      for (const [a, b] of [
-        [0.04, 0.3],
-        [0.44, 0.9],
-      ]) {
-        g.beginPath();
-        const xa = x0 + (x1 - x0) * a;
-        const xb = x0 + (x1 - x0) * (b - ((r * 7) % 5) * 0.03);
-        for (let k = 0; k <= 40; k++) {
-          const x = lerp(xa, xb, k / 40);
-          const yy = y - Math.abs(Math.sin(k * 1.7 + r * 0.9)) * pitch * 0.32;
-          if (k === 0) g.moveTo(x, yy);
-          else g.lineTo(x, yy);
-        }
-        g.stroke();
-      }
-    }
-  }
-};
 
 /** 완료 문서 한 장 — 파란 머리띠 + 회색 줄 + 오른쪽 아래 완료 체크(메인 컬러만) */
 const drawDoneDoc = (g: CanvasRenderingContext2D, w: number, h: number) => {
@@ -135,58 +100,65 @@ const Slab: React.FC<{
   );
 };
 
-/** 들어올리기는 천천히 떼어 천천히 내려놓는다(EASE 는 첫 프레임에 튀어 나간다) */
-const LIFT_EASE = Easing.inOut(Easing.cubic);
-
 /* ────────────────────────── ① Paper → Designer ────────────────────────── */
 
 /**
- * 진행률 0 ~ 0.55 들어올리기(탁자 위에 누운 지면 → 곧게 세워 Designer 카드 자리) · 0.6 ~ 1 사라지기.
- * 장면 경계(하드컷)는 진행률 0.5 — 그때 지면이 카드 자리를 거의 덮는다.
+ * 실제 gen-01 펼친 지면 텍스처(손글씨 층 합성, 정사영). 🔴 가짜 선·표 그림 금지(레인 T 1차 불통과).
+ * 만드는 법 = `node tools/make-page-texture.mjs` (PageTexture 컴포지션 스틸).
+ */
+const useSpreadTexture = () => {
+  const [handle] = useState(() => delayRender("guestbook-spread texture"));
+  const tex = useMemo(() => {
+    const t = new THREE.TextureLoader().load(
+      staticFile(TEXTURE_FILE),
+      () => continueRender(handle),
+      undefined,
+      () => continueRender(handle),
+    );
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
+    return t;
+  }, [handle]);
+  useEffect(() => () => tex.dispose(), [tex]);
+  return tex;
+};
+
+/**
+ * Paper 앞 컷 끝에서 보였던 **펼친 방명록 지면**이 누운 채 나타나 들려 서며 Designer 카드 자리로
+ * 줄어 포개지고 사라진다. 자리·크기·기울기는 전부 `moments-geometry.ts paperLiftState()` 가 푼다
+ * (시작 = camera.ts 끝 배율에서의 지면 사각형, 끝 = 카드, 전 프레임 자막 띠 위 — 게이트
+ * `tools/check-three-moments.mjs`). 여기서는 그 자세를 그리기만 한다.
  */
 export const PaperLiftTransition: React.FC<{
-  durationInFrames: number;
   /**
    * 이 조각이 전체 전환의 몇 번째 프레임부터인가. 전환은 두 장면에 반씩 나눠 넣는다
-   * (각 장면의 **자막 아래** 층에 두어야 지면이 자막을 가리지 않는다) — Paper 쪽 0, Designer 쪽 절반.
+   * (각 장면의 **자막 아래** 층) — Paper 쪽 0, Designer 쪽 절반.
    */
   offset?: number;
-  /** 착지 자리(Designer 카드, 1920×1080 px) */
-  target: { x: number; y: number; w: number; h: number };
-}> = ({ durationInFrames, offset = 0, target }) => {
-  const frame = useCurrentFrame() + offset;
+}> = ({ offset = 0 }) => {
+  const f = useCurrentFrame() + offset;
   const { width, height } = useVideoConfig();
-  const t = Math.min(1, Math.max(0, frame / Math.max(1, durationInFrames - 1)));
-  const a = LIFT_EASE(seg(t, 0, 0.55));
-  const opacity = seg(t, 0, 0.2) * (1 - seg(t, 0.6, 1));
+  const { pose, opacity } = paperLiftState(f);
 
-  const tex = useCanvasTexture(2048, 950, drawGuestbookSpread, []);
-  const face = useMemo(() => matte("#FFFFFF", { map: tex, transparent: true }), [tex]);
-  const edge = useMemo(() => matte("#EDE8DC", { transparent: true }), []);
+  const tex = useSpreadTexture();
+  /* 흰 무광 얇은 종이 — 앞면만 지면 사진, 옆·뒤는 흰 종이 */
+  const face = useMemo(() => matte("#FFFFFF", { map: tex, transparent: true, roughness: 0.96 }), [tex]);
+  const edge = useMemo(() => matte("#F5F3EE", { transparent: true, roughness: 0.96 }), []);
   face.opacity = opacity;
   edge.opacity = opacity;
 
-  const aspect = target.w / target.h;
-  const w = lerp(700, target.w, a);
-  const h = w / aspect;
-  const [sx, sy] = px(960, 600, width, height);
-  const [ex, ey] = px(target.x + target.w / 2, target.y + target.h / 2, width, height);
-  // 들어 올리는 호 — 앞으로 살짝 나왔다가 z=0 으로
-  const z = Math.sin(a * Math.PI) * 120;
-
-  if (opacity <= 0.001) return null;
   return (
-    <AbsoluteFill style={{ pointerEvents: "none" }}>
-      <ThreeCanvas width={width} height={height} camera={cameraFor(height)} flat>
+    <AbsoluteFill style={{ pointerEvents: "none", opacity: opacity <= 0.001 ? 0 : 1 }}>
+      <ThreeCanvas width={width} height={height} camera={liftCamera()} flat>
         <SoftDaylight />
         <Slab
-          w={w}
-          h={h}
-          depth={5}
+          w={SPREAD.w * pose.k}
+          h={SPREAD.h * pose.k}
+          depth={2}
           face={face}
           edge={edge}
-          position={[lerp(sx, ex, a), lerp(sy, ey, a), z]}
-          rotation={[lerp(-1.12, 0, a), lerp(0.2, 0, a), lerp(-0.06, 0, a)]}
+          position={[pose.x, pose.y, pose.z]}
+          rotation={[-pose.tilt, 0, 0]}
         />
       </ThreeCanvas>
     </AbsoluteFill>
@@ -203,33 +175,20 @@ export const PaperLiftTransition: React.FC<{
  */
 export const DocStackDrop: React.FC<{
   progress: number;
-  box: { x: number; y: number; w: number; h: number };
+  box: Rect;
   land: [number, number];
-  cardW?: number;
-}> = ({ progress, box, land, cardW = 150 }) => {
+}> = ({ progress, box, land }) => {
   const tex = useCanvasTexture(600, 800, drawDoneDoc, []);
   const face = useMemo(() => matte("#FFFFFF", { map: tex }), [tex]);
   const edge = useMemo(() => matte("#E6EAF0"), []);
   const shadowMat = useMemo(() => new THREE.ShadowMaterial({ opacity: 0.22, transparent: true }), []);
-  const cardH = cardW * (4 / 3);
+  /* 크기 = D01 목록 한 행 높이의 1.75배(moments-geometry docCardSize — 코드에 박지 않는다) */
+  const { w: cardW, h: cardH } = docCardSize();
   const [lx, ly] = px(land[0] - box.x, land[1] - box.y, box.w, box.h);
 
   const cards = [0, 1, 2].map((i) => {
     const p = EASE(seg(progress, i * 0.22, i * 0.22 + 0.5));
-    return {
-      key: i,
-      visible: progress >= i * 0.22,
-      position: [
-        lx + (i - 1) * 10 + (1 - p) * (i - 1) * 40,
-        ly + i * 7 + (1 - p) * (box.h * 0.62),
-        6 + i * 4 + (1 - p) * 90,
-      ] as [number, number, number],
-      rotation: [
-        (1 - p) * 0.55,
-        (1 - p) * (i - 1) * 0.25,
-        [-0.07, 0.05, -0.015][i] + (1 - p) * (0.25 - i * 0.2),
-      ] as [number, number, number],
-    };
+    return { key: i, visible: progress >= i * 0.22, ...docCardPose(i, p, land, box) };
   });
 
   return (

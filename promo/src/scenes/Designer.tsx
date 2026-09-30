@@ -21,6 +21,7 @@ import {
   type Rect,
 } from "../shots-scenes";
 import { PaperLiftTransition } from "../components/three/Moments3D";
+import { CARD, CARD_RECT, PAPER_LIFT_FRAMES } from "../components/three/moments-geometry";
 
 /**
  * 10–17초 — 이폼사인 웹폼 디자이너에서 방명록 서식을 만든다.
@@ -37,15 +38,13 @@ import { PaperLiftTransition } from "../components/three/Moments3D";
 const S = scene("designer");
 const TOTAL = sceneFrames("designer");
 
-/** 카드 = 화면 가운데 큰 판. 자막이 앉을 아래쪽을 비워 둔다 */
-export const CARD = { width: 1640, height: 760, top: 36 };
+/** 카드 = 화면 가운데 큰 판. 자막이 앉을 아래쪽을 비워 둔다 — 정본은 moments-geometry.ts */
+export { CARD, CARD_RECT, PAPER_LIFT_FRAMES };
 
 /**
  * v3.3 레인 T ① — Paper → Designer 3D 전환(0.6초 = 18f). 경계 앞 9f 는 Paper, 뒤 9f 는 여기.
  * 🔴 장면 길이 불변 — 두 장면이 각자 **자막 아래** 층에 반씩 넣는다. 착지 자리 = 이 카드.
  */
-export const PAPER_LIFT_FRAMES = 18;
-export const CARD_RECT = { x: (1920 - CARD.width) / 2, y: CARD.top, w: CARD.width, h: CARD.height };
 const CARD_ASPECT = CARD.width / CARD.height;
 
 const CUTS = ["A01", "A02", "A04"] as const;
@@ -187,11 +186,7 @@ export const Designer: React.FC<{ mute?: boolean }> = ({ mute }) => {
       ) : null}
 
       <Sequence name="3D 전환(뒤 절반)" durationInFrames={PAPER_LIFT_FRAMES / 2}>
-        <PaperLiftTransition
-          durationInFrames={PAPER_LIFT_FRAMES}
-          offset={PAPER_LIFT_FRAMES / 2}
-          target={CARD_RECT}
-        />
+        <PaperLiftTransition offset={PAPER_LIFT_FRAMES / 2} />
       </Sequence>
 
       <CaptionBar lines={S.captions} from={6} tone="light" size={66} />

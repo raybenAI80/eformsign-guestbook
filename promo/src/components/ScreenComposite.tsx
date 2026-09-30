@@ -77,6 +77,46 @@ export function cornersToMatrix3d(c: Corners, w: number, h: number): string {
   return `matrix3d(${a}, ${d}, 0, ${g}, ${bb}, ${e}, 0, ${i}, 0, 0, 1, 0, ${cc}, ${f}, 0, 1)`;
 }
 
+/**
+ * **역방향**: 네 점 c 로 둘러싸인 영역을 w×h 직사각형 (0,0)-(w,h) 로 편다(정사영).
+ * 부모 좌표계(예: 1920×1080 사진)에 걸면 그 사각형 안의 내용이 펴진다.
+ * v3.3 레인 T2 — 방명록 지면을 3D 종이 텍스처로 잘라 낼 때 쓴다(PageTexture 컴포지션).
+ * 🔴 cornersToMatrix3d 는 tools/check-homography.mjs 가 소스 그대로 떼어 검사하므로 손대지 않고
+ *    같은 풀이를 여기 따로 둔다. 열 우선 배치(Y 행 = d,e,f)는 그쪽 주석과 같다.
+ */
+export function quadToRectMatrix3d(c: Corners, w: number, h: number): string {
+  const src: Corner[] = [c.tl, c.tr, c.br, c.bl];
+  const dst: Corner[] = [
+    [0, 0],
+    [w, 0],
+    [w, h],
+    [0, h],
+  ];
+  const A: number[][] = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = src[i];
+    const [u, v] = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y, u]);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y, v]);
+  }
+  const n = 8;
+  for (let col = 0; col < n; col++) {
+    let piv = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(A[r][col]) > Math.abs(A[piv][col])) piv = r;
+    [A[col], A[piv]] = [A[piv], A[col]];
+    const d = A[col][col] || 1e-9;
+    for (let k = col; k <= n; k++) A[col][k] /= d;
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const f = A[r][col];
+      if (!f) continue;
+      for (let k = col; k <= n; k++) A[r][k] -= f * A[col][k];
+    }
+  }
+  const [a, bb, cc, d, e, f, g, i] = A.map((r) => r[n]);
+  return `matrix3d(${a}, ${d}, 0, ${g}, ${bb}, ${e}, 0, ${i}, 0, 0, 1, 0, ${cc}, ${f}, 0, 1)`;
+}
+
 export const ScreenComposite: React.FC<{
   /** public/shots/ 아래 실캡처 파일명. 비우면 회색 플레이스홀더 */
   shot?: string;

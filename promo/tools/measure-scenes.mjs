@@ -641,6 +641,43 @@ function measureListLandscape(relPath, key) {
   return { width: p.width, height: p.height, viewport, luma };
 }
 
+/**
+ * 문서함 목록 **한 행 높이**(캡처 px) — 행 구분선(가로 전폭 회색 1px 선) 간격의 중앙값.
+ *
+ * 🔴 2026-09-30 레인 T2: Manage 도입의 3D 문서 카드 크기를 「목록 한 행의 1.5~2배」로 정하려고
+ *    잰다(카드가 화면을 덮을 만큼 커서 불통과였다). 카드 크기를 코드에 박지 않기 위한 측정값이다.
+ * 술어: 목록 열(x 48~1800, 오른쪽 문서 상태 패널 제외)에서 2px 간격 표본의 90% 이상이
+ *       luma 195~236·채도 ≤12 인 행 = 구분선. 연속된 행은 한 선(가운데)으로 묶는다.
+ */
+function measureListRows(p) {
+  const x0 = 48;
+  const x1 = Math.min(1800, p.width - 1);
+  const ys = [];
+  for (let y = 1; y < p.height; y++) {
+    let n = 0;
+    let m = 0;
+    for (let x = x0; x < x1; x += 2) {
+      const [r, g, b] = p.at(x, y);
+      const l = (r + g + b) / 3;
+      const sat = Math.max(r, g, b) - Math.min(r, g, b);
+      m++;
+      if (l >= 195 && l <= 236 && sat <= 12) n++;
+    }
+    if (n / m >= 0.9) ys.push(y);
+  }
+  const lines = [];
+  for (const y of ys) {
+    const last = lines[lines.length - 1];
+    if (last && y - last.end <= 1) last.end = y;
+    else lines.push({ start: y, end: y });
+  }
+  const mids = lines.map((l) => (l.start + l.end) / 2);
+  const gaps = mids.slice(1).map((v, i) => v - mids[i]).filter((d) => d > 40).sort((a, b) => a - b);
+  if (!gaps.length) return null;
+  const pitch = gaps[Math.floor(gaps.length / 2)];
+  return { pitch, lines: mids, x: x0, w: x1 - x0 };
+}
+
 /** 세로 캡처(외부 작성 화면·방명록 페이지)의 지면 사각형 */
 function measurePortrait(relPath, key) {
   const file = shot(relPath);
@@ -658,7 +695,12 @@ function measurePortrait(relPath, key) {
 
 const jobs = {
   A01: measureA01,
-  D01: () => measureListLandscape("D/D01-document-list.png", "D01"),
+  D01: () => {
+    const r = measureListLandscape("D/D01-document-list.png", "D01");
+    if (!r) return r;
+    const row = measureListRows(new Pix(shot("D/D01-document-list.png")));
+    return row ? { ...r, listRow: row } : r;
+  },
   A02: measureA02,
   A04: measureA04,
   D02: measureD02,

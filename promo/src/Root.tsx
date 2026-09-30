@@ -3,6 +3,7 @@ import { Composition } from "remotion";
 import { Main60, Preview9 } from "./compositions/Main60";
 import { Cut15H, Cut15V } from "./compositions/Cut15";
 import { Loop30, Gif3, Still } from "./compositions/Extras";
+import { PageTexture, pageTextureFrames, pageTextureSize } from "./compositions/PageTexture";
 import {
   CUT15_FRAMES,
   FPS,
@@ -82,6 +83,16 @@ export const RemotionRoot: React.FC = () => (
       width={1920}
       height={1080}
       defaultProps={{ mute: true }}
+    />
+
+    {/* 굽기 전용 — 3D 종이 텍스처(영상 아님). node tools/make-page-texture.mjs */}
+    <Composition
+      id="PageTexture"
+      component={PageTexture}
+      durationInFrames={pageTextureFrames()}
+      fps={FPS}
+      width={pageTextureSize().width}
+      height={pageTextureSize().height}
     />
 
     {/* ⑦ 9초 시안 — Hook + Paper 스타일 확정용 */}
