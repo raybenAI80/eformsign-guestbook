@@ -2,6 +2,7 @@ import React from "react";
 import { Img, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { C, FONT_BODY, FONT_HEAD } from "../theme";
 import type { InboxShot } from "../shots";
+import { useCand } from "../cand";
 
 /**
  * 이폼사인 문서함에 완료 문서가 한 장씩 쌓이는 모션.
@@ -120,6 +121,56 @@ const ShotRow: React.FC<{
     config: { damping: 200, mass: 0.7 },
   });
 
+  const cand = useCand();
+  const crop = (
+    <Img
+      src={shot.src}
+      style={{
+        position: "absolute",
+        left: -shot.mask.x * k,
+        top: -band.top * k,
+        width: shot.capture.width * k,
+        height: shot.capture.height * k,
+        maxWidth: "none",
+      }}
+    />
+  );
+  if (cand === "c3") {
+    /* 레인 B 후보 3: 오려 낸 실캡처 행이 **두께 있는 카드**로 앞·위에서 기울어 내려와 제자리에 눕는다(착지 = 캡처 화소 그대로) */
+    const l = 1 - s; // 남은 들림 0..1
+    const W = shot.mask.w * k, Hh = band.height * k;
+    return (
+      <div
+        style={{
+          position: "absolute",
+          left: shot.mask.x * k,
+          top: band.top * k,
+          width: W,
+          height: Hh,
+          opacity: Math.min(1, s * 2.2),
+          transformStyle: "preserve-3d",
+          transformOrigin: "50% 100%",
+          transform: `perspective(1100px) translateY(${l * -70}px) translateZ(${l * 180}px) rotateX(${l * 34}deg) rotateZ(${l * -2.5}deg)`,
+          boxShadow: `0 ${6 + 30 * l}px ${10 + 44 * l}px rgba(12, 32, 64, ${0.12 + 0.3 * l})`,
+        }}
+      >
+        <div style={{ position: "absolute", inset: 0, overflow: "hidden", background: "#FFFFFF" }}>{crop}</div>
+        {/* 카드 두께 — 아랫면(앞쪽으로 접힌 옆면) */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: Hh,
+            width: W,
+            height: 10,
+            transformOrigin: "50% 0",
+            transform: "rotateX(-90deg)",
+            background: "linear-gradient(#C5CEDA, #E4E9EF)",
+          }}
+        />
+      </div>
+    );
+  }
   return (
     <div
       style={{
@@ -164,6 +215,7 @@ export const Inbox: React.FC<{
    */
   shot?: InboxShot;
 }> = ({ rows = DEMO_ROWS, from = 6, every = 14, width = 760, header = true, shot }) => {
+  const cand = useCand();
   if (shot) {
     // 캡처 화소 → 화면 px. 크롭 폭이 주어진 폭에 딱 맞도록 잡는다
     const k = width / shot.crop.w;
@@ -180,6 +232,14 @@ export const Inbox: React.FC<{
           borderRadius: 18,
           border: `1px solid ${C.border}`,
           boxShadow: `0 24px 60px ${C.shadow}`,
+          ...(cand === "c6"
+            ? {
+                /* 레인 B 후보 6: 실캡처 문서함 판 전체를 공간에 비스듬히 세운 판으로(오른쪽이 멀어짐) + 깊은 그림자 */
+                transform: "perspective(1500px) rotateY(-14deg) rotateX(5deg) translateZ(-20px)",
+                transformOrigin: "40% 50%",
+                boxShadow: "-34px 40px 70px rgba(12, 32, 64, 0.34), -6px 8px 0 #C9D2DD",
+              }
+            : null),
         }}
       >
         <div

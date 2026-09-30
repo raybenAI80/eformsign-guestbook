@@ -20,7 +20,9 @@ import {
   seg,
   useCanvasTexture,
 } from "./pixel-space";
+import { useCand } from "../../cand";
 import {
+  PAPER_LIFT_FRAMES,
   SHEET,
   TEXTURE_FILE,
   docCardPose,
@@ -148,6 +150,24 @@ export const PaperLiftTransition: React.FC<{
   const edge = useMemo(() => matte("#F5F3EE", { transparent: true, roughness: 0.96 }), []);
   face.opacity = opacity;
   edge.opacity = opacity;
+  const cand = useCand();
+
+  if (cand === "c4") {
+    /* 레인 B 후보 4: 같은 풀이 자세 + 가운데서 부푸는 추가 회전(앞으로 들림·옆으로 틂)·앞당김 + 강한 원근(fov 22) + 두꺼운 종이 */
+    const t = Math.min(1, Math.max(0, f / (PAPER_LIFT_FRAMES - 1)));
+    const bump = Math.sin(Math.PI * t);
+    const D = pixelDistance(height, 22);
+    return (
+      <AbsoluteFill style={{ pointerEvents: "none", opacity: opacity <= 0.001 ? 0 : 1 }}>
+        <ThreeCanvas width={width} height={height} camera={{ fov: 22, position: [0, 0, D], near: 10, far: D * 4 }} flat>
+          <SoftDaylight />
+          <group position={[pose.x, pose.y, pose.z + 150 * bump]} rotation={[-pose.tilt - 0.32 * bump, 0.5 * bump, -0.07 * bump]}>
+            <Slab w={SHEET.w * pose.k} h={SHEET.h * pose.k} depth={7} face={face} edge={edge} position={[0, 0, 0]} rotation={[0, 0, 0]} />
+          </group>
+        </ThreeCanvas>
+      </AbsoluteFill>
+    );
+  }
 
   return (
     <AbsoluteFill style={{ pointerEvents: "none", opacity: opacity <= 0.001 ? 0 : 1 }}>
@@ -232,6 +252,15 @@ export const DocStackDrop: React.FC<{
 
 /* ────────────────────────── ③ CTA 패널 ────────────────────────── */
 
+/** 레인 B 후보 5: 더 크게 기운 데서 돌아오고, 정면에 온 뒤에도 느린 흔들림(진폭은 회전 진행률에 비례해 들어온다) */
+export const ctaTiltStrong = (p: number, frame: number) => {
+  const e = EASE(Math.min(1, Math.max(0, p)));
+  return {
+    rx: lerp(0.34, 0, e) + e * 0.05 * Math.sin(frame / 20),
+    ry: lerp(-0.8, 0, e) + e * 0.085 * Math.sin(frame / 29 + 0.6),
+  };
+};
+
 /** CTA 회전량 — 진행률 0~1 (0 = 기운 상태, 1 = 정면) */
 export const ctaTilt = (p: number) => {
   const e = EASE(Math.min(1, Math.max(0, p)));
@@ -243,8 +272,8 @@ export const ctaTilt = (p: number) => {
  * 🔴 CSS 는 y 축이 아래라 X 회전 부호가 반대다(three rotX(a) ≡ CSS rotateX(-a)). Y 는 같다.
  *    순서도 같아야 한다: three Euler 'XYZ' 행렬 = Rx·Ry, CSS `rotateX() rotateY()` = Rx·Ry.
  */
-export const ctaFaceStyle = (p: number, height: number): React.CSSProperties => {
-  const { rx, ry } = ctaTilt(p);
+export const ctaFaceStyle = (p: number, height: number, ang?: { rx: number; ry: number }): React.CSSProperties => {
+  const { rx, ry } = ang ?? ctaTilt(p);
   return {
     position: "absolute",
     inset: 0,
@@ -259,10 +288,13 @@ export const CtaPanel3D: React.FC<{
   w: number;
   h: number;
   opacity: number;
-}> = ({ progress, w, h, opacity }) => {
+  /** 레인 B 후보 5 전용 — 각도·두께 덮어쓰기 */
+  ang?: { rx: number; ry: number };
+  depthPx?: number;
+}> = ({ progress, w, h, opacity, ang, depthPx }) => {
   const { width, height } = useVideoConfig();
-  const { rx, ry } = ctaTilt(progress);
-  const depth = 18;
+  const { rx, ry } = ang ?? ctaTilt(progress);
+  const depth = depthPx ?? 18;
   const face = useMemo(() => matte("#0B5E9F", { transparent: true }), []);
   const edge = useMemo(() => matte("#3C8FD0", { transparent: true }), []);
   const shadowMat = useMemo(() => new THREE.ShadowMaterial({ opacity: 0.28, transparent: true }), []);

@@ -33,6 +33,11 @@ export const Photo: React.FC<{
    */
   originX?: number;
   originY?: number;
+  /**
+   * 레인 B 후보 2 전용(본편 미사용): 먼 층 사진. 주면 이 사진을 **아래에** 깔고 dx·dy 만큼 더 옮긴다
+   * (src 는 앞 층 알파 PNG). 카메라 변환은 두 층이 같이 받는다.
+   */
+  underlay?: { src: string; dx: number; dy?: number };
   children?: React.ReactNode;
 }> = ({
   src,
@@ -43,6 +48,7 @@ export const Photo: React.FC<{
   scrim = 0,
   originX,
   originY,
+  underlay,
   children,
 }) => {
   const frame = useCurrentFrame();
@@ -74,9 +80,23 @@ export const Photo: React.FC<{
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", background: C.lightGray }}>
+      {underlay ? (
+        <Img
+          src={staticFile(`gen/${underlay.src}`)}
+          style={{
+            position: "absolute",
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            transform: `${camera} translate(${underlay.dx}px, ${underlay.dy ?? 0}px)`,
+            transformOrigin: origin,
+          }}
+        />
+      ) : null}
       <Img
         src={staticFile(`gen/${src}`)}
         style={{
+          ...(underlay ? { position: "absolute" as const } : null),
           width: "100%",
           height: "100%",
           objectFit: "cover",

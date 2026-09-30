@@ -20,7 +20,14 @@ export const CANVAS_W = 1920;
 export const CANVAS_H = 1080;
 export const CAM_D = pixelDistance(CANVAS_H, PIXEL_FOV);
 
-export const HAND3D = {
+/** 자세·그림자 매개변수(레인 B: 후보 변형이 같은 식에 다른 값을 넣도록 형을 열었다. 본편 = HAND3D) */
+export interface Hand3DParams {
+  fingerLen: number; kneeBlend: number; tipLift: number; kneeBase: number; kneeLift: number; press: number;
+  armSlope: number; armMax: number; rollPerPx: number; rollMaxDeg: number; light: [number, number, number];
+  blur0: number; blurPerZ: number; shadowNear: number; shadowFar: number; step: number;
+}
+
+export const HAND3D: Hand3DParams = {
   /** 손끝 → 검지 마디(팔 축 방향 거리, 컷아웃 px) */
   fingerLen: 150,
   /** 마디 앞뒤 기울기 전환 폭 */
@@ -48,7 +55,7 @@ export const HAND3D = {
   shadowFar: 0.16,
   /** 격자 간격(컷아웃 px) */
   step: 6,
-} as const;
+};
 
 export interface Hand3DPose {
   visible: boolean;
@@ -80,7 +87,7 @@ export const project = (x: number, y: number, z: number): Pt => {
   return [CANVAS_W / 2 + (x - CANVAS_W / 2) * k, CANVAS_H / 2 + (y - CANVAS_H / 2) * k];
 };
 
-export const hand3dPose = (spec: HandLayerSpec, keys: HandKey[], frame: number): Hand3DPose => {
+export const hand3dPose = (spec: HandLayerSpec, keys: HandKey[], frame: number, P: Hand3DParams = HAND3D): Hand3DPose => {
   const pose: HandPose = poseAt(keys, frame);
   const t = handTransform(spec, pose, frame);
   const rot = (t.rotDeg * Math.PI) / 180;
@@ -95,11 +102,11 @@ export const hand3dPose = (spec: HandLayerSpec, keys: HandKey[], frame: number):
     wSum += wt;
   }
   vPerp /= wSum;
-  const roll = (clamp(vPerp * HAND3D.rollPerPx, -HAND3D.rollMaxDeg, HAND3D.rollMaxDeg) * Math.PI) / 180;
+  const roll = (clamp(vPerp * P.rollPerPx, -P.rollMaxDeg, P.rollMaxDeg) * Math.PI) / 180;
   const lift = clamp(pose.lift, 0, 1);
-  const zTip = HAND3D.tipLift * lift;
+  const zTip = P.tipLift * lift;
   const pressK = clamp(1 - lift / 0.5, 0, 1);
-  const zKnee = HAND3D.kneeBase + HAND3D.kneeLift * lift + HAND3D.press * pressK;
+  const zKnee = P.kneeBase + P.kneeLift * lift + P.press * pressK;
   // 투영점 = pose.tip 이 되도록 손끝 월드 위치 역산
   const k = (CAM_D - zTip) / CAM_D;
   const anchor: [number, number, number] = [
@@ -111,29 +118,29 @@ export const hand3dPose = (spec: HandLayerSpec, keys: HandKey[], frame: number):
 };
 
 /** 팔 축 거리 s(컷아웃 px, 손끝=0) → 높이 */
-export const heightAt = (s: number, p: Hand3DPose): number => {
-  const F = HAND3D.fingerLen, B = HAND3D.kneeBlend;
+export const heightAt = (s: number, p: Hand3DPose, P: Hand3DParams = HAND3D): number => {
+  const F = P.fingerLen, B = P.kneeBlend;
   const fingerSlope = (p.zKnee - p.zTip) / F;
   const lin1 = p.zTip + fingerSlope * s;
-  const lin2 = p.zKnee + HAND3D.armSlope * (s - F);
+  const lin2 = p.zKnee + P.armSlope * (s - F);
   // 두 직선을 마디 주변 ±B/2 에서 부드럽게 잇는다(3차 블렌드)
   const u = clamp((s - (F - B / 2)) / B, 0, 1);
   const w = u * u * (3 - 2 * u);
   const z = lin1 * (1 - w) + lin2 * w;
-  return clamp(z, 0, p.zKnee + HAND3D.armMax);
+  return clamp(z, 0, p.zKnee + P.armMax);
 };
 
 /**
  * 컷아웃 텍셀(u, v: 컷아웃 좌상단 기준 px) → 월드 점(사진 좌표 x·y 와 높이 z).
  * 순서: 손끝 기준 상대 위치 → 높이 → 팔 축 구름 → 평면 회전 → 손끝 월드 위치로 이동.
  */
-export const texelWorld = (spec: HandLayerSpec, p: Hand3DPose, u: number, v: number): [number, number, number] => {
+export const texelWorld = (spec: HandLayerSpec, p: Hand3DPose, u: number, v: number, P: Hand3DParams = HAND3D): [number, number, number] => {
   const qx = spec.origin[0] + u - spec.tip[0];
   const qy = spec.origin[1] + v - spec.tip[1];
   const [ax, ay] = armAxis(spec);
   const s = qx * ax + qy * ay; // 축 방향
   const w = -qx * ay + qy * ax; // 축에 수직(평면 안)
-  const z0 = heightAt(Math.max(0, s), p) - p.zTip; // 손끝 기준 상대 높이
+  const z0 = heightAt(Math.max(0, s), p, P) - p.zTip; // 손끝 기준 상대 높이
   // 구름: 축 둘레로 (w, z) 회전
   const cr = Math.cos(p.roll), sr = Math.sin(p.roll);
   const w2 = w * cr - z0 * sr;
@@ -151,8 +158,21 @@ export const projectTexel = (spec: HandLayerSpec, p: Hand3DPose, u: number, v: n
 };
 
 /** 월드 점을 빛 방향으로 z=0 에 떨어뜨린 그림자 점(사진 좌표) */
-export const shadowPoint = (x: number, y: number, z: number): Pt => {
-  const [lx, ly, lz] = HAND3D.light;
+export const shadowPoint = (x: number, y: number, z: number, P: Hand3DParams = HAND3D): Pt => {
+  const [lx, ly, lz] = P.light;
   // 월드 y 위 = 사진 y 아래의 반대. 사진 좌표로: 그림자 = 점 - z·(lx, -ly)/lz
   return [x - (z * lx) / lz, y + (z * ly) / lz];
 };
+
+/**
+ * 레인 B 판정용 후보 변형(본편 미사용). A = 들림 2배 + 그림자 진하고 멀리 · B = A + 구름 12° + 접촉 눌림 강화 · C = B(+카메라 궤도는 HandLayer/Fill 쪽)
+ */
+export const HAND3D_VARIANTS: Record<"hA" | "hB" | "hC", Hand3DParams> = (() => {
+  const A: Hand3DParams = {
+    ...HAND3D,
+    tipLift: 68, kneeBase: 30, kneeLift: 76, armSlope: 0.19, armMax: 200,
+    light: [-0.5, 0.62, 1], blur0: 1.4, blurPerZ: 0.16, shadowNear: 0.58, shadowFar: 0.34,
+  };
+  const B: Hand3DParams = { ...A, rollPerPx: 0.6, rollMaxDeg: 12, press: 22 };
+  return { hA: A, hB: B, hC: B };
+})();

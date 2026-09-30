@@ -1,5 +1,6 @@
 import React from "react";
-import { AbsoluteFill, Sequence } from "remotion";
+import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
+import { farShift, orbitDeg, useCand } from "../cand";
 import { Stage } from "../components/Stage";
 import { SplitScreen } from "../components/SplitScreen";
 import { Inbox } from "../components/Inbox";
@@ -67,6 +68,8 @@ const TAIL_CUTS: { key: ShotKey; at: number; len: number }[] = [
 const SEQ_PER = Math.max(1, Math.floor(FILL_TIMING.seqSpan / Math.max(1, SEQ.frames.length)));
 
 export const Fill: React.FC<{ mute?: boolean }> = ({ mute }) => {
+  const cand = useCand();
+  const candFrame = useCurrentFrame();
   const aspect = QUAD ? quadAspect(QUAD) : 1;
   const focus = QUAD ? quadCentroid(QUAD) : ([960, 540] as [number, number]);
   const b05 = TAIL_CUTS.find((c) => c.key === "B05");
@@ -110,7 +113,23 @@ export const Fill: React.FC<{ mute?: boolean }> = ({ mute }) => {
         from={8}
         left={
           <StagePane paneWidth={PANE_W} paneHeight={1080} focus={focus} zoom={1.55}>
-            <Photo src={handPlate()} pan="in" from={1.0} to={1.05} durationInFrames={TOTAL}>
+            {/* 레인 B 후보 C(hC) = 판 궤도 rotateY · 후보 2(c2) = 앞 층/먼 층 분리. 본편(cand "")은 무변경 */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                transform: cand === "hC" ? `perspective(2015px) rotateY(${orbitDeg(candFrame)}deg)` : undefined,
+                transformOrigin: `${focus[0]}px ${focus[1]}px`,
+              }}
+            >
+            <Photo
+              src={cand === "c2" ? "cand/gen-03-plate-fg.png" : handPlate()}
+              underlay={cand === "c2" ? { src: "cand/gen-03-plate-bg.png", dx: farShift(candFrame) } : undefined}
+              pan="in"
+              from={1.0}
+              to={1.05}
+              durationInFrames={TOTAL}
+            >
               {SEQ.frames.length > 0 ? (
                 <>
                   {/* 채워지는 과정 — 연속 캡처를 그대로 넘긴다 */}
@@ -154,6 +173,7 @@ export const Fill: React.FC<{ mute?: boolean }> = ({ mute }) => {
               {/* 🔴 캡처 층 **위** — 손은 언제나 화면 앞(레인 V: v3 의 손끝 Occluder 를 대체) */}
               <HandLayer keys={handKeys} />
             </Photo>
+            </div>
           </StagePane>
         }
         right={

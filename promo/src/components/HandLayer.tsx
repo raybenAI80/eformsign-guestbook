@@ -3,7 +3,8 @@ import * as THREE from "three";
 import { ThreeCanvas } from "@remotion/three";
 import { continueRender, delayRender, staticFile, useCurrentFrame } from "remotion";
 import { handLayerSpec, type HandKey, type HandLayerSpec } from "../hand";
-import { CANVAS_H, CANVAS_W, HAND3D, hand3dPose, shadowPoint, texelWorld } from "../hand3d";
+import { CANVAS_H, CANVAS_W, HAND3D, HAND3D_VARIANTS, hand3dPose, shadowPoint, texelWorld, type Hand3DParams } from "../hand3d";
+import { isHandCand, orbitDeg, useCand } from "../cand";
 import { cameraFor } from "./three/pixel-space";
 
 /**
@@ -121,10 +122,18 @@ const buildGrid = (w: number, h: number, step: number) => {
   return { tex, uv, idx, n: nu * nv };
 };
 
-const HandMeshes: React.FC<{ spec: HandLayerSpec; keys: HandKey[]; from: number; map: THREE.Texture }> = ({ spec, keys, from, map }) => {
+const HandMeshes: React.FC<{
+  spec: HandLayerSpec;
+  keys: HandKey[];
+  from: number;
+  map: THREE.Texture;
+  /** 레인 B 후보용(본편 = HAND3D·궤도 없음) */
+  P?: Hand3DParams;
+  orbit?: boolean;
+}> = ({ spec, keys, from, map, P = HAND3D, orbit = false }) => {
   const frame = useCurrentFrame() - from;
   const [w, h] = spec.size;
-  const grid = useMemo(() => buildGrid(w, h, HAND3D.step), [w, h]);
+  const grid = useMemo(() => buildGrid(w, h, P.step), [w, h, P.step]);
   const { handGeo, shadowGeo } = useMemo(() => {
     const mk = () => {
       const g = new THREE.BufferGeometry();
@@ -145,11 +154,11 @@ const HandMeshes: React.FC<{ spec: HandLayerSpec; keys: HandKey[]; from: number;
         uniforms: {
           map: { value: map },
           texSize: { value: new THREE.Vector2(w, h) },
-          blur0: { value: HAND3D.blur0 },
-          blurPerZ: { value: HAND3D.blurPerZ },
-          opNear: { value: HAND3D.shadowNear },
-          opFar: { value: HAND3D.shadowFar },
-          zFar: { value: HAND3D.kneeBase + HAND3D.kneeLift + HAND3D.armMax },
+          blur0: { value: P.blur0 },
+          blurPerZ: { value: P.blurPerZ },
+          opNear: { value: P.shadowNear },
+          opFar: { value: P.shadowFar },
+          zFar: { value: P.kneeBase + P.kneeLift + P.armMax },
           color: { value: new THREE.Vector3(20 / 255, 24 / 255, 30 / 255) },
         },
         vertexShader: VERT_SHADOW,
@@ -157,20 +166,22 @@ const HandMeshes: React.FC<{ spec: HandLayerSpec; keys: HandKey[]; from: number;
       }),
     );
     return { handMat: hm, shadowMat: sm };
-  }, [map, w, h]);
+  }, [map, w, h, P]);
   useEffect(() => () => { handGeo.dispose(); shadowGeo.dispose(); handMat.dispose(); shadowMat.dispose(); }, [handGeo, shadowGeo, handMat, shadowMat]);
 
-  const pose = hand3dPose(spec, keys, frame);
+  const pose = hand3dPose(spec, keys, frame, P);
+  /* 후보 C: 사진 판이 CSS rotateY(θ) 로 돌 때, 떠 있는 점만 높이 × sinθ 만큼 더 옆으로(1차 근사 패럴랙스). 접촉점(z=0)은 불변 */
+  const orbitS = orbit ? Math.sin((orbitDeg(frame) * Math.PI) / 180) : 0;
   if (pose.visible) {
     // 🔴 렌더 본문에서 동기 갱신 — R3F 가 이 프레임을 그리기 전에 격자가 채워져 있어야 한다(결정적)
     const hp = handGeo.getAttribute("position") as THREE.BufferAttribute;
     const sp = shadowGeo.getAttribute("position") as THREE.BufferAttribute;
     const sh = shadowGeo.getAttribute("aH") as THREE.BufferAttribute;
     for (let k = 0; k < grid.n; k++) {
-      const [x, y, z] = texelWorld(spec, pose, grid.tex[k * 2], grid.tex[k * 2 + 1]);
-      hp.setXYZ(k, x - CANVAS_W / 2, CANVAS_H / 2 - y, z);
+      const [x, y, z] = texelWorld(spec, pose, grid.tex[k * 2], grid.tex[k * 2 + 1], P);
+      hp.setXYZ(k, x + z * orbitS - CANVAS_W / 2, CANVAS_H / 2 - y, z);
       const zc = Math.max(0, z);
-      const [sx, sy] = shadowPoint(x, y, zc);
+      const [sx, sy] = shadowPoint(x, y, zc, P);
       sp.setXYZ(k, sx - CANVAS_W / 2, CANVAS_H / 2 - sy, 0.2);
       sh.setX(k, zc);
     }
@@ -188,6 +199,8 @@ const HandMeshes: React.FC<{ spec: HandLayerSpec; keys: HandKey[]; from: number;
 
 export const HandLayer: React.FC<{ keys: HandKey[]; from?: number }> = ({ keys, from = 0 }) => {
   const spec = handLayerSpec();
+  const cand = useCand();
+  const P = isHandCand(cand) ? HAND3D_VARIANTS[cand] : HAND3D;
   const map = useHandTexture(spec?.file ?? "hand-03.png");
   if (!spec || !keys.length || !map) return null;
   return (
@@ -202,7 +215,7 @@ export const HandLayer: React.FC<{ keys: HandKey[]; from?: number }> = ({ keys, 
         linear
         gl={{ alpha: true, premultipliedAlpha: true, antialias: false }}
       >
-        <HandMeshes spec={spec} keys={keys} from={from} map={map} />
+        <HandMeshes spec={spec} keys={keys} from={from} map={map} P={P} orbit={cand === "hC"} />
       </ThreeCanvas>
     </div>
   );
