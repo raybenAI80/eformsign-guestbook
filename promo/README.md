@@ -84,3 +84,13 @@ tools/gen-images.md        생성 이미지 프롬프트 6개 (재생성 조건)
 | 음원·효과음 | `public/audio/` | 장면에 `<Audio>` 추가 |
 
 `TimeTag`(좌상단 타이밍 표식)는 조립 단계 확인용이다. **최종 렌더 전에 뗀다.**
+
+🔴 작성 화면 캡처(B·C)를 다시 찍으면 `node tools/measure-scenes.mjs` → `node tools/prescale-shots.mjs` 순서로 돌린다.
+prescale 이 이폼사인 「다음 입력 칸」 분홍 안내 화살표·맞춤법 물결 밑줄을 `_scaled/` 사본에서 지운다(`tools/remove-guide-arrow.py`, 원본은 그대로).
+확인 = `node tools/check-hand-motion.mjs --video <Fill·Repeat 구간 mp4>`(분홍 화소 프레임 0).
+
+## 본편 렌더 기록
+
+| 판 | 명령 | 결과 |
+|---|---|---|
+| v3.3 (2026-09-30, 레인 V2·R) | `npx remotion render Main60 out/main60-v3.3.mp4 --timeout=180000 --concurrency=4` | 1800f·60.05초·28.4MB · sha256 f951a23faaf7… · I -16.8 LUFS · TP -2.4 dBTP · 분리도 최소 12.5 dB · 게이트 10종 exit 0 |
