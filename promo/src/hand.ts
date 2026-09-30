@@ -181,7 +181,12 @@ export const handTransform = (spec: HandLayerSpec, pose: HandPose, frame: number
   const angA = Math.atan2(ay - py, ax - px);
   const angT = Math.atan2(ty - py, tx - px);
   // 방향 차의 40% 만 회전으로(팔 전체가 휘돌지 않게), ±7° 로 제한
-  const rot = Math.max(-0.12, Math.min(0.12, (angT - angA) * 0.4));
+  // 🔴 레인 H3D: 각도 차를 (-π, π] 로 접는다 — 손끝이 팔꿈치 정왼쪽(y=pivot.y)을 지날 때 atan2 가 ±π 에서 넘어가
+  //    회전이 한 프레임에 -7°→+7° 로 뒤집혔다(Fill 242f·Repeat 퇴장, 손등 마디 순간 117cm/s — 게이트 check-hand-motion 3D 블록)
+  let dAng = angT - angA;
+  while (dAng > Math.PI) dAng -= 2 * Math.PI;
+  while (dAng <= -Math.PI) dAng += 2 * Math.PI;
+  const rot = Math.max(-0.12, Math.min(0.12, dAng * 0.4));
   // 떠 있을수록 카메라 쪽 → 아주 조금 커진다
   const s = 1 + 0.035 * pose.lift;
   const vx = ax - px, vy = ay - py;

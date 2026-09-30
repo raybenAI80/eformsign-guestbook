@@ -54,6 +54,7 @@ if (!process.env.__HAND_CHECK_CHILD) {
 
 const imp = (p) => import(pathToFileURL(path.join(root, p)).href);
 const hand = await imp("src/hand.ts");
+const h3 = await imp("src/hand3d.ts");
 const ss = await imp("src/shots-scenes.ts");
 const durations = JSON.parse(fs.readFileSync(path.join(root, "src/scene-durations.json"), "utf8"));
 
@@ -70,6 +71,8 @@ const FT = hand.FILL_TIMING;
 const per = Math.max(1, Math.floor(FT.seqSpan / Math.max(1, seq.frames.length)));
 const fill = hand.fillKeys({ per, seqCap, b04Cap: ss.geo("B04"), b05At: hand.fillB05At(), total: fillTotal, quad, aspect, hoverAt: FT.hoverAt, awayAfter: FT.awayAfter });
 const MEAN_LIMIT = 45;
+/* 레인 H3D: 순간 최고 150 → 80cm/s(브리프). 손끝·손등 마디(3D 투영점) 둘 다 */
+const PEAK_LIMIT = 80;
 const STALL_LIMIT = 30;
 
 /* Repeat — Repeat.tsx 와 같은 파생(길이·밝은 프레임)을 쓴다 */
@@ -99,7 +102,7 @@ const inQuad = (p) => {
   return Math.abs(s) === 4;
 };
 
-const report = { cmPerPhotoPx: +CM_PER_PX.toFixed(4), limits: { meanCmS: MEAN_LIMIT, peakCmS: 150, fillStallFrames: STALL_LIMIT }, cuts: {} };
+const report = { cmPerPhotoPx: +CM_PER_PX.toFixed(4), limits: { meanCmS: MEAN_LIMIT, peakCmS: PEAK_LIMIT, fillStallFrames: STALL_LIMIT }, cuts: {} };
 for (const [name, keys, total] of [["fill", fill, fillTotal], ["repeat-1", rep1, FIRST_LEN + 12], ["repeat-2", rep2, repTotal - FIRST_LEN]]) {
   const rows = [];
   // 탭 = 화면 안이어야 한다
@@ -137,7 +140,7 @@ for (const [name, keys, total] of [["fill", fill, fillTotal], ["repeat-1", rep1,
   for (const m of mv) {
     if (m.distCm < 1.5) continue; // 머무름 흔들림·탭 누름은 이동이 아니다
     if (m.meanCmS > MEAN_LIMIT) fail.push(`${name} ${m.frames} 평균 ${m.meanCmS}cm/s > ${MEAN_LIMIT}`);
-    if (m.peakCmS > 150) fail.push(`${name} ${m.frames} 최고 ${m.peakCmS}cm/s > 150`);
+    if (m.peakCmS > PEAK_LIMIT) fail.push(`${name} ${m.frames} 최고 ${m.peakCmS}cm/s > ${PEAK_LIMIT}`);
   }
   if (jumps) fail.push(`${name} 한 프레임 도약 ${jumps}회`);
   report.cuts[name] = { taps: rows, moves: mv.filter((m) => m.distCm >= 1.5) };
@@ -265,27 +268,136 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
   if (/clipPath|clip-path|\bmask(Image)?\s*:|overflow\s*:/.test(hl)) fail.push("HandLayer.tsx 에 clipPath/mask/overflow — 손이 잘린다");
 
   // 검지 윗선·너클 표본점(원 사진 좌표, 손이 원위치일 때) — 손목·팔은 늘 화면 밖이라 넣지 않는다
+  // 🔴 레인 H3D: 자리 = 3D 격자 투영점(src/hand3d.ts projectTexel — HandLayer.tsx 가 그리는 것과 같은 식)
   const TOP = [[820, 506], [860, 508], [900, 511], [935, 524]];
-  const place = (p, pose, f) => {
-    const t = hand.handTransform(spec, pose, f);
-    const [px, py] = spec.pivot;
-    const c = Math.cos((t.rotDeg * Math.PI) / 180), s = Math.sin((t.rotDeg * Math.PI) / 180);
-    const vx = (p[0] - px) * t.scale, vy = (p[1] - py) * t.scale;
-    return [px + c * vx - s * vy + t.dx, py + s * vx + c * vy + t.dy];
-  };
+  const texel = (q) => [q[0] - spec.origin[0], q[1] - spec.origin[1]];
   const starts = { fill: durations.scenes.fill.startFrame, "repeat-1": durations.scenes.repeat.startFrame, "repeat-2": durations.scenes.repeat.startFrame + FIRST_LEN };
   report.edgeCross = {};
   for (const [name, keys, total] of [["fill", fill, fillTotal], ["repeat-1", rep1, FIRST_LEN + 12], ["repeat-2", rep2, repTotal - FIRST_LEN]]) {
     const fr = [];
     for (let f = 0; f < total; f++) {
-      const p = hand.poseAt(keys, f);
+      const p = h3.hand3dPose(spec, keys, f);
       if (!p.visible || !inQuad(p.tip)) continue;
-      if (TOP.some((q) => !inQuad(place(q, p, f)))) fr.push(f);
+      if (TOP.some((q) => !inQuad(h3.projectTexel(spec, p, ...texel(q))))) fr.push(f);
     }
     report.edgeCross[name] = { local: fr, main60: fr.map((f) => f + starts[name]) };
   }
   const nCross = Object.values(report.edgeCross).reduce((s, v) => s + v.local.length, 0);
   console.log(`화면 경계를 넘는 손 프레임: ${Object.entries(report.edgeCross).map(([k, v]) => `${k} ${v.local.length}`).join(" · ")} (합 ${nCross})`);
+}
+
+/*
+ * 레인 H3D(2026-09-30) — 3D 손 층(three.js 휘는 격자 + 투영 그림자) 계약.
+ *   ① 위치 계약: 3D 격자 손끝 텍셀의 **투영점** = poseAt tip(hand-path 좌표) — 전 프레임 오차 ≤ 0.5px.
+ *   ② 닿음: 탭·서명 접촉 프레임에서 손끝 높이 z = 0(화면 평면), 떠 있을 때 z > 5. 격자 전 텍셀 z ≥ -2(화면 아래로 파고들지 않음).
+ *   ③ 손등 마디(3D 투영점) 속도도 손끝과 같은 한도(평균 ≤45 · 최고 ≤80cm/s) — 구름·기울기가 손을 튀게 하지 않는다.
+ *   ④ HandLayer 는 ThreeCanvas 1920x1080 한 장(사진 좌표 전체, 클립 없음) + 소재 = handLayerSpec().file(알파 재생성 금지), <Img> 폴백 금지.
+ *   ⑤ 렌더 판정(선택, --video 와 함께 --video-start <영상 첫 프레임의 본편 번호>): 경계 교차 프레임에서 화면 변 직선 절단 0
+ *      (tools/hand-stills.py --straight-cut). 음성 대조 = --straight-cut-selftest(화면 밖을 칠해 손을 자른 합성) → exit 1.
+ */
+{
+  const spec = hand.handLayerSpec();
+  const [W, H] = spec.size;
+  const tipTex = [spec.tip[0] - spec.origin[0], spec.tip[1] - spec.origin[1]];
+  const KNEE = [935 - spec.origin[0], 524 - spec.origin[1]];
+  const r3 = { contractMaxPx: 0, touchMaxZ: 0, hoverMinZ: Infinity, minZ: Infinity, maxRotStepDeg: 0, maxRollStepDeg: 0, knee: {} };
+  const grid = [];
+  for (let v = 0; v <= H; v += 24) for (let u = 0; u <= W; u += 24) grid.push([u, v]);
+  for (const [name, keys, total] of [["fill", fill, fillTotal], ["repeat-1", rep1, FIRST_LEN + 12], ["repeat-2", rep2, repTotal - FIRST_LEN]]) {
+    const contactFrames = new Set();
+    for (const k of keys) {
+      if (k.kind === "tap") for (let f = k.t - hand.TAP_HOLD; f <= k.t; f++) contactFrames.add(f);
+      if (k.kind === "sign") for (let f = k.t - hand.SIGN_LEN; f <= k.t; f++) contactFrames.add(f);
+    }
+    let prev = null, cur = null, prevPose = null;
+    const moves = [];
+    for (let f = 0; f < total; f++) {
+      const p = h3.hand3dPose(spec, keys, f);
+      if (!p.visible) { prev = null; prevPose = null; continue; }
+      // 회전·구름 연속성 — 한 프레임 변화 ≤ 1.5°(atan2 ±π 넘어감으로 -7°→+7° 뒤집히던 결함의 재발 방지)
+      if (prevPose) {
+        r3.maxRotStepDeg = Math.max(r3.maxRotStepDeg, (Math.abs(p.rot - prevPose.rot) * 180) / Math.PI);
+        r3.maxRollStepDeg = Math.max(r3.maxRollStepDeg, (Math.abs(p.roll - prevPose.roll) * 180) / Math.PI);
+      }
+      prevPose = p;
+      const t = h3.projectTexel(spec, p, ...tipTex);
+      r3.contractMaxPx = Math.max(r3.contractMaxPx, Math.hypot(t[0] - p.tip[0], t[1] - p.tip[1]));
+      if (contactFrames.has(f)) r3.touchMaxZ = Math.max(r3.touchMaxZ, p.zTip);
+      else if (p.lift > 0.3) r3.hoverMinZ = Math.min(r3.hoverMinZ, p.zTip);
+      if (f % 15 === 0) for (const g of grid) r3.minZ = Math.min(r3.minZ, h3.texelWorld(spec, p, g[0], g[1])[2]);
+      const kp = h3.projectTexel(spec, p, ...KNEE);
+      if (prev) {
+        const v = Math.hypot(kp[0] - prev[0], kp[1] - prev[1]) * CM_PER_PX * FPS;
+        if (v > 3) { if (!cur) cur = { from: f - 1, dist: 0, peak: 0 }; cur.dist += v / FPS; cur.peak = Math.max(cur.peak, v); }
+        else if (cur) { cur.to = f - 1; moves.push(cur); cur = null; }
+      }
+      prev = kp;
+    }
+    if (cur) { cur.to = total - 1; moves.push(cur); }
+    const mv = moves
+      .map((m) => ({ frames: `${m.from}-${m.to}`, distCm: +m.dist.toFixed(1), meanCmS: +(m.dist / ((m.to - m.from + 1) / FPS)).toFixed(1), peakCmS: +m.peak.toFixed(1) }))
+      .filter((m) => m.distCm >= 1.5);
+    for (const m of mv) {
+      if (m.meanCmS > MEAN_LIMIT) fail.push(`3D ${name} 손등 마디 ${m.frames} 평균 ${m.meanCmS}cm/s > ${MEAN_LIMIT}`);
+      if (m.peakCmS > PEAK_LIMIT) fail.push(`3D ${name} 손등 마디 ${m.frames} 최고 ${m.peakCmS}cm/s > ${PEAK_LIMIT}`);
+    }
+    r3.knee[name] = { peakCmS: Math.max(0, ...mv.map((m) => m.peakCmS)), maxMeanCmS: Math.max(0, ...mv.map((m) => m.meanCmS)) };
+  }
+  if (r3.contractMaxPx > 0.5) fail.push(`3D 손끝 투영점이 hand-path 에서 ${r3.contractMaxPx.toFixed(2)}px 벗어남(≤0.5)`);
+  if (r3.touchMaxZ > 0.01) fail.push(`3D 접촉 프레임 손끝 높이 ${r3.touchMaxZ.toFixed(2)} > 0 — 화면에 닿지 않는다`);
+  if (!(r3.hoverMinZ > 5)) fail.push(`3D 떠 있는 손끝 높이 최소 ${r3.hoverMinZ} ≤ 5 — 들림이 없다`);
+  if (r3.maxRotStepDeg > 1.5) fail.push(`3D 평면 회전이 한 프레임에 ${r3.maxRotStepDeg.toFixed(2)}° 튄다(≤1.5°)`);
+  if (r3.maxRollStepDeg > 1.5) fail.push(`3D 구름이 한 프레임에 ${r3.maxRollStepDeg.toFixed(2)}° 튄다(≤1.5°)`);
+  if (r3.minZ < -2) fail.push(`3D 격자가 화면 평면 아래로 ${r3.minZ.toFixed(1)}px 파고든다`);
+  const hl = fs.readFileSync(path.join(root, "src/components/HandLayer.tsx"), "utf8");
+  const code = hl.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  if (!/<ThreeCanvas[\s\S]*?width=\{CANVAS_W\}[\s\S]*?height=\{CANVAS_H\}/.test(code)) fail.push("HandLayer.tsx 가 ThreeCanvas(CANVAS_W x CANVAS_H) 로 손을 그리지 않는다(2D 폴백?)");
+  if (/<Img\b/.test(code)) fail.push("HandLayer.tsx 에 <Img> — 2D 컷아웃 폴백이 남아 있다");
+  if (!/staticFile\(`gen\/\$\{file\}`\)/.test(code) || !/handLayerSpec\(\)/.test(code)) fail.push("HandLayer.tsx 손 소재가 handLayerSpec().file 이 아니다");
+  report.hand3d = { ...r3, hoverMinZ: +r3.hoverMinZ.toFixed(2), minZ: +r3.minZ.toFixed(2), contractMaxPx: +r3.contractMaxPx.toFixed(4) };
+  console.log(`\n3D 손: 투영 손끝 오차 최대 ${r3.contractMaxPx.toFixed(3)}px(≤0.5) · 접촉 z 최대 ${r3.touchMaxZ.toFixed(2)} · 떠 있을 때 z 최소 ${r3.hoverMinZ.toFixed(1)} · 격자 z 최소 ${r3.minZ.toFixed(1)} · 회전/구름 한 프레임 최대 ${r3.maxRotStepDeg.toFixed(2)}°/${r3.maxRollStepDeg.toFixed(2)}° · 손등 마디 최고 ${Object.entries(r3.knee).map(([k, v]) => `${k} ${v.peakCmS}`).join("/")}cm/s`);
+
+  /* ⑤ 렌더 판정 — 화면 변 직선 절단. 경계 교차 프레임마다 화면 사각형(본편 화소 좌표)을 내보내 python 이 검사 */
+  const vi = process.argv.indexOf("--video");
+  const si = process.argv.indexOf("--video-start");
+  const selftest = process.argv.includes("--straight-cut-selftest");
+  if (vi > 0 && si > 0) {
+    const vStart = Number(process.argv[si + 1]);
+    const starts = { fill: durations.scenes.fill.startFrame, "repeat-1": durations.scenes.repeat.startFrame };
+    const { Easing } = await import("remotion");
+    const easeOut = Easing.out(Easing.cubic);
+    const PANE_W = Math.round(1920 * 0.58);
+    const focus = ss.quadCentroid(quad);
+    const sPane = Math.max(1.55, PANE_W / 1920, 1080 / 1080);
+    const tx = Math.min(0, Math.max(PANE_W - 1920 * sPane, PANE_W / 2 - focus[0] * sPane));
+    const ty = Math.min(0, Math.max(1080 - 1080 * sPane, 1080 / 2 - focus[1] * sPane));
+    // Photo.tsx: scale(from→to, EASE_OUT, 장면 전체) 가운데 기준 → ShotView.tsx StagePane translate+scale (Fill·Repeat 공통 zoom 1.55)
+    const toRender = (pt, sceneFrame, from, to, dur) => {
+      const k = easeOut(Math.min(1, Math.max(0, sceneFrame / dur)));
+      const sc = from + (to - from) * k;
+      const x = 960 + (pt[0] - 960) * sc, y = 540 + (pt[1] - 540) * sc;
+      return [+(tx + x * sPane).toFixed(2), +(ty + y * sPane).toFixed(2)];
+    };
+    const items = [];
+    for (const [name, v] of Object.entries(report.edgeCross)) {
+      const isFill = name === "fill";
+      for (const m of v.main60) {
+        const sceneF = isFill ? m - starts.fill : m - starts["repeat-1"];
+        const [a, b, dur] = isFill ? [1.0, 1.05, fillTotal] : [1.05, 1.08, repTotal];
+        items.push({ frame: m - vStart, main60: m, quad: [quad.tl, quad.tr, quad.br, quad.bl].map((q) => toRender(q, sceneF, a, b, dur)) });
+      }
+    }
+    const jf = path.join(root, "out/check/v33h3d-edge-quads.json");
+    fs.mkdirSync(path.dirname(jf), { recursive: true });
+    fs.writeFileSync(jf, JSON.stringify(items));
+    const args = [path.join(root, "tools/hand-stills.py"), "--straight-cut", path.resolve(root, process.argv[vi + 1]), jf];
+    if (selftest) args.push("--selftest");
+    const r = spawnSync(process.platform === "win32" ? "python" : "python3", args, { cwd: root, encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" } });
+    const out = (r.stdout || "").trim().split(/\r?\n/).pop();
+    report.straightCut = { exit: r.status, summary: out, selftest };
+    console.log(`화면 변 직선 절단(렌더): ${out}${selftest ? " [음성 대조]" : ""}`);
+    if (r.status !== 0) fail.push(`화면 변 직선 절단 검출: ${out || (r.stderr || "").slice(-300)}`);
+  }
 }
 
 fs.mkdirSync(path.join(root, "out/check"), { recursive: true });
