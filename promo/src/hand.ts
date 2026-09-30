@@ -213,6 +213,28 @@ export const thanksTransitionFrame = (): string | null => HP.thanks.transitionAt
 
 const below = (p: Pt): Pt => [p[0] + 90, p[1] + 560];
 
+/**
+ * 🔴 레인 V2(2026-09-30) — Fill 맺음 컷 타이밍 정본(Fill.tsx·check-hand-motion 이 같이 읽는다).
+ *   v3.3 V 는 전송 확인 창(B04)이 196~256f 떠 있고 손이 175~243f(2.3초) 멈춰 있었다(사용자 판정 「머묾」).
+ *   장면 길이(290f)·다른 장면 시작 프레임은 그대로 두고 **장면 안에서** 재배분한다:
+ *     - 서명 창 「확인」(175f) 뒤 손이 곧장 전송 버튼 자리 쪽으로 옮겨 가 떠서 기다리고(hover),
+ *     - 전송 확인 창은 1.0초(30f)만 보인 뒤 「전송」 탭 → 완료 화면(B05),
+ *     - 줄어든 30f 는 완료 화면 여운으로(34f → 64f).
+ *   손 정지(머묾) 최장 ≤ 30f 는 check-hand-motion 이 판정한다.
+ */
+export const FILL_TIMING = {
+  /** fill-seq 가 차지하는 앞 구간(= 전송 확인 창이 뜨는 프레임) */
+  seqSpan: 196,
+  b04At: 196,
+  /** 전송 확인 창이 보이는 길이 — 1.0초 */
+  b04Len: 30,
+  /** 손이 전송 버튼 근처에 도착해 떠 있기 시작하는 프레임(창이 뜬 직후) */
+  hoverAt: 200,
+  /** 완료 화면 뒤 손이 아래로 빠지는 시점(완료 화면 시작 기준) */
+  awayAfter: 30,
+} as const;
+export const fillB05At = () => FILL_TIMING.b04At + FILL_TIMING.b04Len;
+
 /** Fill: fill-seq 한 장 = per 프레임. 각 이벤트 = 그 캡처가 보이기 직전에 닿았다 뗀다 */
 export const fillKeys = (o: {
   per: number;
@@ -222,6 +244,9 @@ export const fillKeys = (o: {
   total: number;
   quad: Corners;
   aspect: number;
+  /** 전송 버튼 근처 대기 시작(없으면 v3.3 V 동작 = 확인 뒤 제자리 머묾) */
+  hoverAt?: number;
+  awayAfter?: number;
 }): HandKey[] => {
   const m = (p: number[], cap: Cap) => captureToPhoto([p[0], p[1]], cap, o.quad, o.aspect);
   const keys: HandKey[] = [];
@@ -241,11 +266,14 @@ export const fillKeys = (o: {
     last = t;
   }
   if (HP.sendConfirm && o.b04Cap) {
+    const send = m(HP.sendConfirm.point, o.b04Cap);
+    // 레인 V2: 창이 뜨는 사이 전송 버튼 오른쪽 아래에 떠서 기다린다(머묾 단축) — 버튼을 가리지 않게 비켜 선다
+    if (o.hoverAt != null && o.hoverAt < o.b05At - 8) keys.push({ kind: "hover", t: o.hoverAt, at: [send[0] + 14, send[1] + 22] });
     // 전송 확인 창의 「전송」 — 완료 화면(B05)이 뜨기 직전에 뗀다
-    keys.push({ kind: "tap", t: o.b05At - 1, at: m(HP.sendConfirm.point, o.b04Cap) });
+    keys.push({ kind: "tap", t: o.b05At - 1, at: send });
   }
   const lastAt = keys[keys.length - 1]?.at ?? ([700, 500] as Pt);
-  keys.push({ kind: "away", t: Math.min(o.total - 1, o.b05At + 30), at: below(lastAt) });
+  keys.push({ kind: "away", t: Math.min(o.total - 1, o.b05At + (o.awayAfter ?? 30)), at: below(lastAt) });
   return keys;
 };
 

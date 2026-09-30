@@ -8,7 +8,7 @@ import { Caption } from "../components/Caption";
 import { Narration } from "../components/Narration";
 import { Cut, QuadShot, StagePane } from "../components/ShotView";
 import { HandLayer } from "../components/HandLayer";
-import { fillKeys, handPlate } from "../hand";
+import { FILL_TIMING, fillB05At, fillKeys, handPlate } from "../hand";
 import { scene, sceneFrames } from "../script";
 import { inboxShot } from "../shots";
 import {
@@ -54,13 +54,15 @@ const STILL_CUTS: { key: ShotKey; at: number; len: number }[] = [
 ];
 
 /** 시퀀스를 쓸 때 뒤에 붙이는 맺음 컷 — 전송 팝업은 제품 동작이라 반드시 남긴다 */
+/* 🔴 레인 V2: 타이밍 정본 = src/hand.ts FILL_TIMING(전송 확인 창 1.0초, 완료 화면 여운 64f) */
+const B05_AT = fillB05At();
 const TAIL_CUTS: { key: ShotKey; at: number; len: number }[] = [
-  { key: "B04", at: 196, len: 66 },
-  { key: "B05", at: 256, len: TOTAL - 256 },
+  { key: "B04", at: FILL_TIMING.b04At, len: B05_AT - FILL_TIMING.b04At + 6 },
+  { key: "B05", at: B05_AT, len: TOTAL - B05_AT },
 ];
 
 /** 시퀀스 한 장이 머무는 프레임 — 손 궤적도 이 값으로 캡처와 맞춘다 */
-const SEQ_PER = Math.max(1, Math.floor(196 / Math.max(1, SEQ.frames.length)));
+const SEQ_PER = Math.max(1, Math.floor(FILL_TIMING.seqSpan / Math.max(1, SEQ.frames.length)));
 
 export const Fill: React.FC<{ mute?: boolean }> = ({ mute }) => {
   const aspect = QUAD ? quadAspect(QUAD) : 1;
@@ -77,6 +79,8 @@ export const Fill: React.FC<{ mute?: boolean }> = ({ mute }) => {
           total: TOTAL,
           quad: QUAD,
           aspect,
+          hoverAt: FILL_TIMING.hoverAt,
+          awayAfter: FILL_TIMING.awayAfter,
         })
       : [];
 

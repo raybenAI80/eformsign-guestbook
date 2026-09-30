@@ -6,7 +6,12 @@
  *   node tools/check-hand-motion.mjs          (exit 1 = 실패)
  *
  * 속도 환산: 태블릿 화면 세로(쿼드 높이, 사진 px) = 23.5cm(11인치 세로) 로 두고 cm/s 로 바꾼다.
- * 기준(사람이 화면을 짚는 손): 이동 평균 ≤ 60cm/s, 순간 최고 ≤ 150cm/s, 한 프레임 도약 없음.
+ * 기준(사람이 화면을 짚는 손): 이동 평균 ≤ 45cm/s(레인 V2 에서 60→45), 순간 최고 ≤ 150cm/s, 한 프레임 도약 없음.
+ * 레인 V2(2026-09-30) 추가:
+ *   · Fill 손 머묾(보이는 손이 3cm/s 이하로 멈춘 연속 구간) 최장 ≤ 30f(1.0초) — 서명 확인 탭 ~ 전송 탭 사이.
+ *     v3.3 V 는 전송 확인 창 앞에서 175~243f(68f) 멈췄다.
+ *   · 안내 화살표 0: Fill·Repeat 가 실제로 얹는 캡처 층(shot-scale.json 사본, 없으면 원본) 전부에서
+ *     분홍 화소(tools/remove-guide-arrow.py --check-scaled) 0.
  * 🔴 TS 정본(src/hand.ts)을 그대로 import 한다 — 궤적을 이 스크립트에서 다시 계산하지 않는다.
  */
 import { spawnSync } from "node:child_process";
@@ -37,7 +42,7 @@ if (!process.env.__HAND_CHECK_CHILD) {
   fs.writeFileSync(reg, `import { register } from "node:module";\nregister("./json-attr-hook.mjs", import.meta.url);\n`);
   const r = spawnSync(
     process.execPath,
-    ["--experimental-strip-types", "--no-warnings", "--import", pathToFileURL(reg).href, fileURLToPath(import.meta.url)],
+    ["--experimental-strip-types", "--no-warnings", "--import", pathToFileURL(reg).href, fileURLToPath(import.meta.url), ...process.argv.slice(2)],
     { stdio: "inherit", env: { ...process.env, __HAND_CHECK_CHILD: "1" }, cwd: root },
   );
   fs.rmSync(dir, { recursive: true, force: true });
@@ -58,8 +63,11 @@ const FPS = 30;
 const seq = ss.fillSeq();
 const seqCap = { width: seq.width, height: seq.height, viewport: seq.viewport };
 const fillTotal = durations.scenes.fill.frames;
-const per = Math.max(1, Math.floor(196 / Math.max(1, seq.frames.length)));
-const fill = hand.fillKeys({ per, seqCap, b04Cap: ss.geo("B04"), b05At: 256, total: fillTotal, quad, aspect });
+const FT = hand.FILL_TIMING;
+const per = Math.max(1, Math.floor(FT.seqSpan / Math.max(1, seq.frames.length)));
+const fill = hand.fillKeys({ per, seqCap, b04Cap: ss.geo("B04"), b05At: hand.fillB05At(), total: fillTotal, quad, aspect, hoverAt: FT.hoverAt, awayAfter: FT.awayAfter });
+const MEAN_LIMIT = 45;
+const STALL_LIMIT = 30;
 
 /* Repeat — Repeat.tsx 와 같은 파생(길이·밝은 프레임)을 쓴다 */
 const repTotal = durations.scenes.repeat.frames;
@@ -88,7 +96,7 @@ const inQuad = (p) => {
   return Math.abs(s) === 4;
 };
 
-const report = { cmPerPhotoPx: +CM_PER_PX.toFixed(4), limits: { meanCmS: 60, peakCmS: 150 }, cuts: {} };
+const report = { cmPerPhotoPx: +CM_PER_PX.toFixed(4), limits: { meanCmS: MEAN_LIMIT, peakCmS: 150, fillStallFrames: STALL_LIMIT }, cuts: {} };
 for (const [name, keys, total] of [["fill", fill, fillTotal], ["repeat-1", rep1, FIRST_LEN + 12], ["repeat-2", rep2, repTotal - FIRST_LEN]]) {
   const rows = [];
   // 탭 = 화면 안이어야 한다
@@ -125,11 +133,55 @@ for (const [name, keys, total] of [["fill", fill, fillTotal], ["repeat-1", rep1,
   }));
   for (const m of mv) {
     if (m.distCm < 1.5) continue; // 머무름 흔들림·탭 누름은 이동이 아니다
-    if (m.meanCmS > 60) fail.push(`${name} ${m.frames} 평균 ${m.meanCmS}cm/s > 60`);
+    if (m.meanCmS > MEAN_LIMIT) fail.push(`${name} ${m.frames} 평균 ${m.meanCmS}cm/s > ${MEAN_LIMIT}`);
     if (m.peakCmS > 150) fail.push(`${name} ${m.frames} 최고 ${m.peakCmS}cm/s > 150`);
   }
   if (jumps) fail.push(`${name} 한 프레임 도약 ${jumps}회`);
   report.cuts[name] = { taps: rows, moves: mv.filter((m) => m.distCm >= 1.5) };
+  if (name === "fill") {
+    /* 머묾: 서명 창 「확인」(시퀀스 마지막 탭) ~ 전송 탭 사이 = 전송 확인 창 앞. 손이 3cm/s 이하로 멈춘 연속 프레임.
+       (입력 칸에 글자가 찍히는 동안 손이 칸 위에 떠 있는 앞 구간 머묾은 타자 시간이라 판정 밖 — 정보로만 싣는다) */
+    const taps = keys.filter((k) => k.kind === "tap" || k.kind === "sign");
+    const f0 = taps[taps.length - 2].t, f1 = taps[taps.length - 1].t;
+    let run = 0, best = { len: 0, from: f0 }, p0 = hand.poseAt(keys, f0);
+    for (let f = f0 + 1; f <= f1; f++) {
+      const p = hand.poseAt(keys, f);
+      const v = Math.hypot(p.tip[0] - p0.tip[0], p.tip[1] - p0.tip[1]) * CM_PER_PX * FPS + Math.abs(p.lift - p0.lift) * 30;
+      run = v <= 3 ? run + 1 : 0;
+      if (run > best.len) best = { len: run, from: f - run + 1 };
+      p0 = p;
+    }
+    report.cuts.fill.longestStall = { frames: best.len, from: best.from, to: best.from + best.len - 1, sec: +(best.len / FPS).toFixed(2) };
+    if (best.len > STALL_LIMIT) fail.push(`fill 손 머묾 ${best.from}~${best.from + best.len - 1}f (${best.len}f) > ${STALL_LIMIT}f`);
+  }
+}
+
+/* 안내 화살표 0 — Fill·Repeat 가 얹는 캡처 층 전부(사본 우선, 없으면 원본) */
+{
+  const scale = JSON.parse(fs.readFileSync(path.join(root, "src/shot-scale.json"), "utf8")).files ?? {};
+  const layer = (rel) => path.join(root, "public/shots", scale[rel] ? "_scaled" : "", rel);
+  const rels = new Set([...seq.frames, ...thanks.frames, ...cd.frames]);
+  for (const k of ["B04", "B05", "C01b", "C04"]) if (ss.geo(k)) rels.add(ss.SHOT_FILES[k]);
+  const files = [...rels].map(layer).filter((f) => fs.existsSync(f));
+  const r = spawnSync(process.platform === "win32" ? "python" : "python3", [path.join(root, "tools/remove-guide-arrow.py"), "--check-scaled", ...files], {
+    encoding: "utf8",
+    env: { ...process.env, PYTHONIOENCODING: "utf-8" },
+  });
+  const out = (r.stdout || "").trim();
+  report.guideArrow = { files: files.length, exit: r.status, summary: out.split(/\r?\n/).pop() };
+  console.log(`\n안내 화살표(분홍) 검사: ${report.guideArrow.summary}`);
+  if (r.status !== 0) fail.push(`안내 화살표 분홍 화소가 남은 캡처 층: ${out}`);
+  /* 렌더 판정(선택): --video <Fill·Repeat 구간 mp4> — 왼쪽 칸 분홍 화소 프레임 0. v33v-fill.mp4 는 101프레임(음성 대조) */
+  const vi = process.argv.indexOf("--video");
+  if (vi > 0) {
+    const v = spawnSync(process.platform === "win32" ? "python" : "python3", [path.join(root, "tools/remove-guide-arrow.py"), "--check-video", path.resolve(root, process.argv[vi + 1])], {
+      encoding: "utf8",
+      env: { ...process.env, PYTHONIOENCODING: "utf-8" },
+    });
+    report.guideArrow.video = (v.stdout || "").trim();
+    console.log(`렌더 분홍 검사: ${report.guideArrow.video}`);
+    if (v.status !== 0) fail.push(`렌더에 분홍 화소: ${report.guideArrow.video}`);
+  }
 }
 
 /* 바탕 한 장: Fill·Repeat 의 Photo src 가 전부 handPlate() 인가(소스 정적 검사) */
@@ -150,5 +202,9 @@ for (const [n, c] of Object.entries(report.cuts)) {
   for (const m of c.moves) console.log(`  이동 ${m.frames.padEnd(9)} ${String(m.distCm).padStart(5)}cm  평균 ${String(m.meanCmS).padStart(5)}cm/s  최고 ${String(m.peakCmS).padStart(5)}cm/s`);
 }
 console.log(`\n바탕: ${report.plates.unique.join(", ")} → ${report.plates.file}`);
+{
+  const st = report.cuts.fill.longestStall;
+  console.log(`Fill 전송 확인 앞 손 머묾 최장: ${st.from}~${st.to}f = ${st.frames}f (${st.sec}초, 허용 ${STALL_LIMIT}f)`);
+}
 if (fail.length) { console.log("\nFAIL"); fail.forEach((x) => console.log("  X " + x)); process.exit(1); }
 console.log("\nPASS — 손 궤적·바탕 한 장");

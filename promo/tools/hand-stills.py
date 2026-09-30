@@ -5,11 +5,14 @@
 import sys, subprocess, os
 import numpy as np, cv2
 video, name, frames = sys.argv[1], sys.argv[2], [int(x) for x in sys.argv[3].split(',')]
+# 레인 V2: 선택 인자 — 파일 접두어(기본 v33v) · 영상 첫 프레임의 장면 로컬 번호(구간 렌더가 장면 중간에서 시작할 때)
+prefix = sys.argv[4] if len(sys.argv) > 4 else 'v33v'
+offset = int(sys.argv[5]) if len(sys.argv) > 5 else 0
 out = os.path.join(os.path.dirname(video))
 tips = []
 for f in frames:
-    png = os.path.join(out, f'v33v-{name}-f{f:03d}.png')
-    subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-ss', f'{(f + 0.5) / 30:.4f}', '-i', video, '-frames:v', '1', png], check=True)
+    png = os.path.join(out, f'{prefix}-{name}-f{f:03d}.png')
+    subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-ss', f'{(f - offset + 0.5) / 30:.4f}', '-i', video, '-frames:v', '1', png], check=True)
     im = cv2.imread(png)
     L = im[:, :1114].astype(np.int16)
     b, g, r = L[..., 0], L[..., 1], L[..., 2]
@@ -23,7 +26,7 @@ for f in frames:
     tips.append((f, (tx, ty)))
     x0 = min(max(0, tx - 160), 1114 - 400); y0 = min(max(0, ty - 110), 1080 - 260)
     crop = cv2.resize(im[y0:y0 + 260, x0:x0 + 400], None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-    cv2.imwrite(os.path.join(out, f'v33v-{name}-f{f:03d}-crop200.png'), crop)
+    cv2.imwrite(os.path.join(out, f'{prefix}-{name}-f{f:03d}-crop200.png'), crop)
 for f, t in tips:
     print(name, f, t)
 

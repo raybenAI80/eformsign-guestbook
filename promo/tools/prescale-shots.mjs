@@ -25,9 +25,14 @@
  *   node tools/prescale-shots.mjs            # 없는 것·원본이 더 새것인 것만 다시 만든다
  *   node tools/prescale-shots.mjs --force    # 전부 다시 만든다
  *   node tools/prescale-shots.mjs --print    # 만들지 않고 계획만 출력
+ *
+ * 🔴 레인 V2(2026-09-30): 줄이기 **전에** `tools/remove-guide-arrow.py` 가 이폼사인 「다음 칸」 안내
+ *    화살표(분홍 ↓)를 원본 해상도 사본에서 지운다(원본 캡처는 그대로). 화살표가 없는 캡처는 원본에서 바로 줄인다.
+ *    지운 수는 shot-scale.json 의 `guideArrows` 에 남는다. 게이트 = check-hand-motion 「안내 화살표 0」.
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -81,6 +86,27 @@ const probe = (file) => {
   return j.streams[0];
 };
 
+/* 안내 화살표 지우기 — 다시 만들 대상만 한 번에 넘긴다(파이썬 한 번 기동) */
+const planned = [...targets].sort().filter((rel) => fs.existsSync(path.join(SHOTS, rel)));
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "prescale-arrow-"));
+/* 지우기 대상 = 이폼사인 **작성 화면** 캡처(B·C — Fill·Repeat·Branch). 편집기(A)·문서함(D)·시트(K)는 건드리지 않는다 */
+const ARROW_SCOPE = /^(B|C)\//;
+const needs = planned.filter((rel) => {
+  const src = path.join(SHOTS, rel);
+  const dst = path.join(OUT_DIR, rel);
+  return force || !fs.existsSync(dst) || fs.statSync(dst).mtimeMs < fs.statSync(src).mtimeMs;
+});
+let arrowReport = {};
+if (!printOnly && needs.length) {
+  const list = path.join(tmpDir, "list.json");
+  fs.writeFileSync(list, JSON.stringify(needs.filter((rel) => ARROW_SCOPE.test(rel)).map((rel) => [path.join(SHOTS, rel), rel])));
+  const outp = execFileSync(process.platform === "win32" ? "python" : "python3", [
+    path.join(ROOT, "tools/remove-guide-arrow.py"), "--batch", list, tmpDir,
+  ]).toString().trim().split(/\r?\n/);
+  arrowReport = JSON.parse(outp[outp.length - 1] || "{}");
+}
+const prevTable = fs.existsSync(OUT_JSON) ? JSON.parse(fs.readFileSync(OUT_JSON, "utf8")).files ?? {} : {};
+
 const table = {};
 let made = 0;
 let kept = 0;
@@ -106,8 +132,9 @@ for (const rel of [...targets].sort()) {
 
   if (!printOnly && !fresh) {
     fs.mkdirSync(path.dirname(dst), { recursive: true });
+    const cleaned = path.join(tmpDir, rel);
     execFileSync("ffmpeg", [
-      "-v", "error", "-y", "-i", src,
+      "-v", "error", "-y", "-i", fs.existsSync(cleaned) ? cleaned : src,
       /* lanczos = 축소에서 계단·모아레가 가장 적다. 기본 bicubic 보다 획이 또렷하다 */
       "-vf", `scale=${outW}:${outH}:flags=lanczos`,
       "-frames:v", "1", dst,
@@ -124,8 +151,12 @@ for (const rel of [...targets].sort()) {
     height: outH,
     sourceWidth: width,
     sourceHeight: height,
+    /* 지운 안내 화살표 수(0 = 없었음). 그대로 둔 사본은 이전 기록을 잇는다 */
+    guideArrows: fresh ? prevTable[rel]?.guideArrows ?? 0 : arrowReport[rel] ?? 0,
   };
 }
+
+fs.rmSync(tmpDir, { recursive: true, force: true });
 
 const json =
   JSON.stringify(
@@ -134,7 +165,7 @@ const json =
         "🔴 손으로 고치지 말고 `node tools/prescale-shots.mjs` 로 다시 만든다. 캡처를 재촬영하면 measure-scenes → prescale-shots 순서로 돌린다.",
       scaledAt: new Date().toISOString(),
       targetWidth: TARGET_W,
-      method: "ffmpeg scale=flags=lanczos (원본 유지, public/shots/_scaled/ 에 사본)",
+      method: "remove-guide-arrow.py(원본 해상도) → ffmpeg scale=flags=lanczos (원본 유지, public/shots/_scaled/ 에 사본)",
       files: table,
     },
     null,
