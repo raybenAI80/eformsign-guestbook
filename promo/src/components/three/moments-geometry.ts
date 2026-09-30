@@ -1,4 +1,5 @@
-import { bookCamera, bookPageScreen, bookPageSize } from "../../geometry";
+import { bookCamera, bookPageScreen, bookPageSize, bookWriterSide } from "../../geometry";
+import { padRect, rectToAspect } from "../../shots-scenes";
 import { scene } from "../../script";
 import sceneGeometry from "../../scene-geometry.json";
 import promptsJson from "../../../public/gen/prompts.json";
@@ -81,13 +82,25 @@ export const PAPER_LIFT_FRAMES = 18;
 export const LIFT_FOV = 10;
 const LIFT_D = pixelDistance(FRAME_H, LIFT_FOV);
 
-/** 페이지 로컬 크기(측정 블록 ruling.pageWidth/Height) → 펼친 두 쪽 = 가로 2장 */
+/**
+ * 🔴 레인 T3(2026-09-30): 종이 = **읽는 쪽 한 페이지만**(펼친 두 쪽 폐기 — T2 는 두 쪽 + 손·펜이 섞여
+ *    화면 2/3 를 덮었다). 크기 = 페이지 로컬(ruling.pageWidth × pageHeight), 세로 종이.
+ */
 const [PAGE_W, PAGE_H] = bookPageSize();
-/** 종이(펼친 지면) 로컬 크기 — 텍스처 PNG 도 이 비율이다(PageTexture 컴포지션) */
-export const SPREAD = { w: PAGE_W * 2, h: PAGE_H };
+export const SHEET = { w: PAGE_W, h: PAGE_H };
 /** 텍스처 해상도 배수(로컬 1단위 = TEX_SCALE px) */
 export const TEX_SCALE = 2;
-export const TEXTURE_FILE = "three/guestbook-spread.png";
+/** tools/make-page-texture.mjs 가 굽는다(정방향 · 손/펜 영역 제거) */
+export const TEXTURE_FILE = "three/guestbook-page.png";
+
+/**
+ * 읽는 쪽 = 펜이 놓인 쪽(writerSide, 지금 써지는 쪽)의 **반대 쪽** — 이미 여러 줄이 채워진 쪽이다.
+ * Paper 앞 컷 끝 푸시인이 비추는 쪽이기도 하다(4차 gen-01: writer=left → 읽는 쪽=right).
+ */
+export const readSide = (): "left" | "right" => (bookWriterSide() === "left" ? "right" : "left");
+
+/** 종이는 어느 프레임에서도 화면 높이의 이 비율을 넘지 않는다(레인 T3 요구 — T2 는 2/3) */
+export const SHEET_MAX_H = Math.floor(FRAME_H * 0.4);
 
 type Pt = [number, number];
 const mapZoom = (p: Pt, origin: Pt, s: number): Pt => [
@@ -97,17 +110,15 @@ const mapZoom = (p: Pt, origin: Pt, s: number): Pt => [
 
 /**
  * Paper 앞 컷 **마지막 프레임**(푸시인 최대 배율 = camera.ts zoomEnd, 초점 origin)에서
- * 펼친 지면이 화면에 놓인 사각형(경계상자). 🔴 좌표를 박지 않는다 — prompts.json pages 와
- * bookCamera() 에서 매번 푼다. 왼쪽 페이지는 이때 화면 왼쪽 밖으로 나가 있다(x<0) — 그대로 둔다.
+ * 읽는 쪽 페이지가 화면에 놓인 사각형(경계상자). 🔴 좌표를 박지 않는다 — prompts.json pages 와
+ * bookCamera() 에서 매번 푼다.
  */
-export const spreadRectAtPaperEnd = (): Rect => {
+export const pageRectAtPaperEnd = (): Rect => {
   const cam = bookCamera();
-  const pts: Pt[] = [];
-  for (const side of ["left", "right"] as const) {
-    const q = bookPageScreen(side);
-    if (!q) continue;
-    for (const k of ["tl", "tr", "br", "bl"] as const) pts.push(mapZoom(q[k] as Pt, cam.origin, cam.zoomTo));
-  }
+  const q = bookPageScreen(readSide());
+  const pts: Pt[] = q
+    ? (["tl", "tr", "br", "bl"] as const).map((k) => mapZoom(q[k] as Pt, cam.origin, cam.zoomTo))
+    : [[0, 0], [FRAME_W, FRAME_H]];
   const xs = pts.map((p) => p[0]);
   const ys = pts.map((p) => p[1]);
   const x = Math.min(...xs);
@@ -127,8 +138,8 @@ export interface SheetPose {
 
 /** 종이 네 꼭짓점의 화면 좌표(px, 좌상 원점) */
 export const projectSheet = (p: SheetPose, D = LIFT_D): Pt[] => {
-  const hw = (SPREAD.w * p.k) / 2;
-  const hh = (SPREAD.h * p.k) / 2;
+  const hw = (SHEET.w * p.k) / 2;
+  const hh = (SHEET.h * p.k) / 2;
   const c = Math.cos(p.tilt);
   const s = Math.sin(p.tilt);
   return ([
@@ -157,7 +168,7 @@ export const bboxOf = (pts: Pt[]): Rect => {
 const fitWidth = (tilt: number, T: Rect): SheetPose => {
   const p: SheetPose = {
     tilt,
-    k: T.w / SPREAD.w,
+    k: T.w / SHEET.w,
     x: T.x + T.w / 2 - FRAME_W / 2,
     y: FRAME_H / 2 - (T.y + T.h / 2),
     z: 0,
@@ -188,20 +199,63 @@ export const solveLyingPose = (T: Rect): SheetPose => {
 const liftAbove = (r: Rect, limit: number): Rect =>
   bottomOf(r) > limit ? { ...r, y: r.y - (bottomOf(r) - limit) } : r;
 
-/** 시작 자리 = Paper 끝 지면 사각형. 🔴 자막 띠와 겹치면 크기는 두고 **위로만** 민다(요구 ③) */
-export const paperLiftStartRect = (): Rect =>
-  liftAbove(spreadRectAtPaperEnd(), paperCaptionBand().y - CAPTION_MARGIN);
+/** rect 를 중심 고정으로 줄여 높이가 maxH 이하가 되게 한다(비율 유지) */
+const capHeight = (r: Rect, maxH: number): Rect => {
+  if (r.h <= maxH) return r;
+  const s = maxH / r.h;
+  const w = r.w * s;
+  return { x: r.x + (r.w - w) / 2, y: r.y + (r.h - maxH) / 2, w, h: maxH };
+};
 
 /**
- * 끝 자리 = Designer 카드. 종이 비율(SPREAD)을 지킨 채 카드 안에 **꽉 맞춘다(contain)** —
- * 단 카드 아래 변(796)이 Designer 자막 띠 윗변(≈795)과 붙어 있어, 자막 띠 위까지만 쓴다.
+ * 시작 자리 = Paper 끝에서 읽는 쪽 페이지가 놓였던 사각형을 **중심 고정으로 높이 40% 이하**까지 줄이고,
+ * 자막 띠와 겹치면 **위로만** 민다(레인 T3 요구 ③ · 높이 40%).
+ */
+export const paperLiftStartRect = (): Rect =>
+  liftAbove(capHeight(pageRectAtPaperEnd(), SHEET_MAX_H), paperCaptionBand().y - CAPTION_MARGIN);
+
+/**
+ * Designer A01 캡처 안의 **서식 페이지(세로 종이)** — 편집 화면 가운데 흰 지면의 파란 좌우 테두리와
+ * 도구 막대 아래 변(캡처 px). 측정 = A01-designer-form.png 열 스캔(파랑 b>180·r<150 이 세로 950px 이상
+ * 이어지는 열 x=433·1627) · 도구 막대 아래 y=156. 🔴 A01 을 다시 캡처하면 다시 잰다.
+ */
+export const A01_FORM_PAGE: Rect = { x: 433, y: 156, w: 1627 - 433, h: 1350 - 156 };
+
+/**
+ * Designer **첫 프레임**에 A01 서식 페이지가 화면에 놓인 사각형(카드로 잘림).
+ * Designer.tsx 와 같은 식: crop = rectToAspect(padRect(fieldsArea, 420), 카드 비율) ·
+ * CaptureBox 는 폭 기준 배율 k = CARD.width / crop.w, 원점 = CARD_RECT 좌상.
+ */
+export const designerFormPageRect = (): Rect => {
+  const a01 = (sceneGeometry as { captures: Record<string, CapGeo & { fieldsArea?: Rect; fields?: Rect[] }> })
+    .captures.A01;
+  const area = a01?.fieldsArea ?? a01?.fields?.[0];
+  if (!a01 || !area) return { ...CARD_RECT };
+  const crop = rectToAspect(padRect(area, 420, a01), CARD.width / CARD.height, a01);
+  const k = CARD.width / crop.w;
+  const x0 = CARD_RECT.x + (A01_FORM_PAGE.x - crop.x) * k;
+  const y0 = CARD_RECT.y + (A01_FORM_PAGE.y - crop.y) * k;
+  const x1 = CARD_RECT.x + (A01_FORM_PAGE.x + A01_FORM_PAGE.w - crop.x) * k;
+  const y1 = CARD_RECT.y + (A01_FORM_PAGE.y + A01_FORM_PAGE.h - crop.y) * k;
+  /* 카드 밖은 보이지 않는다 */
+  const cx0 = Math.max(x0, CARD_RECT.x);
+  const cy0 = Math.max(y0, CARD_RECT.y);
+  const cx1 = Math.min(x1, CARD_RECT.x + CARD_RECT.w);
+  const cy1 = Math.min(y1, CARD_RECT.y + CARD_RECT.h);
+  return { x: cx0, y: cy0, w: cx1 - cx0, h: cy1 - cy0 };
+};
+
+/**
+ * 끝 자리 = Designer 카드 안 **서식 페이지(세로 종이) 위**. 종이 비율(SHEET, 세로)을 지킨 채
+ * 서식 페이지 보이는 부분 ∩ 자막 띠 위 영역에 맞추되 높이는 SHEET_MAX_H 이하, 가운데 정렬.
  */
 export const paperLiftEndRect = (): Rect => {
+  const page = designerFormPageRect();
   const limit = designerCaptionBand().y - CAPTION_MARGIN;
-  const box: Rect = { ...CARD_RECT, h: Math.min(CARD_RECT.h, limit - CARD_RECT.y) };
-  const aspect = SPREAD.w / SPREAD.h;
-  const w = Math.min(box.w, box.h * aspect);
-  const h = w / aspect;
+  const box: Rect = { ...page, h: Math.min(page.h, limit - page.y) };
+  const aspect = SHEET.w / SHEET.h;
+  const h = Math.min(SHEET_MAX_H, box.h * 0.92, (box.w * 0.92) / aspect);
+  const w = h * aspect;
   return { x: box.x + (box.w - w) / 2, y: box.y + (box.h - h) / 2, w, h };
 };
 
@@ -269,29 +323,28 @@ export const manageQuad = (): Quad4 | null => {
   return { tl, tr, br, bl };
 };
 
-/**
- * D01 문서 목록 **한 행 높이**를 노트북 화면(이미지 px)으로 옮긴 값.
- * 행 높이 = scene-geometry D01.listRow.pitch(캡처 px) × (화면 사각형 평균 세로 / 자르기 높이).
- * 자르기 = D01.frame(폭 기준) — Manage 가 D01 에 쓰는 것과 같다.
- */
-export const d01RowPx = (): number | null => {
-  const d01 = (sceneGeometry as { captures: Record<string, CapGeo> }).captures.D01;
+/** 노트북 화면 사각형(= D01 이 붙는 자리)의 평균 세로 길이(이미지 px) */
+export const manageQuadHeight = (): number | null => {
   const q = manageQuad();
-  if (!d01?.listRow || !q) return null;
-  const cropH = d01.frame?.h ?? d01.height;
+  if (!q) return null;
   const side = (a: Pt, b: Pt) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-  const quadH = (side(q.tl, q.bl) + side(q.tr, q.br)) / 2;
-  return (d01.listRow.pitch * quadH) / cropH;
+  return (side(q.tl, q.bl) + side(q.tr, q.br)) / 2;
 };
 
-/** 카드 높이 = 목록 한 행의 이 배수(요구 1.5 ~ 2배) */
-export const DOC_CARD_ROW_MULT = 1.75;
+/**
+ * 카드 높이 = D01 화면 사각형 높이의 이 비율. 🔴 레인 T3(2026-09-30): T2 의 「목록 한 행 1.75배」(≈43px)는
+ * 점처럼 보여 불통과 → 행 pitch 기준 폐기, 화면 사각형 높이의 25%.
+ */
+export const DOC_CARD_OF_SCREEN = 0.25;
 export const DOC_CARD_ASPECT = 3 / 4;
 export const docCardSize = () => {
-  const row = d01RowPx() ?? 24;
-  const h = row * DOC_CARD_ROW_MULT;
-  return { w: h * DOC_CARD_ASPECT, h, row };
+  const screenH = manageQuadHeight() ?? 300;
+  const h = screenH * DOC_CARD_OF_SCREEN;
+  return { w: h * DOC_CARD_ASPECT, h, screenH };
 };
+
+/** 착지한 카드 가로 간격 = 카드 폭의 이 배수 → 이웃 카드와 (1 - 이 값) 만큼 **살짝 겹친다** */
+export const DOC_CARD_STEP = 0.74;
 
 /** 도입 길이·카드 간격 */
 export const DOC_INTRO_FRAMES = 30;
@@ -316,8 +369,8 @@ export const docCardPose = (i: number, p: number, land: Pt, box: Rect) => {
   const ly = box.h / 2 - (land[1] - box.y);
   return {
     position: [
-      lx + (i - 1) * w * 0.07 + (1 - p) * (i - 1) * w * 0.27,
-      ly + i * w * 0.05 + (1 - p) * (box.h * 0.62),
+      lx + (i - 1) * w * DOC_CARD_STEP + (1 - p) * (i - 1) * w * 0.27,
+      ly + (i === 1 ? w * 0.06 : 0) + (1 - p) * (box.h * 0.62),
       6 + i * 4 + (1 - p) * 90,
     ] as [number, number, number],
     rotation: [

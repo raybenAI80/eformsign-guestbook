@@ -21,7 +21,7 @@ import {
   useCanvasTexture,
 } from "./pixel-space";
 import {
-  SPREAD,
+  SHEET,
   TEXTURE_FILE,
   docCardPose,
   docCardSize,
@@ -32,12 +32,14 @@ import {
 
 /**
  * v3.3 레인 T — three.js 연출 세 곳(YAGNI: 이 세 곳 밖에는 쓰지 않는다).
- *   ① PaperLiftTransition  Paper → Designer 경계 0.6초 — Paper 앞 컷 끝에서 보였던 **실제 gen-01 펼친 지면**
- *      (손글씨 층 합성, public/three/guestbook-spread.png)이 누운 채 나타나 들려 서며 Designer 카드 자리로
+ *   ① PaperLiftTransition  Paper → Designer 경계 0.6초 — Paper 앞 컷 끝에서 보였던 **실제 gen-01 방명록 지면**
+ *      (손글씨 층 합성, public/three/guestbook-page.png)이 누운 채 나타나 들려 서며 Designer 카드 자리로
  *      줄어 포개지고 사라진다. 🔴 v3.3 레인 T2(2026-09-30): 1차의 선·지그재그 가짜 지면이 화면을 덮어
  *      자막을 가려 불통과 → 자리·크기는 moments-geometry.ts 가 측정값에서 풀고 게이트가 자막 겹침 0 을 잰다.
- *   ② DocStackDrop          Manage 도입 1초 — 완료 문서 카드 3장(D01 목록 한 행의 1.75배)이 노트북 화면 안으로
- *                           차례로 내려앉는다. 실캡처(D01)는 그 뒤에 나타난다.
+ *      🔴 레인 T3: 종이 = 읽는 쪽 **한 페이지**(guestbook-page.png, 손글씨 정방향 · 손/펜 제거), 높이 ≤ 화면 40%,
+ *      착지 = Designer 카드 안 서식 페이지(세로 종이) 위.
+ *   ② DocStackDrop          Manage 도입 1초 — 완료 문서 카드 3장(높이 = D01 화면 사각형의 25%)이 노트북 화면
+ *                           안으로 차례로 내려앉아 살짝 겹쳐 놓인다. 실캡처(D01)는 그 뒤에 나타난다.
  *   ③ CtaPanel3D            CTA 0.8초 — 살짝 기운 패널이 정면으로 돈다. 로고·주소는 DOM(제공 PNG)이
  *                           같은 원근으로 함께 돈다(`ctaFaceStyle`).
  *
@@ -103,11 +105,11 @@ const Slab: React.FC<{
 /* ────────────────────────── ① Paper → Designer ────────────────────────── */
 
 /**
- * 실제 gen-01 펼친 지면 텍스처(손글씨 층 합성, 정사영). 🔴 가짜 선·표 그림 금지(레인 T 1차 불통과).
+ * 실제 gen-01 읽는 쪽 한 페이지 텍스처(손글씨 층 합성, 정사영, 페이지 로컬 = 정방향). 🔴 가짜 선·표 그림 금지(레인 T 1차 불통과).
  * 만드는 법 = `node tools/make-page-texture.mjs` (PageTexture 컴포지션 스틸).
  */
 const useSpreadTexture = () => {
-  const [handle] = useState(() => delayRender("guestbook-spread texture"));
+  const [handle] = useState(() => delayRender("guestbook-page texture"));
   const tex = useMemo(() => {
     const t = new THREE.TextureLoader().load(
       staticFile(TEXTURE_FILE),
@@ -124,7 +126,7 @@ const useSpreadTexture = () => {
 };
 
 /**
- * Paper 앞 컷 끝에서 보였던 **펼친 방명록 지면**이 누운 채 나타나 들려 서며 Designer 카드 자리로
+ * Paper 앞 컷 끝에서 보였던 **방명록 읽는 쪽 한 페이지**가 누운 채 나타나 들려 서며 Designer 서식 페이지 자리로
  * 줄어 포개지고 사라진다. 자리·크기·기울기는 전부 `moments-geometry.ts paperLiftState()` 가 푼다
  * (시작 = camera.ts 끝 배율에서의 지면 사각형, 끝 = 카드, 전 프레임 자막 띠 위 — 게이트
  * `tools/check-three-moments.mjs`). 여기서는 그 자세를 그리기만 한다.
@@ -152,8 +154,8 @@ export const PaperLiftTransition: React.FC<{
       <ThreeCanvas width={width} height={height} camera={liftCamera()} flat>
         <SoftDaylight />
         <Slab
-          w={SPREAD.w * pose.k}
-          h={SPREAD.h * pose.k}
+          w={SHEET.w * pose.k}
+          h={SHEET.h * pose.k}
           depth={2}
           face={face}
           edge={edge}
@@ -182,7 +184,7 @@ export const DocStackDrop: React.FC<{
   const face = useMemo(() => matte("#FFFFFF", { map: tex }), [tex]);
   const edge = useMemo(() => matte("#E6EAF0"), []);
   const shadowMat = useMemo(() => new THREE.ShadowMaterial({ opacity: 0.22, transparent: true }), []);
-  /* 크기 = D01 목록 한 행 높이의 1.75배(moments-geometry docCardSize — 코드에 박지 않는다) */
+  /* 크기 = D01 화면 사각형 높이의 25%(moments-geometry docCardSize — 코드에 박지 않는다) */
   const { w: cardW, h: cardH } = docCardSize();
   const [lx, ly] = px(land[0] - box.x, land[1] - box.y, box.w, box.h);
 
