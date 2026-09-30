@@ -237,6 +237,57 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
   console.log(`문서함: 행 도착 ${inbox.from}·${inbox.second}f · 전송 탭 ${tap}f → 탭 뒤 ${gap}f(허용 6~12) · Fill 끝 [${fillEndVec}] · Repeat 첫 프레임 [${repStartVec}]`);
 }
 
+/* 레인 H(2026-09-30) — 손 컷아웃 경계 + 화면 경계를 넘는 프레임.
+   사용자 지적(본편 Fill 146f 서명 창): 검지 뒤 손등 너클이 베젤 위에서 **직선으로 잘리고** 테두리가 하얗게 떴다.
+   원인은 클립이 아니라 컷아웃 알파(너클 직선 홈·배경 섞인 후광·베젤 티끌·소매 이음매 반투명)였다.
+   · 컷아웃 판정 = tools/make-hand-layer.py --check(윗선 홈 ≤2.5px · 후광 ≤6L · 피부 가장자리 티끌 ≤5 · 이음매 반투명 0).
+     음성 대조: `--hand-cutout <684cbc0 의 hand-03.png>` → exit 1.
+   · 손 층 클립 금지: HandLayer.tsx 에 clipPath·mask·overflow 없음(손은 화면·베젤·배경 어디서든 온전히).
+   · 화면 경계를 넘는 프레임(손끝은 화면 안, 손등 윗선 표본점 중 하나라도 화면 밖) 목록 → 판정 스틸용. */
+{
+  const spec = hand.handLayerSpec();
+  const hi = process.argv.indexOf("--hand-cutout");
+  const cutout = hi > 0 ? path.resolve(process.cwd(), process.argv[hi + 1]) : path.join(root, "public/gen", spec.file);
+  const r = spawnSync(process.platform === "win32" ? "python" : "python3", [path.join(root, "tools/make-hand-layer.py"), "--check", cutout, "--origin", spec.origin.join(",")], {
+    cwd: root,
+    encoding: "utf8",
+    env: { ...process.env, PYTHONIOENCODING: "utf-8" },
+  });
+  let edge = null;
+  try { edge = JSON.parse((r.stdout || "").trim().split(/\r?\n/).pop()); } catch { /* 아래에서 실패 처리 */ }
+  report.handEdge = edge ?? { error: (r.stderr || "").slice(-400) };
+  if (!edge) fail.push(`손 컷아웃 경계 검사 실행 실패: ${(r.stderr || "").slice(-200)}`);
+  else {
+    console.log(`\n손 컷아웃 경계: 윗선 홈 ${edge.topNotchPx}px(≤${edge.limits.topNotchPx}) · 후광 ${edge.haloL}L(≤${edge.limits.haloL}) · 티끌 ${edge.darkFringePx}(≤${edge.limits.darkFringePx}) · 이음매 반투명 ${edge.seamPartialPx}(=0) — ${path.relative(root, cutout)}`);
+    if (!edge.pass) fail.push(`손 컷아웃 경계 불통과: ${edge.fail.join(", ")}`);
+  }
+  const hl = fs.readFileSync(path.join(root, "src/components/HandLayer.tsx"), "utf8").replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "");
+  if (/clipPath|clip-path|\bmask(Image)?\s*:|overflow\s*:/.test(hl)) fail.push("HandLayer.tsx 에 clipPath/mask/overflow — 손이 잘린다");
+
+  // 검지 윗선·너클 표본점(원 사진 좌표, 손이 원위치일 때) — 손목·팔은 늘 화면 밖이라 넣지 않는다
+  const TOP = [[820, 506], [860, 508], [900, 511], [935, 524]];
+  const place = (p, pose, f) => {
+    const t = hand.handTransform(spec, pose, f);
+    const [px, py] = spec.pivot;
+    const c = Math.cos((t.rotDeg * Math.PI) / 180), s = Math.sin((t.rotDeg * Math.PI) / 180);
+    const vx = (p[0] - px) * t.scale, vy = (p[1] - py) * t.scale;
+    return [px + c * vx - s * vy + t.dx, py + s * vx + c * vy + t.dy];
+  };
+  const starts = { fill: durations.scenes.fill.startFrame, "repeat-1": durations.scenes.repeat.startFrame, "repeat-2": durations.scenes.repeat.startFrame + FIRST_LEN };
+  report.edgeCross = {};
+  for (const [name, keys, total] of [["fill", fill, fillTotal], ["repeat-1", rep1, FIRST_LEN + 12], ["repeat-2", rep2, repTotal - FIRST_LEN]]) {
+    const fr = [];
+    for (let f = 0; f < total; f++) {
+      const p = hand.poseAt(keys, f);
+      if (!p.visible || !inQuad(p.tip)) continue;
+      if (TOP.some((q) => !inQuad(place(q, p, f)))) fr.push(f);
+    }
+    report.edgeCross[name] = { local: fr, main60: fr.map((f) => f + starts[name]) };
+  }
+  const nCross = Object.values(report.edgeCross).reduce((s, v) => s + v.local.length, 0);
+  console.log(`화면 경계를 넘는 손 프레임: ${Object.entries(report.edgeCross).map(([k, v]) => `${k} ${v.local.length}`).join(" · ")} (합 ${nCross})`);
+}
+
 fs.mkdirSync(path.join(root, "out/check"), { recursive: true });
 fs.writeFileSync(path.join(root, "out/check/v33v-motion.json"), JSON.stringify(report, null, 2));
 for (const [n, c] of Object.entries(report.cuts)) {

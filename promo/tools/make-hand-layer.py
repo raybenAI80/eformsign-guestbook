@@ -28,7 +28,76 @@ ap.add_argument('--extend', type=int, default=420)
 ap.add_argument('--plate-out', default='public/gen/gen-03-plate.png')
 ap.add_argument('--hand-out', default='public/gen/hand-03.png')
 ap.add_argument('--debug', default=None)
+ap.add_argument('--check', default=None, metavar='HAND_PNG',
+                help='레인 H: 컷아웃 경계 품질만 판정(JSON 출력, 불통과 exit 1). 생성은 하지 않는다')
+ap.add_argument('--origin', default='783,500', help='--check 용: 컷아웃 원점(prompts.json handLayer.origin)')
 A = ap.parse_args()
+
+# 레인 H 판정 한도 — HEAD 684cbc0 컷아웃: 윗선 홈 5px·후광 +14L·베젤 티끌 다수·이음매 반투명 320px
+LIMITS = {"topNotchPx": 2.5, "haloL": 6.0, "darkFringePx": 5, "seamPartialPx": 0}
+
+
+def check_cutout(path, origin, cut_x):
+    """손 컷아웃 경계 지표.
+    topNotchPx   손 부분 윗 윤곽의 좁은 홈 깊이(1D closing, 창 13px) — 너클을 직선으로 잘라낸 자리
+    haloL        가장자리 2px 띠 L 평균 - 안쪽 4~6px 띠 L 평균(배경 섞인 밝은 테두리)
+    darkFringePx 가장자리 띠의 L<90 화소(베젤 잔여 티끌)
+    seamPartialPx 안쪽(가장자리에서 4px 이상)인데 반투명(8<α<247)인 화소(소매 절단 이음매)
+    """
+    im = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+    al = im[:, :, 3].astype(np.float32) / 255
+    hand_w = max(1, cut_x - origin[0] - 60)  # 손 부분(소매 연장 앞 60px 까지)
+    L = cv2.cvtColor(im[:, :, :3], cv2.COLOR_BGR2LAB)[:, :, 0].astype(np.float32)
+    # 윗선 홈
+    op = al[:, :hand_w] > 0.5
+    has = op.any(0)
+    top = np.where(has, op.argmax(0), -1).astype(np.float32)
+    t = -top
+    t[~has] = -1e4
+    r = 6
+    pad = np.pad(t, r, mode='edge')
+    dil = np.array([pad[i:i + 2 * r + 1].max() for i in range(len(t))])
+    pad2 = np.pad(dil, r, mode='edge')
+    clo = np.array([pad2[i:i + 2 * r + 1].min() for i in range(len(t))])
+    depth = np.where(has, clo - t, 0)
+    depth[:r] = 0; depth[-r:] = 0
+    nx = int(np.argmax(depth))
+    # 후광·티끌·이음매
+    transp = (al < 0.08).astype(np.uint8)
+    dt = cv2.distanceTransform(1 - transp, cv2.DIST_L2, 3)
+    xs = np.arange(al.shape[1])[None, :].repeat(al.shape[0], 0)
+    part = xs < hand_w
+    edge = (dt <= 2) & (al >= 0.25) & part
+    inner = (dt >= 4) & (dt <= 6) & part
+    halo = float(L[edge].mean() - L[inner].mean()) if edge.any() and inner.any() else 0.0
+    # 티끌은 피부 가장자리에서만 센다(소매 뜨개는 원래 어둡다) — 안쪽 화소의 채도(a+b)로 피부 구역 판별
+    lab = cv2.cvtColor(im[:, :, :3], cv2.COLOR_BGR2LAB).astype(np.float32)
+    chroma = (lab[:, :, 1] - 128) + (lab[:, :, 2] - 128)
+    core = (dt >= 4).astype(np.float32)
+    skin = cv2.GaussianBlur(chroma * core, (0, 0), 4) / np.maximum(cv2.GaussianBlur(core, (0, 0), 4), 1e-3) > 15
+    dark = int(((L < 90) & edge & skin).sum())
+    a8 = im[:, :, 3]
+    seam = int(((a8 > 8) & (a8 < 247) & (dt >= 4)).sum())
+    res = {
+        "file": path,
+        "topNotchPx": round(float(depth.max()), 2),
+        "topNotchAtPhotoX": int(origin[0] + nx),
+        "haloL": round(halo, 2),
+        "darkFringePx": dark,
+        "seamPartialPx": seam,
+        "limits": LIMITS,
+    }
+    bad = [k for k in LIMITS if res[k] > LIMITS[k]]
+    res["pass"] = not bad
+    res["fail"] = bad
+    return res
+
+
+if A.check:
+    ox_, oy_ = map(int, A.origin.split(','))
+    r_ = check_cutout(A.check, (ox_, oy_), A.cut_x)
+    print(json.dumps(r_, ensure_ascii=False))
+    raise SystemExit(0 if r_["pass"] else 1)
 
 a = cv2.imread(A.src)
 H, W = a.shape[:2]
@@ -97,17 +166,54 @@ plate = (a * (1 - rep[..., None]) + b * rep[..., None]).round().astype(np.uint8)
 plate[rep == 0] = a[rep == 0]
 cv2.imwrite(A.plate_out, plate)
 
+# 4-1) 레인 H(2026-09-30) — 컷아웃 경계 정리. 🔴 바탕(plate)은 위에서 기존 m 로 이미 썼다(바이트 불변),
+#      여기서는 손 층 알파·가장자리 색만 고친다. 사용자 지적: 너클이 직선으로 잘리고 테두리가 하얗게 뜬다.
+L0 = cv2.cvtColor(a, cv2.COLOR_BGR2LAB)[:, :, 0]
+mh = m.copy()
+# a) 베젤 잔여 어두운 티끌: 가장자리 2px 띠에서 L<90 제거(피부·소매 가장자리는 이렇게 어둡지 않다)
+band = (mh > 0) & (cv2.distanceTransform(mh, cv2.DIST_L2, 3) <= 2)
+mh[band & (L0 < 90)] = 0
+# b) 윗선 너클 홈 메우기: 손 부분 윗 윤곽의 좁은 홈(폭<15)을 닫되, 각 열의 맨 윗 화소보다 위쪽만 더한다
+k15 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+cl = cv2.morphologyEx(mh, cv2.MORPH_CLOSE, k15)
+has = mh.any(0)
+topy = np.where(has, mh.argmax(0), H)
+yy = np.arange(H)[:, None].repeat(W, 1)
+xx2 = np.arange(W)[None, :].repeat(H, 0)
+add = (cl > 0) & (mh == 0) & (yy < topy[None, :]) & (xx2 < A.cut_x - 60)
+mh[add] = 1
+# c) 윤곽 매끈하게(계단 제거) → 가장 큰 덩어리·구멍 메우기
+mh = (cv2.GaussianBlur(mh.astype(np.float32), (0, 0), 1.2) > 0.5).astype(np.uint8)
+mh = fill(biggest(mh))
+mh[:, A.cut_x:] = 0
+# d) 알파 = 안쪽 거리 기반 램프(가장자리 1px 을 옅게 → 후광 띠 제거, 1.5px 페더).
+#    🔴 소매 절단선은 오른쪽으로 이어지는 면이다 → 거리 계산 때 절단선 오른쪽을 복제해 이음매가 반투명해지지 않게
+mext = mh.copy()
+mext[:, A.cut_x:A.cut_x + 40] = mh[:, A.cut_x - 1:A.cut_x]
+din = cv2.distanceTransform(mext, cv2.DIST_L2, 5)
+alpha = cv2.GaussianBlur(np.clip((din - 0.6) / 1.5, 0, 1).astype(np.float32), (0, 0), 0.7)  # 계단 완화
+alpha[:, A.cut_x:] = 0
+# e) 색 오염 제거(defringe): 가장자리 3px 안쪽 화소 색을 안쪽(≥3px) 화소의 정규화 흐림 색으로 당긴다
+core = (din >= 3).astype(np.float32)
+num = cv2.GaussianBlur(a.astype(np.float32) * core[..., None], (0, 0), 2.0)
+den = cv2.GaussianBlur(core, (0, 0), 2.0)[..., None]
+inside = np.where(den > 1e-3, num / np.maximum(den, 1e-3), a.astype(np.float32))
+wdf = np.clip((3.0 - din) / 2.0, 0, 1)[..., None] * (mh[..., None] > 0)
+a_h = (a.astype(np.float32) * (1 - wdf) + inside * wdf).round().clip(0, 255).astype(np.uint8)
+
 # 5) 손 컷아웃 + 소매 연장(거울 반복)
-alpha = cv2.GaussianBlur(m.astype(np.float32), (0, 0), 0.8)
+#    (bbox·손끝은 기존 m 기준 — prompts.json handLayer 원점·크기·손끝 불변)
 ys, xs = np.nonzero(m)
 bx0, by0, bx1, by1 = xs.min() - 4, ys.min() - 4, A.cut_x, ys.max() + 4
-rgba = np.dstack([a[by0:by1, bx0:bx1], (alpha[by0:by1, bx0:bx1] * 255).round().astype(np.uint8)])
+rgba = np.dstack([a_h[by0:by1, bx0:bx1],(alpha[by0:by1, bx0:bx1] * 255).round().astype(np.uint8)])
 blk = 60
 # 소매 위·아래 경계의 기울기(절단면 앞 80px 에서 측정) — 연장부가 팔 방향으로 이어지게
 def band(col):
     yy = np.nonzero(col > 128)[0]
     return (yy.min(), yy.max()) if len(yy) else (0, 0)
-t0, b0_ = band(rgba[:, -80, 3]); t1, b1 = band(rgba[:, -1, 3])
+# 기울기는 레인 V 의 알파(기존 m 의 0.8px 흐림)로 잰다 — 연장부 기하·컷아웃 크기(prompts.json size) 불변
+alpha_v = (cv2.GaussianBlur(m.astype(np.float32), (0, 0), 0.8)[by0:by1, bx0:bx1] * 255).round()
+t0, b0_ = band(alpha_v[:, -80]); t1, b1 = band(alpha_v[:, -1])
 slope = ((t1 - t0) + (b1 - b0_)) / 2 / 79.0
 hh = rgba.shape[0] + int(abs(slope) * A.extend) + 2
 rgba = np.concatenate([rgba, np.zeros((hh - rgba.shape[0],) + rgba.shape[1:], np.uint8)], 0)

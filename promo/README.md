@@ -93,5 +93,6 @@ prescale 이 이폼사인 「다음 입력 칸」 분홍 안내 화살표·맞�
 
 | 판 | 명령 | 결과 |
 |---|---|---|
-| v3.3 (2026-09-30, 레인 R2 — 문서함 둘째 행 200→233f, 전송 탭 225f 뒤) | `npx remotion render Main60 out/main60-v3.3.mp4 --timeout=180000 --concurrency=4` | 1800f·60.05초·28.4MB · sha256 f6838ef1e4f4… · I -16.8 LUFS · TP -2.4 dBTP · 분리도 최소 12.5 dB · 게이트 10종 exit 0 · 무변경 383·414·1238 화소 동일 |
+| v3.3 (2026-09-30, 레인 H — 손 컷아웃 너클 직선 홈·후광·베젤 티끌·소매 이음매 정리) | `npx remotion render Main60 out/main60-v3.3.mp4 --timeout=180000 --concurrency=4` | 1800f·60.05초·28.4MB · sha256 cf32cf71d8aeb71c… · I -16.8 LUFS · TP -2.4 dBTP · 게이트 10종 exit 0(hand-motion 컷아웃 경계 검사 추가) · 무변경 383·414·1238 still 화소 동일 |
+| v3.3 (2026-09-30, 레인 R2 — 문서함 둘째 행 200→233f, 전송 탭 225f 뒤, 대체됨) | `npx remotion render Main60 out/main60-v3.3.mp4 --timeout=180000 --concurrency=4` | 1800f·60.05초·28.4MB · sha256 f6838ef1e4f4… · I -16.8 LUFS · TP -2.4 dBTP · 분리도 최소 12.5 dB · 게이트 10종 exit 0 · 무변경 383·414·1238 화소 동일 |
 | v3.3 (2026-09-30, 레인 V2·R, 대체됨) | `npx remotion render Main60 out/main60-v3.3.mp4 --timeout=180000 --concurrency=4` | 1800f·60.05초·28.4MB · sha256 f951a23faaf7… · I -16.8 LUFS · TP -2.4 dBTP · 분리도 최소 12.5 dB · 게이트 10종 exit 0 |
