@@ -1,10 +1,11 @@
 import React from "react";
-import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Stage } from "../components/Stage";
 import { KO_WRAP } from "../components/Caption";
 import { Narration } from "../components/Narration";
 import { EASE, FONT_BODY, FONT_HEAD, LOGO } from "../theme";
 import { scene } from "../script";
+import { CtaPanel3D, ctaFaceStyle } from "../components/three/Moments3D";
 
 /**
  * 54–60초 — CTA. 착지 주소는 이폼사인 홈페이지 www.eformsign.com (2026-09-18 확정).
@@ -16,8 +17,19 @@ import { scene } from "../script";
  */
 const S = scene("cta");
 
+/**
+ * v3.3 레인 T ③ — 살짝 기운 3D 패널(three.js)이 0.8초(24f)에 정면으로 돈다.
+ * 로고·슬로건·주소는 **DOM(제공 PNG) 그대로** 패널과 같은 원근으로 함께 돈다(ctaFaceStyle) —
+ * 로고를 텍스처로 다시 그리지 않으므로 정면이 된 뒤에는 v3.2 와 같은 화소 조판이다.
+ */
+const TILT_FRAMES = 24;
+const PANEL = { w: 1240, h: 780 };
+
 export const CTA: React.FC<{ mute?: boolean }> = ({ mute }) => {
   const frame = useCurrentFrame();
+  const { height } = useVideoConfig();
+  const tilt = Math.min(1, frame / (TILT_FRAMES - 1));
+  const panelIn = interpolate(frame, [0, 6], [0, 1], { extrapolateRight: "clamp" });
   const p = interpolate(frame, [0, 22], [0, 1], { extrapolateRight: "clamp", easing: EASE });
   const q = interpolate(frame, [18, 40], [0, 1], { extrapolateRight: "clamp", easing: EASE });
   const r = interpolate(frame, [34, 58], [0, 1], { extrapolateRight: "clamp", easing: EASE });
@@ -27,6 +39,8 @@ export const CTA: React.FC<{ mute?: boolean }> = ({ mute }) => {
   return (
     <Stage variant="blue" logo="none">
       <Narration id="cta" mute={mute} />
+      <CtaPanel3D progress={tilt} w={PANEL.w} h={PANEL.h} opacity={panelIn} />
+      <div style={ctaFaceStyle(tilt, height)}>
       <AbsoluteFill
         style={{
           alignItems: "center",
@@ -94,6 +108,7 @@ export const CTA: React.FC<{ mute?: boolean }> = ({ mute }) => {
           </div>
         ) : null}
       </AbsoluteFill>
+      </div>
     </Stage>
   );
 };

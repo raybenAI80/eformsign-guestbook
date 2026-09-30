@@ -10,6 +10,8 @@ import { ScreenComposite, Corners } from "../components/ScreenComposite";
 import { Caption } from "../components/Caption";
 import { Narration } from "../components/Narration";
 import { scene, sec } from "../script";
+import { PaperLiftTransition } from "../components/three/Moments3D";
+import { CARD_RECT, PAPER_LIFT_FRAMES } from "./Designer";
 import {
   bookInk,
   bookPageLeft,
@@ -232,6 +234,15 @@ export const Paper: React.FC<{ mute?: boolean }> = ({ mute }) => {
             <FakeSheet rows={SHEET_ROWS} from={4} stagger={12} />
           </ScreenComposite>
         </Photo>
+      </Sequence>
+
+      {/* v3.3 레인 T ① — Designer 로 넘어가는 3D 전환의 앞 절반(자막 아래 층) */}
+      <Sequence
+        name="3D 전환(앞 절반)"
+        from={total - PAPER_LIFT_FRAMES / 2}
+        durationInFrames={PAPER_LIFT_FRAMES / 2}
+      >
+        <PaperLiftTransition durationInFrames={PAPER_LIFT_FRAMES} target={CARD_RECT} />
       </Sequence>
 
       {/* 자막은 두 컷에 걸쳐 계속 떠 있다 */}
