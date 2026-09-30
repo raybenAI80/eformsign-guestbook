@@ -185,3 +185,15 @@ export const HAND3D_VARIANTS: Record<"hA" | "hB" | "hC" | "hF", Hand3DParams> = 
  *    + 이동 시 구름 최대 12° + 접촉 눌림 22. 판 회전(1C)은 넣지 않는다. 게이트(check-hand-motion)는 이 값을 잰다.
  */
 export const HAND3D: Hand3DParams = HAND3D_VARIANTS.hB;
+
+/**
+ * 🔴 레인 HS(2026-09-30): 그림자 격자 여백(컷아웃 px, 격자 간격의 배수). 그림자 셰이더는 흐림 원반(반경 blur0 + blurPerZ·높이)
+ *    안의 알파를 모으는데, 격자가 컷아웃 사각형 그대로면 원반이 격자 밖으로 퍼진 부분을 그릴 곳이 없어 **격자 변에서 직선으로
+ *    잘린다**(손끝이 텍스처 좌상단 여백 3px — v3.5 935f 검지 그림자 세로 직선). 그림자 격자만 사방으로 넓히고, 셰이더는 텍스처
+ *    밖 표본을 0 으로 읽는다(ClampToEdge 로 읽으면 가장자리 화소가 번진다). 손 격자는 그대로(손 화소 불변).
+ *    게이트: check-hand-motion 「그림자 격자 경계」 — 모든 프레임에서 격자 변 ~ 손 알파 거리 > 그 자리 흐림 반경.
+ */
+export const SHADOW_PAD = 72;
+
+/** 그림자 흐림 반경(컷아웃 px) — HandLayer FRAG_SHADOW 의 r 과 같은 식 */
+export const shadowBlurRadius = (z: number, P: Hand3DParams = HAND3D): number => P.blur0 + P.blurPerZ * Math.max(0, z);

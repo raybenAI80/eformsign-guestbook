@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { ThreeCanvas } from "@remotion/three";
 import { continueRender, delayRender, staticFile, useCurrentFrame } from "remotion";
 import { handLayerSpec, type HandKey, type HandLayerSpec } from "../hand";
-import { CANVAS_H, CANVAS_W, HAND3D, HAND3D_V34, HAND3D_VARIANTS, hand3dPose, shadowPoint, texelWorld, type Hand3DParams } from "../hand3d";
+import { CANVAS_H, CANVAS_W, HAND3D, HAND3D_V34, SHADOW_PAD, HAND3D_VARIANTS, hand3dPose, shadowPoint, texelWorld, type Hand3DParams } from "../hand3d";
 import { isHandCand, orbitDeg, useCand } from "../cand";
 import { cameraFor } from "./three/pixel-space";
 
@@ -45,6 +45,8 @@ uniform float zFar;
 uniform vec3 color;
 varying vec2 vUv;
 varying float vH;
+/* 레인 HS: 텍스처 밖(그림자 격자 여백) 표본 = 0 — ClampToEdge 가장자리 화소 번짐 금지 */
+float sa(vec2 p) { return (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) ? 0.0 : texture2D(map, p).a; }
 void main() {
   float r = blur0 + blurPerZ * vH;
   float acc = 0.0;
@@ -52,7 +54,7 @@ void main() {
     float fi = float(i);
     float rr = sqrt((fi + 0.5) / 32.0);
     float th = fi * 2.39996323;
-    acc += texture2D(map, vUv + vec2(cos(th), sin(th)) * rr * r / texSize).a;
+    acc += sa(vUv + vec2(cos(th), sin(th)) * rr * r / texSize);
   }
   acc /= 32.0;
   float a = acc * mix(opNear, opFar, clamp(vH / zFar, 0.0, 1.0));
@@ -101,14 +103,15 @@ const useHandTexture = (file: string) => {
   return ready ? tex : null;
 };
 
-/** 컷아웃 격자(텍셀 좌표 u,v 와 uv, 삼각형 색인). 위치는 프레임마다 채운다 */
-const buildGrid = (w: number, h: number, step: number) => {
-  const nu = Math.ceil(w / step) + 1, nv = Math.ceil(h / step) + 1;
+/** 컷아웃 격자(텍셀 좌표 u,v 와 uv, 삼각형 색인). 위치는 프레임마다 채운다.
+ *  pad > 0 = 사방으로 넓힌 격자(그림자 전용, uv 가 [0,1] 밖으로 나간다 — 레인 HS) */
+const buildGrid = (w: number, h: number, step: number, pad = 0) => {
+  const nu = Math.ceil((w + 2 * pad) / step) + 1, nv = Math.ceil((h + 2 * pad) / step) + 1;
   const tex = new Float32Array(nu * nv * 2);
   const uv = new Float32Array(nu * nv * 2);
   for (let j = 0; j < nv; j++)
     for (let i = 0; i < nu; i++) {
-      const u = Math.min(w, i * step), v = Math.min(h, j * step);
+      const u = Math.min(w + pad, i * step - pad), v = Math.min(h + pad, j * step - pad);
       const k = j * nu + i;
       tex[k * 2] = u; tex[k * 2 + 1] = v;
       uv[k * 2] = u / w; uv[k * 2 + 1] = 1 - v / h;
@@ -134,19 +137,20 @@ const HandMeshes: React.FC<{
   const frame = useCurrentFrame() - from;
   const [w, h] = spec.size;
   const grid = useMemo(() => buildGrid(w, h, P.step), [w, h, P.step]);
+  const sgrid = useMemo(() => buildGrid(w, h, P.step, SHADOW_PAD), [w, h, P.step]);
   const { handGeo, shadowGeo } = useMemo(() => {
-    const mk = () => {
+    const mk = (gr: typeof grid) => {
       const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(grid.n * 3), 3));
-      g.setAttribute("uv", new THREE.BufferAttribute(grid.uv, 2));
-      g.setIndex(grid.idx);
+      g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(gr.n * 3), 3));
+      g.setAttribute("uv", new THREE.BufferAttribute(gr.uv, 2));
+      g.setIndex(gr.idx);
       return g;
     };
-    const hg = mk();
-    const sg = mk();
-    sg.setAttribute("aH", new THREE.BufferAttribute(new Float32Array(grid.n), 1));
+    const hg = mk(grid);
+    const sg = mk(sgrid);
+    sg.setAttribute("aH", new THREE.BufferAttribute(new Float32Array(sgrid.n), 1));
     return { handGeo: hg, shadowGeo: sg };
-  }, [grid]);
+  }, [grid, sgrid]);
   const { handMat, shadowMat } = useMemo(() => {
     const hm = premulBlend(new THREE.ShaderMaterial({ uniforms: { map: { value: map } }, vertexShader: VERT_HAND, fragmentShader: FRAG_HAND }));
     const sm = premulBlend(
@@ -180,6 +184,9 @@ const HandMeshes: React.FC<{
     for (let k = 0; k < grid.n; k++) {
       const [x, y, z] = texelWorld(spec, pose, grid.tex[k * 2], grid.tex[k * 2 + 1], P);
       hp.setXYZ(k, x + z * orbitS - CANVAS_W / 2, CANVAS_H / 2 - y, z);
+    }
+    for (let k = 0; k < sgrid.n; k++) {
+      const [x, y, z] = texelWorld(spec, pose, sgrid.tex[k * 2], sgrid.tex[k * 2 + 1], P);
       const zc = Math.max(0, z);
       const [sx, sy] = shadowPoint(x, y, zc, P);
       sp.setXYZ(k, sx - CANVAS_W / 2, CANVAS_H / 2 - sy, 0.2);

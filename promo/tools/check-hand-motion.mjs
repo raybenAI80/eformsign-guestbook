@@ -286,6 +286,26 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
   console.log(`화면 경계를 넘는 손 프레임: ${Object.entries(report.edgeCross).map(([k, v]) => `${k} ${v.local.length}`).join(" · ")} (합 ${nCross})`);
 }
 
+
+/** 사진 좌표 → 본편 렌더 화소(Fill·Repeat). H3D ⑤ 직선 절단과 레인 HS 그림자 판정이 공용 */
+const renderMapper = async () => {
+  const { Easing } = await import("remotion");
+  const easeOut = Easing.out(Easing.cubic);
+  const PANE_W = Math.round(1920 * 0.58);
+  const focus = ss.quadCentroid(quad);
+  const sPane = Math.max(1.55, PANE_W / 1920, 1080 / 1080);
+  const tx = Math.min(0, Math.max(PANE_W - 1920 * sPane, PANE_W / 2 - focus[0] * sPane));
+  const ty = Math.min(0, Math.max(1080 - 1080 * sPane, 1080 / 2 - focus[1] * sPane));
+  // Photo.tsx: scale(from→to, EASE_OUT, 장면 전체) 가운데 기준 → ShotView.tsx StagePane translate+scale (Fill·Repeat 공통 zoom 1.55)
+  const toRender = (pt, sceneFrame, from, to, dur) => {
+    const k = easeOut(Math.min(1, Math.max(0, sceneFrame / dur)));
+    const sc = from + (to - from) * k;
+    const x = 960 + (pt[0] - 960) * sc, y = 540 + (pt[1] - 540) * sc;
+    return [+(tx + x * sPane).toFixed(2), +(ty + y * sPane).toFixed(2)];
+  };
+  return { toRender, PANE_W, sPane };
+};
+
 /*
  * 레인 H3D(2026-09-30) — 3D 손 층(three.js 휘는 격자 + 투영 그림자) 계약.
  *   ① 위치 계약: 3D 격자 손끝 텍셀의 **투영점** = poseAt tip(hand-path 좌표) — 전 프레임 오차 ≤ 0.5px.
@@ -379,20 +399,7 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
   if (vi > 0 && si > 0) {
     const vStart = Number(process.argv[si + 1]);
     const starts = { fill: durations.scenes.fill.startFrame, "repeat-1": durations.scenes.repeat.startFrame };
-    const { Easing } = await import("remotion");
-    const easeOut = Easing.out(Easing.cubic);
-    const PANE_W = Math.round(1920 * 0.58);
-    const focus = ss.quadCentroid(quad);
-    const sPane = Math.max(1.55, PANE_W / 1920, 1080 / 1080);
-    const tx = Math.min(0, Math.max(PANE_W - 1920 * sPane, PANE_W / 2 - focus[0] * sPane));
-    const ty = Math.min(0, Math.max(1080 - 1080 * sPane, 1080 / 2 - focus[1] * sPane));
-    // Photo.tsx: scale(from→to, EASE_OUT, 장면 전체) 가운데 기준 → ShotView.tsx StagePane translate+scale (Fill·Repeat 공통 zoom 1.55)
-    const toRender = (pt, sceneFrame, from, to, dur) => {
-      const k = easeOut(Math.min(1, Math.max(0, sceneFrame / dur)));
-      const sc = from + (to - from) * k;
-      const x = 960 + (pt[0] - 960) * sc, y = 540 + (pt[1] - 540) * sc;
-      return [+(tx + x * sPane).toFixed(2), +(ty + y * sPane).toFixed(2)];
-    };
+    const { toRender } = await renderMapper();
     const items = [];
     for (const [name, v] of Object.entries(report.edgeCross)) {
       const isFill = name === "fill";
@@ -413,6 +420,105 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
     console.log(`화면 변 직선 절단(렌더): ${out}${selftest ? " [음성 대조]" : ""}`);
     if (r.status !== 0) fail.push(`화면 변 직선 절단 검출: ${out || (r.stderr || "").slice(-300)}`);
   }
+}
+
+/*
+ * 레인 HS(2026-09-30) — 손 **그림자** 직선 절단(v3.5 935f: 검지 그림자가 화면 흰 영역에서 세로 직선으로 끊김).
+ *   원인: 그림자 격자가 컷아웃 사각형 그대로여서, 흐림 원반(반경 blur0 + blurPerZ·높이)이 격자 밖으로 퍼진 부분이 잘렸다
+ *         (손끝 = 텍스처 좌상단 여백 3px). 손 실루엣 직선 절단(H3D ⑤)은 그림자를 보지 않아 놓쳤다.
+ *   ① 기하(소스, 전 프레임): 그림자 격자 바깥 변 꼭짓점마다 「손 알파까지 거리 > 그 꼭짓점 높이의 흐림 반경 + 1」.
+ *      + HandLayer: 그림자 격자 = buildGrid(..., SHADOW_PAD) · 셰이더 텍스처 밖 표본 0.
+ *      음성 대조: `--shadow-pad 0` (= HEAD aa843f9 격자) → exit 1.
+ *   ② 렌더(--video + --video-start): 옛 격자 변(컷아웃 사각형 변)의 그림자 투영선을 가로지르는 계단 0 (tools/shadow_cut.py).
+ *      음성 대조: HEAD 렌더 out/check/v35/v35-fillrepeat.mp4 → exit 1.
+ */
+{
+  const spec = hand.handLayerSpec();
+  const P = h3.HAND3D;
+  const pi = process.argv.indexOf("--shadow-pad");
+  const pad = pi > 0 ? Number(process.argv[pi + 1]) : h3.SHADOW_PAD;
+  const cutout = path.join(root, "public/gen", spec.file);
+  const dist = (pd) => {
+    const f = path.join(os.tmpdir(), `hs-ring${pd}-${process.pid}.json`);
+    const r = spawnSync(process.platform === "win32" ? "python" : "python3", [path.join(root, "tools/shadow_cut.py"), "--dist", cutout, String(pd), String(P.step), f], { cwd: root, encoding: "utf8" });
+    if (r.status !== 0) { fail.push(`그림자 격자 거리 계산 실패: ${(r.stderr || "").slice(-200)}`); return null; }
+    const j = JSON.parse(fs.readFileSync(f, "utf8"));
+    fs.rmSync(f, { force: true });
+    return j;
+  };
+  const ring = dist(pad);
+  const ring0 = pad === 0 ? ring : dist(0); // 옛 격자 변(렌더 판정 ②의 표본선·진단)
+  const sh = { pad, blurMaxPx: 0, minMarginPx: Infinity, cutFrames: {}, crossQuadFrames: {} };
+  const starts = { fill: durations.scenes.fill.startFrame, "repeat-1": durations.scenes.repeat.startFrame, "repeat-2": durations.scenes.repeat.startFrame + FIRST_LEN };
+  const vi = process.argv.indexOf("--video");
+  const si = process.argv.indexOf("--video-start");
+  const mapper = vi > 0 && si > 0 ? await renderMapper() : null;
+  const vStart = si > 0 ? Number(process.argv[si + 1]) : 0;
+  const items = [];
+  const shadowOf = (p, u, v) => { const w = h3.texelWorld(spec, p, u, v); return { w, s: h3.shadowPoint(w[0], w[1], Math.max(0, w[2]), P) }; };
+  if (ring && ring0) {
+    for (const [name, keys, total] of [["fill", fill, fillTotal], ["repeat-1", rep1, FIRST_LEN + 12], ["repeat-2", rep2, repTotal - FIRST_LEN]]) {
+      const cutF = [], crossF = [];
+      for (let f = 0; f < total; f++) {
+        const p = h3.hand3dPose(spec, keys, f);
+        if (!p.visible) continue;
+        let cutHere = false;
+        for (const [u, v, d] of ring.ring) {
+          const r = h3.shadowBlurRadius(h3.texelWorld(spec, p, u, v)[2], P);
+          sh.blurMaxPx = Math.max(sh.blurMaxPx, r);
+          sh.minMarginPx = Math.min(sh.minMarginPx, d - r);
+          if (d <= r + 1) cutHere = true;
+        }
+        if (cutHere) cutF.push(f);
+        // 진단: 옛 격자 변 가운데 흐림이 닿던 점들의 그림자가 화면 사각형 안팎에 걸친 프레임(= 브리프 「화면 경계를 넘는 그림자」)
+        const hitPts = ring0.ring.filter(([u, v, d]) => d <= h3.shadowBlurRadius(h3.texelWorld(spec, p, u, v)[2], P) + 1);
+        const hs = hitPts.map(([u, v]) => shadowOf(p, u, v).s);
+        if (hs.some(inQuad) && hs.some((q) => !inQuad(q))) crossF.push(f);
+        if (mapper) {
+          const m = f + starts[name];
+          const sceneF = name === "fill" ? f : m - starts["repeat-1"];
+          const [a, b, dur] = name === "fill" ? [1.0, 1.05, fillTotal] : [1.05, 1.08, repTotal];
+          const pts = [];
+          for (const [u, v, d] of ring0.ring) {
+            const { w, s } = shadowOf(p, u, v);
+            if (d > h3.shadowBlurRadius(w[2], P) + 1) { pts.push(null); continue; } // 옛 격자에서도 안 잘리던 자리
+            const nu = u <= 0 ? -1 : u >= ring0.w ? 1 : 0, nv = v <= 0 ? -1 : v >= ring0.h ? 1 : 0;
+            const s1 = mapper.toRender(s, sceneF, a, b, dur);
+            const s2 = mapper.toRender(shadowOf(p, u + nu * 4, v + nv * 4).s, sceneF, a, b, dur);
+            const L = Math.hypot(s2[0] - s1[0], s2[1] - s1[1]) || 1;
+            if (s1[0] < 0 || s1[0] >= mapper.PANE_W || s1[1] < 0 || s1[1] >= 1080) { pts.push(null); continue; }
+            pts.push([s1[0], s1[1], +((s2[0] - s1[0]) / L).toFixed(3), +((s2[1] - s1[1]) / L).toFixed(3)]);
+          }
+          // null(판정 밖) = 화면 밖 표본으로 넘겨 연속 계단 계수를 끊는다
+          if (pts.some(Boolean) && m - vStart >= 0) items.push({ frame: m - vStart, main60: m, pts: pts.map((q) => q ?? [-1e4, -1e4, 0, 0]) });
+        }
+      }
+      sh.cutFrames[name] = { n: cutF.length, main60: cutF.slice(0, 40).map((f) => f + starts[name]) };
+      sh.crossQuadFrames[name] = { n: crossF.length, main60: crossF.map((f) => f + starts[name]) };
+    }
+    sh.blurMaxPx = +sh.blurMaxPx.toFixed(1);
+    sh.minMarginPx = +sh.minMarginPx.toFixed(1);
+    const nCut = Object.values(sh.cutFrames).reduce((s, v) => s + v.n, 0);
+    console.log(`\n손 그림자 격자 경계(여백 ${pad}px): 흐림 반경 최대 ${sh.blurMaxPx}px · 격자 변 여유 최소 ${sh.minMarginPx}px · 잘리는 프레임 ${nCut} (${Object.entries(sh.cutFrames).map(([k, v]) => `${k} ${v.n}`).join(" · ")})`);
+    console.log(`  진단 — 옛 격자 변 그림자가 화면 사각형 경계에 걸친 프레임: ${Object.entries(sh.crossQuadFrames).map(([k, v]) => `${k} ${v.n}`).join(" · ")}`);
+    if (nCut) fail.push(`손 그림자가 격자 변에서 직선으로 잘린다: ${nCut}프레임 (예 ${Object.values(sh.cutFrames).flatMap((v) => v.main60).slice(0, 6).join(",")}) — 여백 ${pad}px, 흐림 반경 최대 ${sh.blurMaxPx}px`);
+    if (pi < 0) {
+      const hl = fs.readFileSync(path.join(root, "src/components/HandLayer.tsx"), "utf8");
+      if (!hl.includes("buildGrid(w, h, P.step, SHADOW_PAD)")) fail.push("HandLayer.tsx 그림자 격자가 SHADOW_PAD 로 넓혀지지 않았다");
+      if (!/float sa\(vec2 p\)[^\n]*\? 0\.0/.test(hl) || hl.includes("texture2D(map, vUv +")) fail.push("HandLayer.tsx 그림자 셰이더가 텍스처 밖 표본을 0 으로 읽지 않는다(ClampToEdge 번짐)");
+    }
+  }
+  if (mapper) {
+    const jf = path.join(root, "out/check/v35hs-shadow-edge.json");
+    fs.mkdirSync(path.dirname(jf), { recursive: true });
+    fs.writeFileSync(jf, JSON.stringify(items));
+    const r = spawnSync(process.platform === "win32" ? "python" : "python3", [path.join(root, "tools/shadow_cut.py"), "--video", path.resolve(root, process.argv[vi + 1]), jf], { cwd: root, encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf-8" } });
+    const out = (r.stdout || "").trim().split(/\r?\n/).pop();
+    sh.render = { exit: r.status, summary: out, items: items.length };
+    console.log(`손 그림자 직선 절단(렌더, 옛 격자 변 표본 ${items.length}프레임): ${out}`);
+    if (r.status !== 0) fail.push(`손 그림자 직선 절단 검출(렌더): ${out || (r.stderr || "").slice(-300)}`);
+  }
+  report.shadowEdge = sh;
 }
 
 /*

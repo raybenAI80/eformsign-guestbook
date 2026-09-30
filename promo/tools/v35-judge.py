@@ -17,6 +17,8 @@ import numpy as np, cv2
 old_v, new_v, out = sys.argv[1:4]
 mj = sys.argv[4] if len(sys.argv) > 4 else 'out/check/v33v-motion.json'
 os.makedirs(out, exist_ok=True)
+# 레인 HS: 라벨 교체(기본 = v3.4.1 대 v3.5). 예) V35_LABELS=v3.5,v3.5.1
+LA, LB = (os.environ.get('V35_LABELS') or 'v3.4.1,v3.5').split(',')
 dur = json.load(open('src/scene-durations.json', encoding='utf-8'))['scenes']
 FILL0, REP0 = dur['fill']['startFrame'], dur['repeat']['startFrame']
 REP2 = REP0 + round(dur['repeat']['frames'] * 0.55)
@@ -82,7 +84,7 @@ def gap(img):
 
 
 def vs(f, c, w, h, dx=0, dy=0, xmax=1114, tag=''):
-    l = lab(crop(A[f], c, w, h, dx, dy, xmax), f'v3.4.1 f{f} {tag}'); r = lab(crop(B[f], c, w, h, dx, dy, xmax), f'v3.5 f{f} {tag}')
+    l = lab(crop(A[f], c, w, h, dx, dy, xmax), f'{LA} f{f} {tag}'); r = lab(crop(B[f], c, w, h, dx, dy, xmax), f'{LB} f{f} {tag}')
     return np.hstack([l, gap(l), r])
 
 
@@ -105,14 +107,14 @@ def mid(b):
 
 # ① 손 크롭
 for f in EDGE:
-    b = skin_box(B[f]); save(f'v35-edge-f{f:04d}-crop200.png', lab(crop(B[f], mid(b) if b else (600, 500), 480, 300, dx=60), f'v3.5 f{f} edge'))
+    b = skin_box(B[f]); save(f'v35-edge-f{f:04d}-crop200.png', lab(crop(B[f], mid(b) if b else (600, 500), 480, 300, dx=60), f'{LB} f{f} edge'))
 for f in CONTOUR:
     b = skin_box(B[f])
     if not b: continue
-    save(f'v35-contour-tip-f{f:04d}-crop200.png', lab(crop(B[f], b[0], 240, 160, dx=60), f'v3.5 f{f} nail'))
-    save(f'v35-contour-cuff-f{f:04d}-crop200.png', lab(crop(B[f], b[2], 280, 220, dx=-60), f'v3.5 f{f} sleeve'))
+    save(f'v35-contour-tip-f{f:04d}-crop200.png', lab(crop(B[f], b[0], 240, 160, dx=60), f'{LB} f{f} nail'))
+    save(f'v35-contour-cuff-f{f:04d}-crop200.png', lab(crop(B[f], b[2], 280, 220, dx=-60), f'{LB} f{f} sleeve'))
 for f in SHADOW:
-    b = skin_box(B[f]); save(f'v35-shadow-f{f:04d}-crop200.png', lab(crop(B[f], b[0] if b else (600, 500), 320, 200, dx=110, dy=40), f'v3.5 f{f} shadow'))
+    b = skin_box(B[f]); save(f'v35-shadow-f{f:04d}-crop200.png', lab(crop(B[f], b[0] if b else (600, 500), 320, 200, dx=110, dy=40), f'{LB} f{f} shadow'))
 for f in KNUCKLE:
     b = skin_box(B[f]) or skin_box(A[f]); save(f'v35-knuckle-f{f:04d}-vs-crop200.png', vs(f, b[1] if b else (660, 450), 280, 180, tag='knuckle'))
 # ② 1B 특유
@@ -132,21 +134,21 @@ for f in PAPER:
     a, b = A[f], B[f]
     save(f'v35-paper-full-f{f:04d}.png', b)
     ha = cv2.resize(a, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA); hb = cv2.resize(b, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
-    save(f'v35-paper-f{f:04d}-vs.png', np.hstack([lab(ha, f'v3.4.1 f{f}'), gap(ha), lab(hb, f'v3.5 f{f}')]))
+    save(f'v35-paper-f{f:04d}-vs.png', np.hstack([lab(ha, f'{LA} f{f}'), gap(ha), lab(hb, f'{LB} f{f}')]))
     d = np.abs(cv2.GaussianBlur(a, (0, 0), 1.5).astype(int) - cv2.GaussianBlur(b, (0, 0), 1.5)).max(2)
     ys, xs = np.nonzero(d > 16)
     c = (int((xs.min() + xs.max()) / 2), int((ys.min() + ys.max()) / 2)) if len(xs) > 500 else (960, 470)
     save(f'v35-paper-f{f:04d}-vs-crop200.png', vs(f, c, 560, 470, xmax=1920, tag='paper'))
     # 자막 띠(아래 380px, 가운데 960 폭) 200%
     cap_b = crop(b, (960, 890), 960, 380, xmax=1920)
-    save(f'v35-paper-caption-f{f:04d}-crop200.png', lab(cap_b, f'v3.5 f{f} caption band'))
+    save(f'v35-paper-caption-f{f:04d}-crop200.png', lab(cap_b, f'{LB} f{f} caption band'))
     if f == 395:
         # 손글씨 = 종이 자리(가장 밝은 큰 덩어리) 200%
         g = cv2.cvtColor(b, cv2.COLOR_BGR2GRAY)
         m = (d > 16).astype(np.uint8)
         n, lb, st, cen = cv2.connectedComponentsWithStats(m)
         cc = tuple(int(v) for v in cen[1 + int(np.argmax(st[1:, 4]))]) if n > 1 else c
-        save('v35-paper-ink-f0395-crop200.png', lab(crop(b, cc, 480, 440, xmax=1920), 'v3.5 f395 handwriting'))
+        save('v35-paper-ink-f0395-crop200.png', lab(crop(b, cc, 480, 440, xmax=1920), f'{LB} f395 handwriting'))
 # ④ 대조시트
 for nm, fl, xw in (('fill', SHEET_F, 1114), ('repeat', SHEET_R, 1114), ('paper', SHEET_P, 1920)):
     tiles = [lab(cv2.resize(B[f][:, :xw], None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA), f'f{f}') for f in fl]
