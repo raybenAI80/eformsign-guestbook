@@ -27,7 +27,8 @@ export interface Hand3DParams {
   blur0: number; blurPerZ: number; shadowNear: number; shadowFar: number; step: number;
 }
 
-export const HAND3D: Hand3DParams = {
+/** v3.4.1 까지의 본편 값(판정 대조 CandB cand="v34" · 후보 변형의 바탕). 🔴 v3.5 본편 = 아래 HAND3D(=1B) */
+export const HAND3D_V34: Hand3DParams = {
   /** 손끝 → 검지 마디(팔 축 방향 거리, 컷아웃 px) */
   fingerLen: 150,
   /** 마디 앞뒤 기울기 전환 폭 */
@@ -169,12 +170,18 @@ export const shadowPoint = (x: number, y: number, z: number, P: Hand3DParams = H
  */
 export const HAND3D_VARIANTS: Record<"hA" | "hB" | "hC" | "hF", Hand3DParams> = (() => {
   const A: Hand3DParams = {
-    ...HAND3D,
+    ...HAND3D_V34,
     tipLift: 68, kneeBase: 30, kneeLift: 76, armSlope: 0.19, armMax: 200,
     light: [-0.5, 0.62, 1], blur0: 1.4, blurPerZ: 0.16, shadowNear: 0.58, shadowFar: 0.34,
   };
   const B: Hand3DParams = { ...A, rollPerPx: 0.6, rollMaxDeg: 12, press: 22 };
   // 레인 HF 진단: 평면(휨·들림·누름·구름 0) — 같은 프레임의 3D 실루엣과 대조해 렌더 단계 기여를 가른다
-  const F: Hand3DParams = { ...HAND3D, tipLift: 0, kneeBase: 0, kneeLift: 0, press: 0, armSlope: 0, rollPerPx: 0 };
+  const F: Hand3DParams = { ...HAND3D_V34, tipLift: 0, kneeBase: 0, kneeLift: 0, press: 0, armSlope: 0, rollPerPx: 0 };
   return { hA: A, hB: B, hC: B, hF: F };
 })();
+
+/**
+ * 🔴 v3.5 본편(2026-09-30 사용자 확정 = 후보 1B): 들림 2배(tipLift 68)·그림자 진하게(0.58/0.34)·오프셋 확대
+ *    + 이동 시 구름 최대 12° + 접촉 눌림 22. 판 회전(1C)은 넣지 않는다. 게이트(check-hand-motion)는 이 값을 잰다.
+ */
+export const HAND3D: Hand3DParams = HAND3D_VARIANTS.hB;

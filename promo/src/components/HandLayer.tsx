@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { ThreeCanvas } from "@remotion/three";
 import { continueRender, delayRender, staticFile, useCurrentFrame } from "remotion";
 import { handLayerSpec, type HandKey, type HandLayerSpec } from "../hand";
-import { CANVAS_H, CANVAS_W, HAND3D, HAND3D_VARIANTS, hand3dPose, shadowPoint, texelWorld, type Hand3DParams } from "../hand3d";
+import { CANVAS_H, CANVAS_W, HAND3D, HAND3D_V34, HAND3D_VARIANTS, hand3dPose, shadowPoint, texelWorld, type Hand3DParams } from "../hand3d";
 import { isHandCand, orbitDeg, useCand } from "../cand";
 import { cameraFor } from "./three/pixel-space";
 
@@ -200,7 +200,7 @@ const HandMeshes: React.FC<{
 export const HandLayer: React.FC<{ keys: HandKey[]; from?: number }> = ({ keys, from = 0 }) => {
   const spec = handLayerSpec();
   const cand = useCand();
-  const P = isHandCand(cand) ? HAND3D_VARIANTS[cand] : HAND3D;
+  const P = isHandCand(cand) ? HAND3D_VARIANTS[cand] : cand === "v34" ? HAND3D_V34 : HAND3D;
   const map = useHandTexture(spec?.file ?? "hand-03.png");
   if (!spec || !keys.length || !map) return null;
   return (

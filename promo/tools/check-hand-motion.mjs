@@ -300,7 +300,7 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
   const [W, H] = spec.size;
   const tipTex = [spec.tip[0] - spec.origin[0], spec.tip[1] - spec.origin[1]];
   const KNEE = [935 - spec.origin[0], 524 - spec.origin[1]];
-  const r3 = { contractMaxPx: 0, touchMaxZ: 0, hoverMinZ: Infinity, minZ: Infinity, maxRotStepDeg: 0, maxRollStepDeg: 0, knee: {} };
+  const r3 = { contractMaxPx: 0, touchMaxZ: 0, hoverMinZ: Infinity, minZ: Infinity, maxRotStepDeg: 0, maxRollStepDeg: 0, knee: {}, rollPeak: {}, pressPeak: {} };
   const grid = [];
   for (let v = 0; v <= H; v += 24) for (let u = 0; u <= W; u += 24) grid.push([u, v]);
   for (const [name, keys, total] of [["fill", fill, fillTotal], ["repeat-1", rep1, FIRST_LEN + 12], ["repeat-2", rep2, repTotal - FIRST_LEN]]) {
@@ -320,6 +320,12 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
         r3.maxRollStepDeg = Math.max(r3.maxRollStepDeg, (Math.abs(p.roll - prevPose.roll) * 180) / Math.PI);
       }
       prevPose = p;
+      /* v3.5 진단(판정 크롭 프레임 선정용): 구름 |각| 최대 · 눌림(zKnee - 무누름 마디 높이) 최대 프레임 */
+      const rd = (Math.abs(p.roll) * 180) / Math.PI;
+      if (!r3.rollPeak[name] || rd > r3.rollPeak[name].deg) r3.rollPeak[name] = { deg: +rd.toFixed(2), f };
+      (r3._roll ??= {})[name] ??= [];
+      r3._roll[name][f] = rd;
+      if (contactFrames.has(f) && (!r3.pressPeak[name] || p.zKnee > r3.pressPeak[name].zKnee)) r3.pressPeak[name] = { zKnee: +p.zKnee.toFixed(1), f };
       const t = h3.projectTexel(spec, p, ...tipTex);
       r3.contractMaxPx = Math.max(r3.contractMaxPx, Math.hypot(t[0] - p.tip[0], t[1] - p.tip[1]));
       if (contactFrames.has(f)) r3.touchMaxZ = Math.max(r3.touchMaxZ, p.zTip);
@@ -341,6 +347,14 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
       if (m.meanCmS > MEAN_LIMIT) fail.push(`3D ${name} 손등 마디 ${m.frames} 평균 ${m.meanCmS}cm/s > ${MEAN_LIMIT}`);
       if (m.peakCmS > PEAK_LIMIT) fail.push(`3D ${name} 손등 마디 ${m.frames} 최고 ${m.peakCmS}cm/s > ${PEAK_LIMIT}`);
     }
+    /* v3.5 진단: 탭으로 끝나는 이동(탭 전 12f 이내에 끝남) 중 구름 최대 프레임 = 「손이 옆으로 옮겨가는」 판정 크롭 자리 */
+    const taps = keys.filter((k) => k.kind === "tap").map((k) => k.t);
+    let best = null;
+    for (const m of moves) {
+      if (m.dist < 1.5 || !taps.some((t) => t >= m.to && t - m.to <= 12)) continue;
+      for (let f = m.from; f <= m.to; f++) { const d = r3._roll?.[name]?.[f] ?? 0; if (!best || d > best.deg) best = { deg: +d.toFixed(2), f }; }
+    }
+    (r3.rollPeakToTap ??= {})[name] = best;
     r3.knee[name] = { peakCmS: Math.max(0, ...mv.map((m) => m.peakCmS)), maxMeanCmS: Math.max(0, ...mv.map((m) => m.meanCmS)) };
   }
   if (r3.contractMaxPx > 0.5) fail.push(`3D 손끝 투영점이 hand-path 에서 ${r3.contractMaxPx.toFixed(2)}px 벗어남(≤0.5)`);
@@ -354,6 +368,7 @@ report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": 
   if (!/<ThreeCanvas[\s\S]*?width=\{CANVAS_W\}[\s\S]*?height=\{CANVAS_H\}/.test(code)) fail.push("HandLayer.tsx 가 ThreeCanvas(CANVAS_W x CANVAS_H) 로 손을 그리지 않는다(2D 폴백?)");
   if (/<Img\b/.test(code)) fail.push("HandLayer.tsx 에 <Img> — 2D 컷아웃 폴백이 남아 있다");
   if (!/staticFile\(`gen\/\$\{file\}`\)/.test(code) || !/handLayerSpec\(\)/.test(code)) fail.push("HandLayer.tsx 손 소재가 handLayerSpec().file 이 아니다");
+  delete r3._roll;
   report.hand3d = { ...r3, hoverMinZ: +r3.hoverMinZ.toFixed(2), minZ: +r3.minZ.toFixed(2), contractMaxPx: +r3.contractMaxPx.toFixed(4) };
   console.log(`\n3D 손: 투영 손끝 오차 최대 ${r3.contractMaxPx.toFixed(3)}px(≤0.5) · 접촉 z 최대 ${r3.touchMaxZ.toFixed(2)} · 떠 있을 때 z 최소 ${r3.hoverMinZ.toFixed(1)} · 격자 z 최소 ${r3.minZ.toFixed(1)} · 회전/구름 한 프레임 최대 ${r3.maxRotStepDeg.toFixed(2)}°/${r3.maxRollStepDeg.toFixed(2)}° · 손등 마디 최고 ${Object.entries(r3.knee).map(([k, v]) => `${k} ${v.peakCmS}`).join("/")}cm/s`);
 

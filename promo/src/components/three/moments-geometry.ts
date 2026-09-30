@@ -165,7 +165,7 @@ export const bboxOf = (pts: Pt[]): Rect => {
 };
 
 /** 기울기 tilt 에서 화면 경계상자가 목표 rect 의 폭·중심과 맞도록 k·x·y 를 푼다 */
-const fitWidth = (tilt: number, T: Rect): SheetPose => {
+const fitWidth = (tilt: number, T: Rect, D = LIFT_D): SheetPose => {
   const p: SheetPose = {
     tilt,
     k: T.w / SHEET.w,
@@ -174,7 +174,7 @@ const fitWidth = (tilt: number, T: Rect): SheetPose => {
     z: 0,
   };
   for (let i = 0; i < 40; i++) {
-    const b = bboxOf(projectSheet(p));
+    const b = bboxOf(projectSheet(p, D));
     p.k *= T.w / b.w;
     p.x += T.x + T.w / 2 - (b.x + b.w / 2);
     p.y -= T.y + T.h / 2 - (b.y + b.h / 2);
@@ -183,16 +183,16 @@ const fitWidth = (tilt: number, T: Rect): SheetPose => {
 };
 
 /** 화면 경계상자가 목표 rect 와 같아지는 **누운 종이** 자세(기울기 이분 탐색) */
-export const solveLyingPose = (T: Rect): SheetPose => {
+export const solveLyingPose = (T: Rect, D = LIFT_D): SheetPose => {
   let lo = 0;
   let hi = 1.5;
   for (let i = 0; i < 50; i++) {
     const mid = (lo + hi) / 2;
-    const h = bboxOf(projectSheet(fitWidth(mid, T))).h;
+    const h = bboxOf(projectSheet(fitWidth(mid, T, D), D)).h;
     if (h > T.h) lo = mid;
     else hi = mid;
   }
-  return fitWidth((lo + hi) / 2, T);
+  return fitWidth((lo + hi) / 2, T, D);
 };
 
 /** rect 를 위로 밀어 아래 변이 limit 이하가 되게 한다(크기는 그대로) */
@@ -282,7 +282,8 @@ export interface LiftState {
  *    누운 자세를 다시 푼다(solveLyingPose). 비율이 평평한 종이 비율에 닿으면 기울기 0 = 곧게 선다.
  * 🔴 마지막에 자막 띠 위로 강제한다(겹치면 크기는 두고 위로 민다) — 요구 ③ 전 프레임 교집합 0.
  */
-export const paperLiftState = (f: number): LiftState => {
+/** 전환 f 번째 프레임의 목표 화면 사각형과 불투명도(paperLiftState·paperDepthPose 공통) */
+export const liftTarget = (f: number): { R: Rect; opacity: number } => {
   const t = Math.min(1, Math.max(0, f / Math.max(1, PAPER_LIFT_FRAMES - 1)));
   const a = easeInOutCubic(seg(t, 0, 0.55));
   const opacity = seg(t, 0, 0.2) * (1 - seg(t, 0.6, 1));
@@ -292,6 +293,11 @@ export const paperLiftState = (f: number): LiftState => {
   const cy = lerp(START_RECT.y + START_RECT.h / 2, END_RECT.y + END_RECT.h / 2, a);
   const limit = liftCaptionBand(f).y - CAPTION_MARGIN;
   const R = liftAbove({ x: cx - w / 2, y: cy - h / 2, w, h }, limit);
+  return { R, opacity };
+};
+
+export const paperLiftState = (f: number): LiftState => {
+  const { R, opacity } = liftTarget(f);
   const pose = solveLyingPose(R);
   return { pose, opacity, bbox: bboxOf(projectSheet(pose)) };
 };
@@ -301,6 +307,117 @@ export const liftCamera = () => ({
   position: [0, 0, LIFT_D] as [number, number, number],
   near: 10,
   far: LIFT_D * 4,
+});
+
+/* ── v3.5(2026-09-30 사용자 확정 후보 4): 종이 전환 깊이 강화 — 본편 기본 ──
+ * 같은 풀이 자세(paperLiftState) 위에 가운데서 부푸는 추가 회전(앞으로 들림·옆으로 틂)·앞당김 +
+ * 강한 원근(fov 22) + 두꺼운 종이(7). 🔴 Moments3D 가 이 식을 그대로 쓰고, check-three-moments 가
+ * 이 식의 **실제 화면 투영**(fov 22, 8 꼭짓점)으로 자막 겹침·정방향·높이 상한을 잰다(식 이중화 금지).
+ * 레인 B 에서 컴포넌트 안에 인라인이던 값을 그대로 옮겼다(값 불변).
+ */
+export const DEPTH_FOV = 22;
+export const DEPTH_D = pixelDistance(FRAME_H, DEPTH_FOV);
+export const DEPTH_SLAB = 7;
+export const DEPTH_BUMP = { z: 150, rx: 0.32, ry: 0.5, rz: 0.07 } as const;
+
+export interface DepthPose {
+  /** 그룹 위치(픽셀 월드, 가운데 원점·y 위) */
+  position: [number, number, number];
+  /** three.js Euler XYZ(라디안) */
+  rotation: [number, number, number];
+  w: number;
+  h: number;
+  depth: number;
+}
+
+/**
+ * 🔴 v3.5 개정(레인 T3 규칙 유지): 레인 B 후보 4 는 fov 10 에서 푼 자세를 fov 22 로 그려 화면 그림이
+ *    풀이 사각형과 어긋났다(f1~f3 자막 띠 침범 최대 10867px² · 높이 최대 499px > 40%). 그래서
+ *    ① 누운 자세를 **깊이 카메라(DEPTH_D)로** 다시 풀고(부풂 0 인 첫·끝 프레임 = 풀이 사각형 그대로)
+ *    ② 부풂(회전·앞당김)을 얹은 뒤 ③ 실제 투영이 높이 ≤ SHEET_MAX_H · 자막 띠 위가 되도록 크기만 줄이고 위로만 민다.
+ *    부풂 값(DEPTH_BUMP)·시야각·두께는 후보 그대로다.
+ */
+export const paperDepthPose = (f: number): DepthPose => {
+  const { R } = liftTarget(f);
+  const base = solveLyingPose(R, DEPTH_D);
+  const t = Math.min(1, Math.max(0, f / Math.max(1, PAPER_LIFT_FRAMES - 1)));
+  const b = Math.sin(Math.PI * t);
+  const p: DepthPose = {
+    position: [base.x, base.y, base.z + DEPTH_BUMP.z * b],
+    rotation: [-base.tilt - DEPTH_BUMP.rx * b, DEPTH_BUMP.ry * b, -DEPTH_BUMP.rz * b],
+    w: SHEET.w * base.k,
+    h: SHEET.h * base.k,
+    depth: DEPTH_SLAB,
+  };
+  const limit = liftCaptionBand(f).y - CAPTION_MARGIN;
+  for (let i = 0; i < 24; i++) {
+    const g = depthGeomOf(p);
+    const s = Math.min(1, (SHEET_MAX_H - 0.25) / g.bbox.h);
+    const over = g.bbox.y + g.bbox.h - (limit - 0.25);
+    if (s >= 1 && over <= 0) break;
+    if (s < 1) {
+      p.w *= s;
+      p.h *= s;
+    }
+    if (over > 0) p.position[1] += over / (DEPTH_D / (DEPTH_D - p.position[2]));
+  }
+  return p;
+};
+
+/** three.js Euler 'XYZ' 회전: v' = Rx · Ry · Rz · v */
+const rotXYZ = ([x, y, z]: [number, number, number], [a, b, c]: [number, number, number]): [number, number, number] => {
+  // Rz
+  let X = x * Math.cos(c) - y * Math.sin(c);
+  let Y = x * Math.sin(c) + y * Math.cos(c);
+  let Z = z;
+  // Ry
+  const X2 = X * Math.cos(b) + Z * Math.sin(b);
+  const Z2 = -X * Math.sin(b) + Z * Math.cos(b);
+  X = X2; Z = Z2;
+  // Rx
+  const Y3 = Y * Math.cos(a) - Z * Math.sin(a);
+  const Z3 = Y * Math.sin(a) + Z * Math.cos(a);
+  return [X, Y3, Z3];
+};
+
+const projectDepth = ([X, Y, Z]: [number, number, number]): Pt => {
+  const m = DEPTH_D / (DEPTH_D - Z);
+  return [FRAME_W / 2 + X * m, FRAME_H / 2 - Y * m];
+};
+
+export interface DepthGeom {
+  /** 앞면 네 꼭짓점 화면 좌표 tl,tr,br,bl (종이 로컬 위 = +y) */
+  face: Pt[];
+  /** 두께 포함 8 꼭짓점 화면 경계상자 */
+  bbox: Rect;
+  /** 앞면 법선의 카메라 쪽 성분(> 0 = 앞면이 보인다 = 뒤집힘 없음) */
+  facing: number;
+}
+
+export const paperDepthGeom = (f: number): DepthGeom => depthGeomOf(paperDepthPose(f));
+
+const depthGeomOf = (p: DepthPose): DepthGeom => {
+  const hw = p.w / 2, hh = p.h / 2, hd = p.depth / 2;
+  const toWorld = (u: number, v: number, d: number): [number, number, number] => {
+    const r = rotXYZ([u, v, d], p.rotation);
+    return [r[0] + p.position[0], r[1] + p.position[1], r[2] + p.position[2]];
+  };
+  const face = ([[-hw, hh], [hw, hh], [hw, -hh], [-hw, -hh]] as Pt[]).map(([u, v]) => projectDepth(toWorld(u, v, hd)));
+  const all: Pt[] = [];
+  for (const d of [-hd, hd]) for (const [u, v] of [[-hw, hh], [hw, hh], [hw, -hh], [-hw, -hh]] as Pt[]) all.push(projectDepth(toWorld(u, v, d)));
+  const n = rotXYZ([0, 0, 1], p.rotation);
+  // 카메라(0,0,D) 에서 앞면 중심으로 향하는 시선과 법선의 내적 → 앞면이 카메라를 향하면 양수
+  const c = toWorld(0, 0, hd);
+  const vx = -c[0], vy = -c[1], vz = DEPTH_D - c[2];
+  const L = Math.hypot(vx, vy, vz);
+  return { face, bbox: bboxOf(all), facing: (n[0] * vx + n[1] * vy + n[2] * vz) / L };
+};
+
+export const depthCamera = () => ({
+  fov: DEPTH_FOV,
+  position: [0, 0, DEPTH_D] as [number, number, number],
+  near: 10,
+  far: DEPTH_D * 4,
 });
 
 /* ────────────────────────── ② Manage 도입 문서 카드 ────────────────────────── */

@@ -27,7 +27,9 @@ import {
   TEXTURE_FILE,
   docCardPose,
   docCardSize,
+  depthCamera,
   liftCamera,
+  paperDepthPose,
   paperLiftState,
   type Rect,
 } from "./moments-geometry";
@@ -152,23 +154,23 @@ export const PaperLiftTransition: React.FC<{
   edge.opacity = opacity;
   const cand = useCand();
 
-  if (cand === "c4") {
-    /* 레인 B 후보 4: 같은 풀이 자세 + 가운데서 부푸는 추가 회전(앞으로 들림·옆으로 틂)·앞당김 + 강한 원근(fov 22) + 두꺼운 종이 */
-    const t = Math.min(1, Math.max(0, f / (PAPER_LIFT_FRAMES - 1)));
-    const bump = Math.sin(Math.PI * t);
-    const D = pixelDistance(height, 22);
+  if (cand !== "v34") {
+    /* v3.5 본편(사용자 확정 후보 4): 같은 풀이 자세 + 가운데서 부푸는 추가 회전·앞당김 + fov 22 + 두꺼운 종이.
+       식 = moments-geometry.ts paperDepthPose(게이트 check-three-moments 가 같은 식의 투영을 잰다). */
+    const d = paperDepthPose(f);
     return (
       <AbsoluteFill style={{ pointerEvents: "none", opacity: opacity <= 0.001 ? 0 : 1 }}>
-        <ThreeCanvas width={width} height={height} camera={{ fov: 22, position: [0, 0, D], near: 10, far: D * 4 }} flat>
+        <ThreeCanvas width={width} height={height} camera={depthCamera()} flat>
           <SoftDaylight />
-          <group position={[pose.x, pose.y, pose.z + 150 * bump]} rotation={[-pose.tilt - 0.32 * bump, 0.5 * bump, -0.07 * bump]}>
-            <Slab w={SHEET.w * pose.k} h={SHEET.h * pose.k} depth={7} face={face} edge={edge} position={[0, 0, 0]} rotation={[0, 0, 0]} />
+          <group position={d.position} rotation={d.rotation}>
+            <Slab w={d.w} h={d.h} depth={d.depth} face={face} edge={edge} position={[0, 0, 0]} rotation={[0, 0, 0]} />
           </group>
         </ThreeCanvas>
       </AbsoluteFill>
     );
   }
 
+  /* v3.4.1 까지의 종이(판정 대조용 CandB cand="v34" 에서만) */
   return (
     <AbsoluteFill style={{ pointerEvents: "none", opacity: opacity <= 0.001 ? 0 : 1 }}>
       <ThreeCanvas width={width} height={height} camera={liftCamera()} flat>

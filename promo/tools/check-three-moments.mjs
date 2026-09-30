@@ -58,6 +58,7 @@ if (!process.env.__THREE_CHECK_CHILD) {
  *      · [T3] 텍스처 = 페이지 로컬(정방향)로 편 한 쪽 · 비지면(손·펜·모서리) 화소 0 (mask-page-texture.py --check)
  *   ② Manage 도입 카드: [T3] 높이 = D01 화면 사각형 높이의 25% · 착지 꼭짓점 전부 노트북 화면 사각형 안
  *      · [T3] 이웃 카드와 살짝 겹침(카드 면적의 10~45%)
+ *   ①' [v3.5] 실제로 그리는 깊이 종이(paperDepthGeom, fov 22·8 꼭짓점) 자막 겹침 0 · 높이 ≤ 40% · 전 프레임 정방향
  *   ③ Caption.tsx 조판 상수(lineHeight 1.24 · round(size*0.16))가 moments-geometry 식과 같은지
  * 사용: node tools/check-three-moments.mjs   (exit 1 = 불통과)
  */
@@ -119,6 +120,40 @@ const texPng = path.join(root, "public", G.TEXTURE_FILE);
 const py = spawnSync(process.platform === "win32" ? "python" : "python3", [path.join(here, "mask-page-texture.py"), "--check", texPng], { encoding: "utf8", env: { ...process.env, PYTHONIOENCODING: "utf8" } });
 console.log(`     ${(py.stdout || py.stderr || "").trim()}`);
 line(py.status === 0, "텍스처 손·펜·모서리(비지면) 화소 0");
+
+/* v3.5(후보 4 본편 승격): 실제로 그리는 깊이 종이(fov 22·추가 회전·앞당김·두께 7)의 투영을 따로 잰다.
+   위 행들은 바탕 풀이 자세(fov 10)라 화면 그림과 다르다 — 그림 = paperDepthGeom. */
+console.log("①' 깊이 종이(v3.5 본편 = Moments3D 가 그리는 것)");
+{
+  let dOv = 0, dGap = Infinity, dH = 0, minFacing = Infinity, upright = true, convex = true;
+  const drow = [];
+  for (let f = 0; f < G.PAPER_LIFT_FRAMES; f++) {
+    const st = G.paperLiftState(f);
+    const g = G.paperDepthGeom(f);
+    const band = G.liftCaptionBand(f);
+    if (st.opacity <= 0) continue;
+    const ov = inter(g.bbox, band);
+    dOv = Math.max(dOv, ov);
+    dGap = Math.min(dGap, band.y - (g.bbox.y + g.bbox.h));
+    dH = Math.max(dH, g.bbox.h);
+    minFacing = Math.min(minFacing, g.facing);
+    const [tl, tr, br, bl] = g.face;
+    /* 정방향: 윗변(로컬 +y)이 화면에서 아랫변보다 위 · 왼쪽 변이 오른쪽 변보다 왼쪽(거울상 아님) */
+    const up = (tl[1] + tr[1]) / 2 < (bl[1] + br[1]) / 2 && (tl[0] + bl[0]) / 2 < (tr[0] + br[0]) / 2;
+    upright &&= up;
+    /* 거울상 판별 = 부호 면적(화면 y 아래 기준 tl→tr→br→bl 시계방향이면 양수) */
+    let A = 0;
+    for (let i = 0; i < 4; i++) { const a = g.face[i], b = g.face[(i + 1) % 4]; A += a[0] * b[1] - b[0] * a[1]; }
+    convex &&= A > 0;
+    drow.push(`     f${String(f).padStart(2)} bbox ${fmt(g.bbox)} 자막까지 ${r1(band.y - (g.bbox.y + g.bbox.h))}px 겹침 ${r1(ov)} 앞면 ${g.facing.toFixed(3)} ${up && A > 0 ? "정방향" : "뒤집힘"}`);
+  }
+  console.log(drow.join(String.fromCharCode(10)));
+  line(dOv === 0, `깊이 종이 자막 띠 겹침 면적 최대 ${r1(dOv)} px² · 최소 간격 ${r1(dGap)}px`);
+  line(dH <= G.FRAME_H * 0.4 + 0.5, `깊이 종이 높이 최대 ${r1(dH)}px ≤ 화면 40% ${G.FRAME_H * 0.4}px`);
+  line(minFacing > 0 && upright && convex, `깊이 종이 전 프레임 정방향(앞면 카메라 향함 최소 ${minFacing.toFixed(3)} > 0 · 윗변 위 · 거울상 없음)`);
+  const mSrc = fs.readFileSync(path.join(root, "src/components/three/Moments3D.tsx"), "utf8");
+  line(/paperDepthPose\(f\)/.test(mSrc) && /camera=\{depthCamera\(\)\}/.test(mSrc), "Moments3D 가 paperDepthPose·depthCamera 를 그대로 쓴다(식 이중화 없음)");
+}
 
 console.log("② Manage 도입 카드");
 const q = G.manageQuad();
