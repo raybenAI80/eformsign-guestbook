@@ -6,6 +6,7 @@
  *   node tools/make-bgm.mjs --preset a --force       후보 A 로 본편 트랙 교체
  *   node tools/make-bgm.mjs --candidates             후보 3종 미리듣기 + 지표 + 스펙트럼 + 합본
  *   node tools/make-bgm.mjs --preset b --seconds 45 --out out/check/x.mp3
+ *   node tools/make-bgm.mjs --engine tone --preset a --force   Tone.js 엔진(tools/make-bgm-tone.mjs, 2026-09-30~ 본편 기본)
  *
  * 🔴 사용자 라이선스 음원 분기
  *   public/bgm/track.mp3|wav 가 있는데 public/bgm/.synthesized 마커가 **없으면**
@@ -644,13 +645,17 @@ export function measureEbur128(file) {
   return { I: num("I"), LRA: num("LRA"), TP: num("Peak") };
 }
 
-/** 로우패스 → 잔향 → 페이드 → 라우드니스 정합 → 인코딩 */
-export function master(inWav, outFile, presetId = "a", seconds = 60) {
+/**
+ * 로우패스 → 잔향 → 페이드 → 라우드니스 정합 → 인코딩
+ * `ffmpegFx:false` = 로우패스·잔향을 건너뛴다(Tone 엔진은 그래프 안에서 이미 걸었다 — tools/make-bgm-tone.mjs)
+ * `refine:true`   = 리미터 뒤 실측 I 가 목표에서 0.3 LU 넘게 벗어나면 이득을 보정해 한 번 더 굽는다.
+ *                   (크레스트가 큰 소스는 alimiter 가 라우드니스를 깎아 목표보다 0.7 LU 낮게 나왔다 — Tone 엔진 실측)
+ */
+export function master(inWav, outFile, presetId = "a", seconds = 60, { ffmpegFx = true, refine = false } = {}) {
   const p = PRESETS[presetId];
   const tmp = `${outFile}.mastered.wav`;
   const shaped = [
-    `lowpass=f=${p.lowpassHz}:poles=2`,
-    p.reverb,
+    ...(ffmpegFx ? [`lowpass=f=${p.lowpassHz}:poles=2`, p.reverb] : []),
     `afade=t=in:st=0:d=${FADE_IN}`,
     `afade=t=out:st=${Math.max(0, seconds - FADE_TAIL)}:d=${FADE_TAIL}`,
   ].join(",");
@@ -658,15 +663,23 @@ export function master(inWav, outFile, presetId = "a", seconds = 60) {
   if (r.status !== 0) throw new Error(`ffmpeg(shape) 실패: ${r.out.slice(-800)}`);
 
   const before = measureEbur128(tmp).I;
-  const gainDb = Number.isFinite(before) ? Math.round((p.lufs - before) * 100) / 100 : 0;
+  let gainDb = Number.isFinite(before) ? Math.round((p.lufs - before) * 100) / 100 : 0;
   const limit = Math.pow(10, p.truePeak / 20).toFixed(4);
   const enc = outFile.endsWith(".wav")
     ? ["-c:a", "pcm_s16le"]
     : ["-b:a", "192k"];
-  r = ff(["-y", "-i", tmp, "-af", `volume=${gainDb}dB,alimiter=limit=${limit}:level=false`, "-ar", String(SR), ...enc, outFile]);
-  if (r.status !== 0) throw new Error(`ffmpeg(level) 실패: ${r.out.slice(-800)}`);
+  const bake = () => {
+    const rr = ff(["-y", "-i", tmp, "-af", `volume=${gainDb}dB,alimiter=limit=${limit}:level=false`, "-ar", String(SR), ...enc, outFile]);
+    if (rr.status !== 0) throw new Error(`ffmpeg(level) 실패: ${rr.out.slice(-800)}`);
+    return measureEbur128(outFile);
+  };
+  let m = bake();
+  if (refine && Number.isFinite(m.I) && Math.abs(p.lufs - m.I) > 0.3) {
+    gainDb = Math.round((gainDb + (p.lufs - m.I)) * 100) / 100;
+    m = bake();
+  }
   fs.rmSync(tmp, { force: true });
-  return { outFile, gainDb, lufsBefore: before, ...measureEbur128(outFile) };
+  return { outFile, gainDb, lufsBefore: before, ...m };
 }
 
 export function spectrum(inFile, outPng) {
@@ -879,9 +892,20 @@ function argOf(args, name, dflt) {
   return i >= 0 && args[i + 1] ? args[i + 1] : dflt;
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   fs.mkdirSync(BGM_DIR, { recursive: true });
+
+  // 엔진 선택 — node(기본, 이 파일의 수제 신스) | tone(Tone.js Offline, tools/make-bgm-tone.mjs)
+  if (argOf(args, "engine", "node") === "tone") {
+    const { buildTrackTone } = await import("./make-bgm-tone.mjs");
+    const out = path.resolve(ROOT, argOf(args, "out", path.join(BGM_DIR, "track.mp3")));
+    const res = await buildTrackTone({
+      preset: argOf(args, "preset", "a"), seconds: Number(argOf(args, "seconds", mainSeconds())), out, force: args.includes("--force"),
+    });
+    if (res) { console.log(res); console.log("지표:", analyze(out)); }
+    return;
+  }
 
   if (args.includes("--candidates")) {
     const res = buildCandidates({ previewSec: Number(argOf(args, "seconds", 20)) });
@@ -930,4 +954,6 @@ function main() {
   if (args.includes("--spectrum")) console.log(spectrum(out, path.join(CHECK, `bgm-${preset}-spectrum.png`)));
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((e) => { console.error(e); process.exit(1); });
+}
