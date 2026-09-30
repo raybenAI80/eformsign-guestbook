@@ -242,7 +242,7 @@ export const Repeat: React.FC<{ mute?: boolean }> = ({ mute }) => {
             {/* 앞 장면에서 이미 쌓인 문서가 있는 자리다 — 음수 시작이면 두 건은 처음부터 떠 있고
                 마지막 한 건만 이 장면에서 도착한다(문서함이 계속 차오르는 연속성).
                 🔴 이 전제를 Fill 이 지켜야 한다: Fill 은 아래 두 행까지만 도착시킨다
-                (Fill.tsx 의 `every={105}` 주석 참조). 둘 중 하나만 고치면 경계에서 행이 깜빡인다. */}
+                (Fill.tsx Inbox 주석·src/hand.ts fillInboxTiming 참조). 둘 중 하나만 고치면 경계에서 행이 깜빡인다. */}
             <Inbox from={-60} every={48} width={764} shot={trimInbox(inboxShot())} />
           </AbsoluteFill>
         }

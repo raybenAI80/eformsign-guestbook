@@ -12,6 +12,9 @@
  *     v3.3 V 는 전송 확인 창 앞에서 175~243f(68f) 멈췄다.
  *   · 안내 화살표 0: Fill·Repeat 가 실제로 얹는 캡처 층(shot-scale.json 사본, 없으면 원본) 전부에서
  *     분홍 화소(tools/remove-guide-arrow.py --check-scaled) 0.
+ * 레인 R2(2026-09-30) 추가:
+ *   · 문서함 둘째 행(이번 방문자 문서) 도착 = 전송 탭 뒤 6~12f, 장면 끝까지 정착, Fill 끝 = Repeat 첫 프레임 상태.
+ *     음성 대조 `--inbox-second-at 200`(레인 R 까지의 값) → exit 1.
  * 🔴 TS 정본(src/hand.ts)을 그대로 import 한다 — 궤적을 이 스크립트에서 다시 계산하지 않는다.
  */
 import { spawnSync } from "node:child_process";
@@ -194,6 +197,45 @@ for (const f of ["src/scenes/Fill.tsx", "src/scenes/Repeat.tsx"]) {
 const bad = srcs.filter((s) => !/handPlate\(\)/.test(s));
 if (bad.length) fail.push(`바탕이 한 장이 아니다: ${bad.join(" | ")}`);
 report.plates = { sources: srcs, unique: [...new Set(srcs.map((s) => s.split(": ")[1]))], file: hand.handPlate() };
+
+/*
+ * 레인 R2(2026-09-30): 문서함 도착 순서 — 이번 방문자 문서(Fill 둘째 행)는 **전송 탭 뒤** 6~12f 에 도착하고,
+ * 장면 끝까지 자리 잡으며(spring 정착 30f), 셋째 행은 장면 밖, Fill 끝 행 수 = Repeat 첫 프레임 행 수.
+ * 음성 대조: `--inbox-second-at 200`(레인 R 까지의 값) → exit 1.
+ */
+{
+  const oi = process.argv.indexOf("--inbox-second-at");
+  const inbox = hand.fillInboxTiming(oi > 0 ? Number(process.argv[oi + 1]) : undefined);
+  const fillSrc = fs.readFileSync(path.join(root, "src/scenes/Fill.tsx"), "utf8");
+  if (!/<Inbox from=\{INBOX\.from\} every=\{INBOX\.every\}/.test(fillSrc)) fail.push("Fill.tsx Inbox 가 fillInboxTiming() 을 쓰지 않는다(리터럴 타이밍)");
+  const tap = hand.fillSendTapAt();
+  const lastTap = fill.filter((k) => k.kind === "tap").pop()?.t;
+  if (lastTap !== tap) fail.push(`전송 탭 프레임 불일치: fillKeys 마지막 탭 ${lastTap} ≠ fillSendTapAt ${tap}`);
+  const gap = inbox.second - tap;
+  const SETTLE = 30;
+  if (!(gap >= 6 && gap <= 12)) fail.push(`문서함 둘째 행 도착 ${inbox.second}f — 전송 탭 ${tap}f 뒤 6~12f 여야 한다(차 ${gap}f)`);
+  if (inbox.second + SETTLE > fillTotal) fail.push(`문서함 둘째 행이 장면 끝(${fillTotal}f)까지 자리 잡지 못한다(${inbox.second}+${SETTLE})`);
+  if (inbox.third < fillTotal) fail.push(`Fill 이 셋째 행(${inbox.third}f)까지 도착시킨다 — 맨 윗행은 Repeat 몫`);
+  const repSrc = fs.readFileSync(path.join(root, "src/scenes/Repeat.tsx"), "utf8");
+  const rm = repSrc.match(/<Inbox from=\{(-?\d+)\} every=\{(\d+)\}/);
+  // 행별 보이는 정도 = Inbox ShotRow 와 같은 spring(damping 200, mass 0.7). 경계 앞뒤 상태 벡터를 비교한다
+  const { spring } = await import("remotion");
+  const vis = (appear, f) => spring({ frame: f - appear, fps: FPS, config: { damping: 200, mass: 0.7 } });
+  const fillEndVec = [inbox.from, inbox.second, inbox.third].map((t) => +vis(t, fillTotal - 1).toFixed(3));
+  let repStartVec = null;
+  if (!rm) fail.push("Repeat.tsx Inbox from/every 를 읽지 못했다");
+  else {
+    const [rf, re] = [Number(rm[1]), Number(rm[2])];
+    repStartVec = [0, 1, 2].map((i) => +vis(rf + i * re, 0).toFixed(3));
+    // 🔴 허용 0.06: Repeat 둘째 행(-12f)은 첫 프레임에 0.95 — 레인 R2 이전부터 있던 잔차(Repeat 불변 조건)
+    const d = Math.max(...fillEndVec.map((v, i) => Math.abs(v - repStartVec[i])));
+    if (d > 0.06) fail.push(`Fill 끝 문서함 [${fillEndVec}] ≠ Repeat 첫 프레임 [${repStartVec}] (최대차 ${d.toFixed(3)} > 0.06, 경계 깜빡임)`);
+  }
+  const fillEnd = fillEndVec.filter((v) => v > 0.5).length;
+  const repStart = repStartVec ? repStartVec.filter((v) => v > 0.5).length : null;
+  report.inbox = { sendTapAt: tap, rows: [inbox.from, inbox.second], thirdOutside: inbox.third, gapAfterTap: gap, fillEndRows: fillEnd, repeatStartRows: repStart, fillEndVis: fillEndVec, repeatStartVis: repStartVec };
+  console.log(`문서함: 행 도착 ${inbox.from}·${inbox.second}f · 전송 탭 ${tap}f → 탭 뒤 ${gap}f(허용 6~12) · Fill 끝 [${fillEndVec}] · Repeat 첫 프레임 [${repStartVec}]`);
+}
 
 fs.mkdirSync(path.join(root, "out/check"), { recursive: true });
 fs.writeFileSync(path.join(root, "out/check/v33v-motion.json"), JSON.stringify(report, null, 2));

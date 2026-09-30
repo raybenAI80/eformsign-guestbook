@@ -8,7 +8,7 @@ import { Caption } from "../components/Caption";
 import { Narration } from "../components/Narration";
 import { Cut, QuadShot, StagePane } from "../components/ShotView";
 import { HandLayer } from "../components/HandLayer";
-import { FILL_TIMING, fillB05At, fillKeys, handPlate } from "../hand";
+import { FILL_TIMING, fillB05At, fillInboxTiming, fillKeys, handPlate } from "../hand";
 import { scene, sceneFrames } from "../script";
 import { inboxShot } from "../shots";
 import {
@@ -56,6 +56,8 @@ const STILL_CUTS: { key: ShotKey; at: number; len: number }[] = [
 /** 시퀀스를 쓸 때 뒤에 붙이는 맺음 컷 — 전송 팝업은 제품 동작이라 반드시 남긴다 */
 /* 🔴 레인 V2: 타이밍 정본 = src/hand.ts FILL_TIMING(전송 확인 창 1.0초, 완료 화면 여운 64f) */
 const B05_AT = fillB05At();
+/* 🔴 레인 R2: 문서함 둘째 행 = 전송 탭 뒤(src/hand.ts fillInboxTiming) */
+const INBOX = fillInboxTiming();
 const TAIL_CUTS: { key: ShotKey; at: number; len: number }[] = [
   { key: "B04", at: FILL_TIMING.b04At, len: B05_AT - FILL_TIMING.b04At + 6 },
   { key: "B05", at: B05_AT, len: TOTAL - B05_AT },
@@ -161,9 +163,10 @@ export const Fill: React.FC<{ mute?: boolean }> = ({ mute }) => {
             {/* 🔴 문서함 상태는 장면을 넘어 **단조 증가**해야 한다(2026-09-21).
                 예전 값(every=60)은 이 장면(300프레임) 안에서 세 행을 다 도착시켰고,
                 다음 장면 Repeat 이 맨 윗행을 다시 도착시키느라 **컷 직후 윗행이 잠깐 비었다**.
-                여기서는 아래 두 행만 도착시키고(105프레임 간격 → 셋째는 305프레임, 장면 밖),
-                맨 윗행은 Repeat 이 도착시킨다. 두 장면의 경계에서 행 수가 같다. */}
-            <Inbox from={95} every={105} width={764} shot={trimInbox(inboxShot())} />
+                여기서는 아래 두 행만 도착시키고(셋째 = from + 2*every 는 장면 밖),
+                맨 윗행은 Repeat 이 도착시킨다. 두 장면의 경계에서 행 수가 같다.
+                🔴 레인 R2: 둘째 행 = 전송 탭 뒤(src/hand.ts fillInboxTiming). 예전 every=105 → 200f 는 탭(225f) 앞이었다. */}
+            <Inbox from={INBOX.from} every={INBOX.every} width={764} shot={trimInbox(inboxShot())} />
           </AbsoluteFill>
         }
       />

@@ -232,8 +232,27 @@ export const FILL_TIMING = {
   hoverAt: 200,
   /** 완료 화면 뒤 손이 아래로 빠지는 시점(완료 화면 시작 기준) */
   awayAfter: 30,
+  /** 문서함 첫 행(아래 행 = 앞 방문자 문서) 도착 프레임 */
+  inboxFirstAt: 95,
+  /**
+   * 🔴 레인 R2(2026-09-30): 둘째 행(이번 방문자 문서) 도착 = **전송 탭 뒤** 이 프레임 수(8f ≈ 0.27초).
+   * 예전 값(Inbox every=105 → 200f)은 전송 탭(225f)보다 먼저 행이 떠서 「보내기 전에 문서가 도착」했다.
+   * 게이트 = tools/check-hand-motion.mjs 「문서함 도착 > 전송 탭」(허용 6~12f).
+   */
+  inboxAfterSend: 8,
 } as const;
 export const fillB05At = () => FILL_TIMING.b04At + FILL_TIMING.b04Len;
+/** 전송 확인 창의 「전송」 탭 프레임(fillKeys 의 마지막 탭 t = b05At - 1 과 같은 식) */
+export const fillSendTapAt = () => fillB05At() - 1;
+/**
+ * Fill 문서함 Inbox 의 from/every. 아래 두 행만 이 장면에서 도착한다(셋째 = from + 2*every 는 장면 밖,
+ * 맨 윗행은 Repeat 이 도착시킨다 — Repeat.tsx Inbox from=-60 every=48 주석). 둘째 행 = 전송 탭 + inboxAfterSend.
+ */
+export const fillInboxTiming = (secondOverride?: number) => {
+  const from = FILL_TIMING.inboxFirstAt;
+  const second = secondOverride ?? fillSendTapAt() + FILL_TIMING.inboxAfterSend;
+  return { from, every: second - from, second, third: from + 2 * (second - from) };
+};
 
 /** Fill: fill-seq 한 장 = per 프레임. 각 이벤트 = 그 캡처가 보이기 직전에 닿았다 뗀다 */
 export const fillKeys = (o: {
