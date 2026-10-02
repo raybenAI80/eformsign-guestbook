@@ -1,0 +1,10 @@
+{
+ "version": 1,
+ "jobs": [
+  {
+   "id": "01-hook",
+   "prompt": "Film pre-production storyboard panel, 16:9 landscape, single scene in one frame. Hand-drawn pencil line art with soft grey marker shading on off-white paper, loose but clean, thin dark pencil frame border around the panel. Monochrome greys only, with exactly ONE accent color: a clear medium blue (#1E6FD9) used sparingly on the key element. Shot: pure black background. A portrait tablet floats up out of the darkness in the center, slightly tilted, its screen glowing softly as it fades in; the white header band at the top of the screen is the sharpest, most readable part, the blue outlined button on its right is the only blue. Lower half of the screen still fading into shadow. Upward motion arrow drawn faintly beside the tablet. The tablet screen shows a visitor log form web page in portrait orientation: a white header band at the top (a short line block on the left, a centered title line with a thinner subtitle line under it, and on the right a small rounded button outlined in blue), below it a table form with a dark navy header strip and ten ruled rows, each row with columns for name, phone, a few small checkbox squares for visit purpose, and a wide signature box.  Absolutely no readable text, letters, numbers, words, Korean or Latin characters, logos or brand marks anywhere in the image; every on-screen label, heading or caption is drawn only as empty rectangles or simple horizontal grey lines. No faces in close-up; people appear only as a hand, forearm or shoulder. Neutral plain office-lobby background at most, no event booths, banners, exhibition stands or signage. ",
+   "out": "D:/pjt/eformsign-guestbook/docs/marketing/storyboard/frames/01-hook.png"
+  }
+ ]
+}
