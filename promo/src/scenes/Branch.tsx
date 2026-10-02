@@ -110,7 +110,15 @@ const Device: React.FC<{
   </Appear>
 );
 
-export const Branch: React.FC<{ mute?: boolean }> = ({ mute }) => {
+/**
+ * 🔴 captions·narration prop = 실제 화면 편(Demo53) 재사용용(2026-10-03 레인 D3).
+ *    생략하면 본편 값(scene("branch") 자막 · voice/branch.mp3) 그대로 — Main60 동작 불변.
+ */
+export const Branch: React.FC<{ mute?: boolean; captions?: string[]; narration?: React.ReactNode }> = ({
+  mute,
+  captions = S.captions,
+  narration,
+}) => {
   const frame = useCurrentFrame();
   const a01 = geo("A01");
   /* 🔴 태블릿 화면은 C01(빈 화면)이 아니라 **C02(채워진 화면)** 을 쓴다.
@@ -143,7 +151,7 @@ export const Branch: React.FC<{ mute?: boolean }> = ({ mute }) => {
 
   return (
     <Stage variant="light" logo="br">
-      <Narration id="branch" mute={mute} />
+      {narration === undefined ? <Narration id="branch" mute={mute} /> : narration}
 
       {/* 갈라지고 다시 모이는 선 */}
       <AbsoluteFill>
@@ -249,7 +257,7 @@ export const Branch: React.FC<{ mute?: boolean }> = ({ mute }) => {
         <Inbox from={92} every={26} width={BOX.w} shot={trimInbox(inboxShot())} />
       </Appear>
 
-      <CaptionBar lines={S.captions} from={8} tone="light" size={56} />
+      <CaptionBar lines={captions} from={8} tone="light" size={56} />
     </Stage>
   );
 };

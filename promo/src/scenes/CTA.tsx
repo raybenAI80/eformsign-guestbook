@@ -28,7 +28,17 @@ const TILT_FRAMES = 24;
 const REVEAL_HIT = 18;
 const PANEL = { w: 1240, h: 780 };
 
-export const CTA: React.FC<{ mute?: boolean }> = ({ mute }) => {
+/**
+ * 🔴 lead·address·footnote·narration prop = 실제 화면 편(Demo53) 재사용용(2026-10-03 레인 D3).
+ *    생략하면 본편 값(scene("cta") 자막 2·3줄 · 각주 · voice/cta.mp3) 그대로 — Main60 동작 불변.
+ */
+export const CTA: React.FC<{
+  mute?: boolean;
+  lead?: string;
+  address?: string;
+  footnote?: string;
+  narration?: React.ReactNode;
+}> = ({ mute, lead: leadProp, address: addressProp, footnote = S.footnote, narration }) => {
   const frame = useCurrentFrame();
   const { height } = useVideoConfig();
   const tilt = Math.min(1, frame / (TILT_FRAMES - 1));
@@ -37,13 +47,15 @@ export const CTA: React.FC<{ mute?: boolean }> = ({ mute }) => {
   const q = interpolate(frame, [18, 40], [0, 1], { extrapolateRight: "clamp", easing: EASE });
   const r = interpolate(frame, [34, 58], [0, 1], { extrapolateRight: "clamp", easing: EASE });
 
-  const [, lead, address] = S.captions;
+  const [, leadDefault, addressDefault] = S.captions;
+  const lead = leadProp ?? leadDefault;
+  const address = addressProp ?? addressDefault;
   const c5 = useCand() === "c5";
   const ang = c5 ? ctaTiltStrong(tilt, frame) : undefined;
 
   return (
     <Stage variant="blue" logo="none">
-      <Narration id="cta" mute={mute} />
+      {narration === undefined ? <Narration id="cta" mute={mute} /> : narration}
       {/* v3.3 레인 T2 — cta-reveal.wav 정점(0.60초 = 18f)을 패널 회전이 멈추는 프레임(TILT_FRAMES-1)에 */}
       {mute ? null : (
         <Sequence name="효과음 cta-reveal" from={TILT_FRAMES - 1 - REVEAL_HIT} durationInFrames={48}>
@@ -126,7 +138,7 @@ export const CTA: React.FC<{ mute?: boolean }> = ({ mute }) => {
           {address}
         </div>
 
-        {S.footnote ? (
+        {footnote ? (
           <div
             style={{
               ...KO_WRAP,
@@ -137,7 +149,7 @@ export const CTA: React.FC<{ mute?: boolean }> = ({ mute }) => {
               opacity: r,
             }}
           >
-            {S.footnote}
+            {footnote}
           </div>
         ) : null}
       </AbsoluteFill>

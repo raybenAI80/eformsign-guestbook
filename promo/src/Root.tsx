@@ -5,8 +5,10 @@ import { Cut15H, Cut15V } from "./compositions/Cut15";
 import { Loop30, Gif3, Still } from "./compositions/Extras";
 import { CandB } from "./compositions/CandB";
 import { PageTexture, pageTextureFrames, pageTextureSize } from "./compositions/PageTexture";
+import { Demo53 } from "./compositions/Demo";
 import {
   CUT15_FRAMES,
+  DEMO_FRAMES,
   FPS,
   GIF3_FRAMES,
   LOOP30_FRAMES,
@@ -105,6 +107,17 @@ export const RemotionRoot: React.FC = () => (
       width={1920}
       height={1080}
       defaultProps={{ cand: "hA" as const }}
+    />
+
+    {/* ⑧ 실제 화면 편 53초 — 길이 = src/scene-durations-demo.json(나레이션 실측). 2026-10-03 레인 D3 */}
+    <Composition
+      id="Demo53"
+      component={Demo53}
+      durationInFrames={DEMO_FRAMES}
+      fps={FPS}
+      width={1920}
+      height={1080}
+      defaultProps={{ mute: false }}
     />
 
     {/* ⑦ 9초 시안 — Hook + Paper 스타일 확정용 */}
