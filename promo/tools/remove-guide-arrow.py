@@ -15,7 +15,7 @@
   python tools/remove-guide-arrow.py --batch <list.json> <out-dir>   # prescale-shots.mjs 가 부른다
         list.json = [[원본 절대경로, 상대경로], ...] → 화살표가 있는 것만 <out-dir>/<상대경로> 로 쓰고
         표준출력 마지막 줄에 JSON {상대경로: 지운 화살표 수}
-  python tools/remove-guide-arrow.py --check <png>...             # 게이트: 화살표 성분 수(원본 해상도 기준)
+  python tools/remove-guide-arrow.py [--scale 2.5] --check <png>...             # 게이트: 화살표 성분 수(원본 해상도 기준)
   python tools/remove-guide-arrow.py --check-scaled <png>...      # 게이트: 축소 사본의 분홍 화소 수
   python tools/remove-guide-arrow.py --check-video <mp4>          # 렌더 판정: 왼쪽 칸 분홍 화소가 있는 프레임 수(0 이어야)
 """
@@ -27,6 +27,12 @@ import cv2
 import numpy as np
 from scipy import ndimage as nd
 
+# --scale S (2026-10-03, 기본 1): 캡처 배율(예: --shot-scale 2.5 컷). bbox 폭·높이·팽창 반경은 S배, 핵심 화소 하한은 S^2배
+S = 1.0
+# --plate <png> (2026-10-03, 기본 없음): 같은 배치·같은 크기의 화살표 없는 컷(예: 서명 뒤 컷). 지울 화소를 inpaint 대신 그 컷 화소로 메운다
+#   — 화살표가 「✓ 작성 완료」 글자 위에 겹치면 inpaint 가 글자를 뭉갠다(레인 D2f 실측). 지움 영역이 두 컷에서 정적일 때만 쓴다
+PLATE = None
+
 
 def core_mask(bgr):
     b, g, r = (bgr[..., i].astype(np.int16) for i in range(3))
@@ -35,7 +41,7 @@ def core_mask(bgr):
 
 def arrows(bgr):
     core = core_mask(bgr)
-    grp, n = nd.label(nd.binary_dilation(core, iterations=6))
+    grp, n = nd.label(nd.binary_dilation(core, iterations=max(1, round(6 * S))))
     out = []
     for i, sl in enumerate(nd.find_objects(grp)):
         sub = (grp[sl] == i + 1) & core[sl]
@@ -44,7 +50,7 @@ def arrows(bgr):
         if not c:
             continue
         w, h = int(xs.max() - xs.min() + 1), int(ys.max() - ys.min() + 1)
-        if 18 <= w <= 64 and 30 <= h <= 110 and c >= 250:
+        if 18 * S <= w <= 64 * S and 30 * S <= h <= 110 * S and c >= 250 * S * S:
             m = np.zeros(core.shape, bool)
             m[sl] = sub
             out.append(({"x": int(sl[1].start + xs.min()), "y": int(sl[0].start + ys.min()), "w": w, "h": h, "core": c}, m))
@@ -83,9 +89,11 @@ def clean(bgr):
     for _, m in found:
         core |= m
     # 핵심색 4px 팽창 + (핵심 8px 안의 분홍 기운 화소) — 글자 위에 겹친 반투명 부분까지
-    mask = nd.binary_dilation(core, iterations=4) | (tint(bgr) & nd.binary_dilation(core, iterations=8))
+    mask = nd.binary_dilation(core, iterations=max(1, round(4 * S))) | (tint(bgr) & nd.binary_dilation(core, iterations=max(1, round(8 * S))))
     mask = nd.binary_dilation(mask, iterations=1) | nd.binary_dilation(sq, iterations=2)
     res = cv2.inpaint(bgr, mask.astype(np.uint8) * 255, 4, cv2.INPAINT_TELEA)
+    if PLATE is not None and PLATE.shape == bgr.shape:
+        res[mask] = PLATE[mask]
     return res, [f[0] for f in found] + [{"squiggle": nsq}] * (1 if nsq else 0)
 
 
@@ -100,7 +108,15 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
+    global S
     a = sys.argv[1:]
+    global PLATE
+    while a and a[0] in ("--scale", "--plate"):
+        if a[0] == "--scale":
+            S = float(a[1])
+        else:
+            PLATE = cv2.imread(a[1], cv2.IMREAD_COLOR)
+        a = a[2:]
     if a[0] == "--batch":
         items = json.load(open(a[1], encoding="utf-8"))
         out_dir = a[2]
