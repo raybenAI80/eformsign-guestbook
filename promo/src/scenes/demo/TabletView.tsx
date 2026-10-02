@@ -2,7 +2,7 @@ import React from "react";
 import { Photo } from "../../components/Photo";
 import { QuadShot, StagePane } from "../../components/ShotView";
 import { HandLayer } from "../../components/HandLayer";
-import { captureToPhoto, type HandKey, type Pt } from "../../hand";
+import { squareToQuad, type HandKey, type Pt } from "../../hand";
 import { quadAspect, screenCrop, screenQuad, shotLayer, type Rect } from "../../shots-scenes";
 import { DEMO_PLATE, type ReadyShot } from "../../demo-shots";
 import type { Corners } from "../../components/ScreenComposite";
@@ -10,7 +10,7 @@ import type { Corners } from "../../components/ScreenComposite";
 /**
  * 실제 화면 편의 기기 화면 — 홍보편 기기 바탕(gen-03-plate, 손 없는 바탕)의 screenQuad 에
  * 실캡처를 원근 매핑하고, 그 위에 손 층(hand-03)을 얹는다. 홍보편 Fill 과 **같은 부품**
- * (Photo · StagePane · QuadShot · HandLayer · screenCrop)만 쓴다 — 자르기·손 좌표가 한 함수(screenCrop)를 공유.
+ * (Photo · StagePane · QuadShot · HandLayer)만 쓴다 — 자르기·손 좌표가 한 함수(tabletCrop)를 공유.
  */
 /**
  * 🔴 BLEED — 측정 screenQuad 를 무게중심 기준으로 이만큼 넓힌다(demo 전용, 본편 Fill 은 1.0 그대로).
@@ -35,8 +35,40 @@ export const tabletAspect = () => quadAspect(tabletQuad());
 
 const capOf = (s: ReadyShot) => ({ width: s.width, height: s.height, viewport: s.viewport });
 
-/** 캡처 화소 → 사진(1920×1080) 좌표 — 손 키·카메라 초점용 */
-export const shotToPhoto = (s: ReadyShot, pt: Pt): Pt => captureToPhoto(pt, capOf(s), tabletQuad(), tabletAspect());
+/**
+ * 🔴 캡처 비 허용 오차 — 캡처(viewport) 비가 기기 화면 비와 이 안이면 **자르지 않고 전체를** 맞춰 넣는다
+ *    (최대 2% 늘림/눌림, 육안 불가). 밖이면 렌더를 멈춘다 — 자르기로 맞추지 않는다.
+ *    근거(2026-10-03): 옛 캡처(0.81)를 바탕 화면(0.553)에 자르기로 맞추자 좌우가 잘려 훅 스틸 불통과.
+ *    새 캡처 규격 = 768×1389@2.5 = 1920×3473(0.5528).
+ */
+export const ASPECT_TOLERANCE = 0.02;
+const warned = new Set<string>();
+
+/** 기기 화면에 담을 캡처 영역 — 무자르기(기본) 또는 재캡처 예정 소재의 옛 자르기 */
+export const tabletCrop = (s: ReadyShot): Rect => {
+  const area = s.viewport ?? { x: 0, y: 0, w: s.width, h: s.height };
+  const want = tabletAspect();
+  const got = area.w / area.h;
+  if (Math.abs(got / want - 1) <= ASPECT_TOLERANCE) return area;
+  if (s.legacyCrop) {
+    if (!warned.has(s.file)) {
+      warned.add(s.file);
+      console.warn(
+        `[Demo53] 재캡처 예정 소재 옛 자르기 경로 사용: ${s.file} 비 ${got.toFixed(3)} ≠ 기기 화면 ${want.toFixed(3)} (좌우가 잘린다)`,
+      );
+    }
+    return screenCrop(capOf(s), want);
+  }
+  throw new Error(
+    `[Demo53] 캡처 비 불일치, 렌더 중단: ${s.file} 비 ${got.toFixed(3)}(${area.w}×${area.h}) ≠ 기기 화면 ${want.toFixed(3)} ±${ASPECT_TOLERANCE * 100}% — 768×1389@2.5(1920×3473) 규격으로 재캡처`,
+  );
+};
+
+/** 캡처 화소 → 사진(1920×1080) 좌표 — 손 키·카메라 초점용. QuadShot 과 **같은 crop**(tabletCrop) */
+export const shotToPhoto = (s: ReadyShot, pt: Pt): Pt => {
+  const crop = tabletCrop(s);
+  return squareToQuad(tabletQuad())((pt[0] - crop.x) / crop.w, (pt[1] - crop.y) / crop.h);
+};
 export const rectToPhoto = (s: ReadyShot, r: Rect): Pt => shotToPhoto(s, [r.x + r.w / 2, r.y + r.h / 2]);
 
 /** 화면 한 장(카메라 없음) — Photo 안에 여러 장을 겹칠 때 */
@@ -48,7 +80,7 @@ export const TabletScreen: React.FC<{ shot: ReadyShot; opacity?: number; childre
   <QuadShot
     {...shotLayer(shot.file)}
     capture={capOf(shot)}
-    crop={screenCrop(capOf(shot), tabletAspect())}
+    crop={tabletCrop(shot)}
     corners={tabletQuad()}
     opacity={opacity}
   >

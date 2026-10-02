@@ -40,7 +40,7 @@ export const handPlate = (): string => handLayerSpec()?.plate ?? "gen-03.png";
 
 /* ---------- 호모그래피(단위 정사각형 → 네 점) ---------- */
 
-const squareToQuad = (c: Corners) => {
+export const squareToQuad = (c: Corners) => {
   const [x0, y0] = c.tl, [x1, y1] = c.tr, [x2, y2] = c.br, [x3, y3] = c.bl;
   const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3;
   const dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;

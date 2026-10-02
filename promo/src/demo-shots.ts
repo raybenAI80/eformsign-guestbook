@@ -36,7 +36,18 @@ export interface ReadyShot {
   viewport: Rect | null;
   rows: Rect[];
   marks: Record<string, Rect>;
+  /**
+   * 🔴 옛 자르기 경로 허용(재캡처 예정 소재만). false 면 TabletView 는 캡처 비가 기기 화면 비와
+   *    ±2% 안일 때만 전체를 맞춰 넣고, 아니면 렌더를 멈춘다.
+   */
+  legacyCrop: boolean;
 }
+
+/**
+ * 「재캡처 예정」 예외 — 옛 규격(746×926, 비 0.81) 소재가 남은 장면. 장 제목 결정 뒤 새 규격
+ * (768×1389@2.5 = 1920×3473)으로 재캡처하면 여기서 지운다(2026-10-03 레인 D3b).
+ */
+const LEGACY_CROP_SCENES = new Set<string>(["hook"]);
 
 type Scenes = Record<string, Record<string, DemoShot>>;
 const M = manifest as unknown as {
@@ -103,6 +114,7 @@ export const requireDemoShots = (scene: string, need: DemoNeed): Record<string, 
       viewport: s.viewport ?? null,
       rows: s.rows ?? [],
       marks,
+      legacyCrop: LEGACY_CROP_SCENES.has(scene),
     };
   }
   return out;
