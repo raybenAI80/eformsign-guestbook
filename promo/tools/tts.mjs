@@ -7,6 +7,8 @@
  *   node tools/tts.mjs --plan                  생성 없이 장면 길이 역산표만 본다
  *   node tools/tts.mjs --voice InJoon --rate 0 음성·속도를 바꿔 생성
  *   node tools/tts.mjs --out-dir <경로>        다른 폴더에 생성(본편을 건드리지 않는 시험용)
+ *   node tools/tts.mjs --set demo              실제 화면 편(DEMO_SCENES) — demo-<id>.mp3 · voice-demo.json
+ *                                              (기본 --set main = 본편 SCENES, 기존 동작 그대로)
  *
  * 산출(기본 out-dir = public/voice):
  *   <out-dir>/<sceneId>.mp3        장면별 음성 (나레이션이 빈 장면은 만들지 않는다)
@@ -31,6 +33,38 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "public", "voice");
 const SCRIPT = path.join(ROOT, "src", "script.ts");
+
+/**
+ * 편(set) 선택 — 2026-10-03 레인 D1. 기본 main 은 기존 파일명·경로를 한 글자도 바꾸지 않는다.
+ *   array          script.ts 에서 잘라 eval 할 배열 이름
+ *   prefix         mp3 파일명 접두(같은 public/voice 폴더에서 본편과 충돌하지 않게)
+ *   voiceJson      <out-dir> 안 길이·해시 캐시 파일명
+ *   voiceDurations src/ 아래 Remotion 용 길이표 파일명
+ *   sceneDurations src/ 아래 장면 타임라인 파일명(tools/scene-durations.mjs)
+ */
+export const SETS = {
+  main: {
+    array: "SCENES",
+    prefix: "",
+    voiceJson: "voice.json",
+    voiceDurations: "voice-durations.json",
+    sceneDurations: "scene-durations.json",
+  },
+  demo: {
+    array: "DEMO_SCENES",
+    prefix: "demo-",
+    voiceJson: "voice-demo.json",
+    voiceDurations: "voice-durations-demo.json",
+    sceneDurations: "scene-durations-demo.json",
+  },
+};
+
+export function resolveSet(name) {
+  const key = name ?? "main";
+  const set = SETS[key];
+  if (!set) throw new Error(`알 수 없는 --set: ${name} (가능: ${Object.keys(SETS).join(", ")})`);
+  return { name: key, ...set };
+}
 
 /** 말 앞뒤 여유(초). 장면 길이 = leadIn + 음성 + tailOut */
 export const LEAD_IN = 0.35;
@@ -76,7 +110,7 @@ export function scriptRate() {
   return m ? m[1] : null;
 }
 
-export function loadScript() {
+export function loadScript(arrayName = "SCENES") {
   const src = fs.readFileSync(SCRIPT, "utf8");
 
   const grabArray = (name) => {
@@ -101,7 +135,7 @@ export function loadScript() {
   const voiceMatch = src.match(/export const VOICE\s*=\s*"([^"]+)"/);
   return {
     voice: voiceMatch ? voiceMatch[1] : "ko-KR-SunHiNeural",
-    scenes: grabArray("SCENES"),
+    scenes: grabArray(arrayName),
   };
 }
 
@@ -132,7 +166,8 @@ export function neededSeconds(voiceSec) {
  * (tools/voice-build.mjs 가 이 함수를 쓴다)
  */
 export function run(opts = {}) {
-  const loaded = loadScript();
+  const set = resolveSet(opts.set);
+  const loaded = loadScript(set.array);
   const scenes = loaded.scenes;
   const voice = resolveVoice(opts.voice) ?? loaded.voice;
   const RATE = resolveRate(opts.rate) ?? resolveRate(scriptRate()) ?? DEFAULT_RATE;
@@ -140,15 +175,16 @@ export function run(opts = {}) {
   const PLAN_ONLY = Boolean(opts.plan);
   const OUT = path.resolve(ROOT, opts.outDir ?? path.join("public", "voice"));
   const writeDurations = opts.writeDurations ?? path.resolve(OUT) === path.resolve(ROOT, "public", "voice");
+  const durationsPath = path.join(ROOT, "src", set.voiceDurations);
   const quiet = Boolean(opts.quiet);
   fs.mkdirSync(OUT, { recursive: true });
 
-  const cachePath = path.join(OUT, "voice.json");
+  const cachePath = path.join(OUT, set.voiceJson);
   const cache = fs.existsSync(cachePath)
     ? JSON.parse(fs.readFileSync(cachePath, "utf8"))
     : { voice: "", scenes: {} };
 
-  const result = { voice, rate: RATE, generatedAt: new Date().toISOString(), leadIn: LEAD_IN, tailOut: TAIL_OUT, scenes: {} };
+  const result = { ...(set.name === "main" ? {} : { set: set.name }), voice, rate: RATE, generatedAt: new Date().toISOString(), leadIn: LEAD_IN, tailOut: TAIL_OUT, scenes: {} };
   const durations = {};
   let made = 0;
   let reused = 0;
@@ -170,7 +206,7 @@ export function run(opts = {}) {
     }
 
     const hash = crypto.createHash("sha1").update(`${voice}::${RATE}::${text}`).digest("hex").slice(0, 12);
-    const file = path.join(OUT, `${s.id}.mp3`);
+    const file = path.join(OUT, `${set.prefix}${s.id}.mp3`);
     const prev = cache.scenes?.[s.id];
     const fresh = !FORCE && prev && prev.hash === hash && fs.existsSync(file);
 
@@ -212,14 +248,14 @@ export function run(opts = {}) {
   }
 
   fs.writeFileSync(cachePath, JSON.stringify(result, null, 2) + "\n", "utf8");
-  fs.writeFileSync(
-    path.join(ROOT, "src", "voice-durations.json"),
-    JSON.stringify(durations, null, 2) + "\n",
-    "utf8",
-  );
+  // 🔴 main 은 기존 동작(항상 씀)을 그대로 둔다. demo 는 writeDurations 를 따른다
+  //    (voice-build 가 _raw 로 부를 때 원본 길이로 src/ 를 덮어쓰지 않게).
+  if (set.name === "main" || writeDurations) {
+    fs.writeFileSync(durationsPath, JSON.stringify(durations, null, 2) + "\n", "utf8");
+  }
 
   const total = Object.values(durations).reduce((a, b) => a + b, 0);
-  if (quiet) return { ...result, outDir: OUT, warnings };
+  if (quiet) return { ...result, outDir: OUT, warnings, setInfo: set };
   console.log(`voice=${voice} rate=${RATE}`);
   console.log(`mp3 ${Object.keys(durations).length}개 (새로 ${made} · 재사용 ${reused})`);
   console.log(`총 음성 길이 ${Math.round(total * 100) / 100}초`);
@@ -234,8 +270,8 @@ export function run(opts = {}) {
   );
   for (const w of warnings) console.log(`  WARN ${w}`);
   console.log(`-> ${cachePath}`);
-  if (writeDurations) console.log(`-> ${path.join(ROOT, "src", "voice-durations.json")}`);
-  return { ...result, outDir: OUT, warnings };
+  if (writeDurations) console.log(`-> ${durationsPath}`);
+  return { ...result, outDir: OUT, warnings, setInfo: set };
 }
 
 function main() {
@@ -250,6 +286,7 @@ function main() {
     outDir: get("--out-dir"),
     force: args.includes("--force"),
     plan: args.includes("--plan"),
+    set: get("--set"),
   });
 }
 

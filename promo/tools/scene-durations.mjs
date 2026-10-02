@@ -5,6 +5,8 @@
  *   node tools/scene-durations.mjs            public/voice/voice.json → src/scene-durations.json
  *   node tools/scene-durations.mjs --check     쓰지 않고 표만 (CI·게이트용, 값이 다르면 exit 1)
  *   node tools/scene-durations.mjs --json      JSON 만
+ *   node tools/scene-durations.mjs --set demo  실제 화면 편: public/voice/voice-demo.json → src/scene-durations-demo.json
+ *                                              (DEMO_SCENES 순서 · 시각 최소 DEMO_MIN_VISUAL_FRAMES · 총길이 DEMO_BOUNDS)
  *
  * 왜 이 도구가 있는가 (2026-09-21 레인 I)
  *   v2 까지 장면 길이는 `src/script.ts` 에 손으로 적은 startSec/endSec 였다. 화자를 바꾸거나
@@ -29,6 +31,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveSet } from "./tts.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const VOICE_JSON = path.join(ROOT, "public", "voice", "voice.json");
@@ -63,6 +66,28 @@ export const MIN_VISUAL_FRAMES = {
   cta: 120,
 };
 
+/**
+ * 실제 화면 편(demo set) — 2026-10-03 레인 D1.
+ * 총길이 규약 = 스토리보드 §0 「45~60초(나레이션 길이가 결정)」.
+ */
+export const DEMO_BOUNDS = { minSec: 45, maxSec: 60 };
+/**
+ * 실제 화면 편 시각 최소 프레임. 장면 컴포넌트가 아직 없다(다음 레인) — 재사용이 확정된
+ * 두 장면만 본편 근거를 빌려 온다. 새 장면 컴포넌트가 절대 프레임을 쓰면 여기에 근거와 함께 올린다.
+ */
+export const DEMO_MIN_VISUAL_FRAMES = {
+  hook: 0,
+  arrive: 0,
+  fill: 0,
+  next: 0,
+  stack: 0,
+  manage: 0,
+  // 홍보편 Branch 재사용 — 본편 MIN_VISUAL_FRAMES.branch 와 같은 근거(Inbox from=92 → 5초)
+  branch: 150,
+  // 홍보편 CTA 재사용 — 3단 등장 58프레임 + 머무름 2초
+  cta: 120,
+};
+
 const ceilFrames = (sec) => Math.ceil(sec * FPS - 1e-9);
 
 /**
@@ -71,14 +96,16 @@ const ceilFrames = (sec) => Math.ceil(sec * FPS - 1e-9);
  */
 export function computeDurations(voice, order, opts = {}) {
   const pad = { ...PAD, ...(opts.pad ?? {}) };
-  const minFrames = Math.round(BOUNDS.minSec * FPS);
-  const maxFrames = Math.round(BOUNDS.maxSec * FPS);
+  const bounds = opts.bounds ?? BOUNDS;
+  const minVisualTable = opts.minVisual ?? MIN_VISUAL_FRAMES;
+  const minFrames = Math.round(bounds.minSec * FPS);
+  const maxFrames = Math.round(bounds.maxSec * FPS);
 
   const build = (p) =>
     order.map((id) => {
       const v = voice.scenes[id];
       const narrationSec = v && typeof v.seconds === "number" ? v.seconds : 0;
-      const minVisual = MIN_VISUAL_FRAMES[id] ?? 0;
+      const minVisual = minVisualTable[id] ?? 0;
       const fromVoice = ceilFrames(p.leadSec + narrationSec + p.tailSec);
       return {
         id,
@@ -104,7 +131,7 @@ export function computeDurations(voice, order, opts = {}) {
       total = rows.reduce((a, r) => a + r.frames, 0);
     }
     notes.push(
-      `총길이가 상한(${BOUNDS.maxSec}초)을 넘어 여유를 축소했다 → lead ${usedPad.leadSec.toFixed(3)}s · tail ${usedPad.tailSec.toFixed(3)}s`,
+      `총길이가 상한(${bounds.maxSec}초)을 넘어 여유를 축소했다 → lead ${usedPad.leadSec.toFixed(3)}s · tail ${usedPad.tailSec.toFixed(3)}s`,
     );
   }
 
@@ -123,7 +150,7 @@ export function computeDurations(voice, order, opts = {}) {
     }
     padded = deficit;
     total = rows.reduce((a, r) => a + r.frames, 0);
-    notes.push(`총길이가 하한(${BOUNDS.minSec}초)에 모자라 ${deficit}프레임을 여운으로 고르게 더했다`);
+    notes.push(`총길이가 하한(${bounds.minSec}초)에 모자라 ${deficit}프레임을 여운으로 고르게 더했다`);
   }
 
   let at = 0;
@@ -142,7 +169,7 @@ export function computeDurations(voice, order, opts = {}) {
   }
 
   const ok = total >= minFrames && total <= maxFrames;
-  if (!ok) notes.push(`🔴 총길이 ${(total / FPS).toFixed(2)}초 — 규약 ${BOUNDS.minSec}~${BOUNDS.maxSec}초를 벗어난다`);
+  if (!ok) notes.push(`🔴 총길이 ${(total / FPS).toFixed(2)}초 — 규약 ${bounds.minSec}~${bounds.maxSec}초를 벗어난다`);
 
   return {
     fps: FPS,
@@ -160,10 +187,10 @@ export function computeDurations(voice, order, opts = {}) {
 }
 
 /** script.ts 에서 장면 순서만 뽑는다(타입 없이 — tools/tts.mjs 와 같은 방식) */
-export function sceneOrder() {
+export function sceneOrder(arrayName = "SCENES") {
   const src = fs.readFileSync(path.join(ROOT, "src", "script.ts"), "utf8");
-  const m = src.match(/export const SCENES[^=]*=\s*\[/);
-  if (!m) throw new Error("SCENES 를 못 찾았다");
+  const m = src.match(new RegExp(`export const ${arrayName}[^=]*=\\s*\\[`));
+  if (!m) throw new Error(`${arrayName} 를 못 찾았다`);
   let i = m.index + m[0].length - 1;
   let depth = 0;
   let end = i;
@@ -175,17 +202,27 @@ export function sceneOrder() {
   return new Function(`return ${src.slice(i, end + 1)};`)().map((s) => s.id);
 }
 
-export function run({ write = true } = {}) {
-  const voice = JSON.parse(fs.readFileSync(VOICE_JSON, "utf8"));
-  const res = computeDurations(voice, sceneOrder());
-  if (write) fs.writeFileSync(OUT_JSON, `${JSON.stringify(res, null, 2)}\n`, "utf8");
-  return res;
+export function run({ write = true, set: setName } = {}) {
+  const set = resolveSet(setName);
+  const isMain = set.name === "main";
+  const voicePath = isMain ? VOICE_JSON : path.join(ROOT, "public", "voice", set.voiceJson);
+  const outPath = isMain ? OUT_JSON : path.join(ROOT, "src", set.sceneDurations);
+  const voice = JSON.parse(fs.readFileSync(voicePath, "utf8"));
+  const res = isMain
+    ? computeDurations(voice, sceneOrder())
+    : computeDurations(voice, sceneOrder(set.array), { bounds: DEMO_BOUNDS, minVisual: DEMO_MIN_VISUAL_FRAMES });
+  if (!isMain) res.set = set.name;
+  if (write) fs.writeFileSync(outPath, `${JSON.stringify(res, null, 2)}\n`, "utf8");
+  return { ...res, outPath };
 }
 
 function main() {
   const args = process.argv.slice(2);
   const check = args.includes("--check");
-  const res = run({ write: !check });
+  const setArg = args.includes("--set") ? args[args.indexOf("--set") + 1] : null;
+  const res = run({ write: !check, set: setArg });
+  const OUT_PATH = res.outPath;
+  delete res.outPath;
   if (args.includes("--json")) {
     console.log(JSON.stringify(res, null, 2));
   } else {
@@ -206,10 +243,10 @@ function main() {
     for (const n of res.notes) console.log(`  ${n}`);
   }
   if (check) {
-    const cur = fs.existsSync(OUT_JSON) ? JSON.parse(fs.readFileSync(OUT_JSON, "utf8")) : null;
+    const cur = fs.existsSync(OUT_PATH) ? JSON.parse(fs.readFileSync(OUT_PATH, "utf8")) : null;
     const same = cur && JSON.stringify(cur.scenes) === JSON.stringify(res.scenes);
     if (!same) {
-      console.error("🔴 src/scene-durations.json 이 현재 음성과 다르다 — node tools/scene-durations.mjs 를 다시 돌려라");
+      console.error(`🔴 ${path.relative(ROOT, OUT_PATH)} 이 현재 음성과 다르다 — node tools/scene-durations.mjs${setArg ? ` --set ${setArg}` : ""} 를 다시 돌려라`);
       process.exit(1);
     }
   }

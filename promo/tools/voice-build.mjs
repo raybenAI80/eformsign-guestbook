@@ -7,6 +7,8 @@
  *   node tools/voice-build.mjs --voice InJoon --rate 0 \
  *        --out-dir out/check/voice-trial --scenes paper,fill 시험 빌드(본편 건드리지 않음)
  *
+ *   node tools/voice-build.mjs --set demo                   실제 화면 편(DEMO_SCENES) — demo-<id>.mp3 · voice-demo.json
+ *
  *   🔴 edge-tts 는 네트워크를 쓴다 — PowerShell 에서 실행한다(Bash 는 샌드박스).
  *
  * 왜 한 명령인가 (2026-09-21 오케스트레이터 지시)
@@ -25,7 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { run as ttsRun } from "./tts.mjs";
+import { run as ttsRun, resolveSet } from "./tts.mjs";
 import { postProcess, DEFAULTS as POST_DEFAULTS } from "./voice-post.mjs";
 import { diagnose } from "./check-voice.mjs";
 
@@ -48,6 +50,7 @@ const probeSeconds = (file) => {
  * @param {object} [o.post]    voice-post 옵션 덮어쓰기
  */
 export function build(o = {}) {
+  const set = resolveSet(o.set);
   const outDir = path.resolve(ROOT, o.outDir ?? path.join("public", "voice"));
   const rawDir = path.join(outDir, "_raw");
   const isMain = path.resolve(outDir) === path.resolve(ROOT, "public", "voice");
@@ -60,6 +63,7 @@ export function build(o = {}) {
     force: o.force,
     writeDurations: false,
     quiet: true,
+    set: set.name,
   });
 
   const wanted = o.scenes && o.scenes.length ? new Set(o.scenes) : null;
@@ -69,8 +73,8 @@ export function build(o = {}) {
   for (const [id, v] of Object.entries(gen.scenes)) {
     if (v.seconds === null || v.seconds === undefined) continue; // 나레이션 없는 장면
     if (wanted && !wanted.has(id)) continue;
-    const src = path.join(rawDir, `${id}.mp3`);
-    const dst = path.join(outDir, `${id}.mp3`);
+    const src = path.join(rawDir, `${set.prefix}${id}.mp3`);
+    const dst = path.join(outDir, `${set.prefix}${id}.mp3`);
     const before = diagnose(src, v.storyboardSec ?? null);
     postProcess(src, dst, o.post ?? {});
     const after = diagnose(dst, v.storyboardSec ?? null);
@@ -93,15 +97,15 @@ export function build(o = {}) {
     if (vj.scenes[r.id]) {
       vj.scenes[r.id].rawSeconds = gen.scenes[r.id].seconds;
       vj.scenes[r.id].seconds = r.seconds;
-      vj.scenes[r.id].bytes = fs.statSync(path.join(outDir, `${r.id}.mp3`)).size;
+      vj.scenes[r.id].bytes = fs.statSync(path.join(outDir, `${set.prefix}${r.id}.mp3`)).size;
     }
   }
-  fs.writeFileSync(path.join(outDir, "voice.json"), `${JSON.stringify(vj, null, 2)}\n`, "utf8");
+  fs.writeFileSync(path.join(outDir, set.voiceJson), `${JSON.stringify(vj, null, 2)}\n`, "utf8");
 
   if (isMain) {
     const durations = {};
     for (const [id, v] of Object.entries(vj.scenes)) if (typeof v.seconds === "number") durations[id] = v.seconds;
-    fs.writeFileSync(path.join(ROOT, "src", "voice-durations.json"), `${JSON.stringify(durations, null, 2)}\n`, "utf8");
+    fs.writeFileSync(path.join(ROOT, "src", set.voiceDurations), `${JSON.stringify(durations, null, 2)}\n`, "utf8");
   }
 
   return { outDir, voice: vj.voice, rate: vj.rate, rows, warnings: gen.warnings ?? [] };
@@ -147,6 +151,7 @@ function main() {
     outDir: get("--out-dir"),
     scenes: (get("--scenes") ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     force: args.includes("--force"),
+    set: get("--set"),
   });
   console.table(
     res.rows.map((r) => ({

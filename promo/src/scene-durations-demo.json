@@ -1,0 +1,87 @@
+{
+  "fps": 30,
+  "voice": "ko-KR-InJoonNeural",
+  "rate": "+0%",
+  "leadSec": 0.3,
+  "tailSec": 0.5,
+  "paddedFrames": 0,
+  "totalFrames": 1593,
+  "totalSec": 53.1,
+  "ok": true,
+  "notes": [],
+  "scenes": {
+    "hook": {
+      "narrationSec": 5.054,
+      "minVisualFrames": 0,
+      "voiceFrames": 176,
+      "startFrame": 0,
+      "frames": 176,
+      "seconds": 5.867,
+      "driver": "voice"
+    },
+    "arrive": {
+      "narrationSec": 5.865,
+      "minVisualFrames": 0,
+      "voiceFrames": 200,
+      "startFrame": 176,
+      "frames": 200,
+      "seconds": 6.667,
+      "driver": "voice"
+    },
+    "fill": {
+      "narrationSec": 8.085,
+      "minVisualFrames": 0,
+      "voiceFrames": 267,
+      "startFrame": 376,
+      "frames": 267,
+      "seconds": 8.9,
+      "driver": "voice"
+    },
+    "next": {
+      "narrationSec": 5.994,
+      "minVisualFrames": 0,
+      "voiceFrames": 204,
+      "startFrame": 643,
+      "frames": 204,
+      "seconds": 6.8,
+      "driver": "voice"
+    },
+    "stack": {
+      "narrationSec": 6.035,
+      "minVisualFrames": 0,
+      "voiceFrames": 206,
+      "startFrame": 847,
+      "frames": 206,
+      "seconds": 6.867,
+      "driver": "voice"
+    },
+    "manage": {
+      "narrationSec": 5.563,
+      "minVisualFrames": 0,
+      "voiceFrames": 191,
+      "startFrame": 1053,
+      "frames": 191,
+      "seconds": 6.367,
+      "driver": "voice"
+    },
+    "branch": {
+      "narrationSec": 6.822,
+      "minVisualFrames": 150,
+      "voiceFrames": 229,
+      "startFrame": 1244,
+      "frames": 229,
+      "seconds": 7.633,
+      "driver": "voice"
+    },
+    "cta": {
+      "narrationSec": 2.858,
+      "minVisualFrames": 120,
+      "voiceFrames": 110,
+      "startFrame": 1473,
+      "frames": 120,
+      "seconds": 4,
+      "driver": "visual"
+    }
+  },
+  "set": "demo"
+}

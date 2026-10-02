@@ -2,7 +2,10 @@
 /**
  * 쉬운 말 게이트 (영상 원고용).
  *
- *   node tools/check-script.mjs
+ *   node tools/check-script.mjs              본편(SCENES·CUT15 등) — 기존 동작 그대로
+ *   node tools/check-script.mjs --set demo   실제 화면 편(DEMO_SCENES 블록만) + 편 전용 금칙(행사·이벤트·전시)
+ *
+ *   🔴 본편 검사는 DEMO_SCENES 블록 줄을 **제외**한다 — 두 편이 같은 파일에 있어도 결과가 섞이지 않는다.
  *
  * 대상 = src/script.ts 의 **표시 텍스트**뿐이다.
  *   · captions[] · footnote · narration · tts · CUT15[].captions
@@ -64,6 +67,11 @@ const BANNED_PROMO = [
   [/\b\d[\d,]*\s*원\b/g, "가격 숫자", "가격 숫자·암시 금지"],
   [/월\s*\d/g, "월 요금", "가격 숫자·암시 금지"],
   [/공짜|할인|특가/g, "가격 암시", "가격 표현 금지"],
+];
+
+/** (다) 실제 화면 편 전용 추가 금칙 — 스토리보드 §0 적용 규칙(2026-10-03) */
+const BANNED_DEMO = [
+  [/행사|이벤트|전시/g, "행사·이벤트·전시", "장소·행사 맥락으로 팔지 않는다"],
 ];
 
 const JOSA = [
@@ -132,9 +140,37 @@ function extractDisplayText(src) {
   return items.filter((i) => DISPLAY_KEYS.includes(i.key));
 }
 
+/** `export const DEMO_SCENES … = [ … ]` 블록의 줄 범위(1-기준, 양끝 포함). 없으면 null */
+function demoBlockLines(src) {
+  const m = src.match(/export const DEMO_SCENES[^=]*=\s*\[/);
+  if (!m) return null;
+  let i = m.index + m[0].length - 1;
+  let depth = 0;
+  let end = i;
+  for (; end < src.length; end++) {
+    if (src[end] === "[") depth++;
+    else if (src[end] === "]" && --depth === 0) break;
+  }
+  const lineOf = (pos) => src.slice(0, pos).split("\n").length;
+  return [lineOf(m.index), lineOf(end)];
+}
+
 function main() {
+  const args = process.argv.slice(2);
+  const set = args.includes("--set") ? args[args.indexOf("--set") + 1] : "main";
+  if (!["main", "demo"].includes(set)) {
+    console.error(`FAIL: 알 수 없는 --set: ${set} (가능: main, demo)`);
+    process.exit(1);
+  }
   const src = fs.readFileSync(SCRIPT, "utf8");
-  const items = extractDisplayText(src);
+  const range = demoBlockLines(src);
+  if (set === "demo" && !range) {
+    console.error("FAIL: script.ts 에 DEMO_SCENES 가 없다");
+    process.exit(1);
+  }
+  const inDemo = (ln) => Boolean(range) && ln >= range[0] && ln <= range[1];
+  const items = extractDisplayText(src).filter((it) => (set === "demo" ? inDemo(it.ln) : !inDemo(it.ln)));
+  const banned = set === "demo" ? [...BANNED_DEV, ...BANNED_PROMO, ...BANNED_DEMO] : [...BANNED_DEV, ...BANNED_PROMO];
 
   if (items.length === 0) {
     console.error("FAIL: 표시 텍스트를 하나도 못 뽑았다 — 추출기가 script.ts 형식과 어긋난다");
@@ -143,11 +179,12 @@ function main() {
 
   const fails = [];
   const warns = [];
+  const shorts = [];
 
   for (const it of items) {
     // 나레이션에는 태블릿/설치 금칙이 자막 헤드라인 기준보다 느슨할 수 있으나,
     // 기획서 10절이 "말로 팔지 않는다"이므로 나레이션에도 똑같이 적용한다.
-    for (const [re, name, fix] of [...BANNED_DEV, ...BANNED_PROMO]) {
+    for (const [re, name, fix] of banned) {
       re.lastIndex = 0;
       const m = re.exec(it.text);
       if (m) fails.push({ ...it, kind: "금칙어", name, fix, hit: m[0] });
@@ -168,10 +205,13 @@ function main() {
     if (it.key === "captions") {
       const len = [...it.text].length;
       if (len > 25) warns.push({ ...it, why: `자막 한 줄 ${len}자 — 디스플레이형 권장 15~25자` });
+      // 실제 화면 편은 짧은 줄도 알린다(정보 — 2줄 자막의 짧은 앞줄은 의도일 수 있어 FAIL·WARN 아님)
+      else if (set === "demo" && len < 15) shorts.push({ ...it, len });
     }
   }
 
-  console.log(`검사 대상 표시 텍스트 ${items.length}개 (captions/footnote/narration/tts)`);
+  console.log(`${set === "main" ? "" : `[set=${set}] `}검사 대상 표시 텍스트 ${items.length}개 (captions/footnote/narration/tts)`);
+  for (const s of shorts) console.log(`  INFO  script.ts:${s.ln}  자막 한 줄 ${s.len}자(<15) "${s.text}"`);
 
   for (const w of warns) {
     console.log(`  WARN  script.ts:${w.ln}  ${w.why}\n        "${w.text}"`);

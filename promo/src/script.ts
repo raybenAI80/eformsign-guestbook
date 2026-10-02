@@ -16,6 +16,7 @@
  */
 
 import sceneDurations from "./scene-durations.json";
+import sceneDurationsDemo from "./scene-durations-demo.json";
 
 export const FPS = 30;
 /** 기본 화자 — 🔴 2026-09-21 사용자 확정: 인준(속도 0%). 선히 +10% 는 어색하다는 판정 */
@@ -224,3 +225,133 @@ export const GIF3_FRAMES = sec(3);
  * (장면 길이를 재배분해도 Paper 나레이션이 잘리지 않는다 — 2026-09-18 기준 10초).
  */
 export const PREVIEW9_FRAMES = sceneFrames("hook") + sceneFrames("paper");
+
+/* ---------- 실제 화면 편(demo set) — 2026-10-03 레인 D1 ---------- */
+/**
+ * 정본 = `docs/marketing/demo-video-storyboard.md` §2 장면표(v1 확정 2026-10-03).
+ * 카피(captions·footnote·narration)는 사용자 확정본이다 — 고치면 TTS·장면 길이를 다시 만든다.
+ *
+ * 🔴 위 본편(Main60)의 SCENES·SceneId·scene-durations.json 과 **완전히 분리**한다.
+ *    도구는 `--set demo` 로 이 배열을 고른다(기본 = 본편, 동작 불변):
+ *      node tools/check-script.mjs --set demo
+ *      node tools/voice-build.mjs --set demo     (tts → 후처리 → public/voice/demo-*.mp3 + voice-demo.json)
+ *      node tools/scene-durations.mjs --set demo (→ src/scene-durations-demo.json)
+ *    이 배열도 리터럴만 잘라 eval 되므로 리터럴 안에서 JSON·변수를 참조하지 않는다.
+ */
+export type DemoSceneId =
+  | "hook"
+  | "arrive"
+  | "fill"
+  | "next"
+  | "stack"
+  | "manage"
+  | "branch"
+  | "cta";
+
+export interface DemoSceneScript extends Omit<SceneScript, "id"> {
+  id: DemoSceneId;
+}
+
+export const DEMO_SCENES: DemoSceneScript[] = [
+  {
+    id: "hook",
+    label: "훅 — 수기 방명록을 바꾸면",
+    startSec: 0,
+    endSec: 4,
+    captions: ["수기 방명록을 이폼사인으로 바꾸면", "실제 화면은 이렇습니다"],
+    narration: "수기 방명록을 이폼사인으로 바꾸면, 실제 화면은 이렇습니다.",
+    note: "검은 바탕 → 실캡처 화면 페이드인. 헤더 밴드 「방문자 기록부」가 먼저 읽히는 배율. BGM 인(홍보편 track 변주).",
+  },
+  {
+    id: "arrive",
+    label: "열린 한 줄만 입력",
+    startSec: 4,
+    endSec: 10,
+    captions: ["방문하신 분은", "열려 있는 한 줄만 적습니다"],
+    narration: "방문하신 분은 열려 있는 한 줄에 이름과 연락처, 방문 목적만 적습니다.",
+    note: "기기 전체. 열린 행 1개만 입력 가능, 나머지 행은 빈 칸. 손 층(hand-03 재사용)이 성명 칸으로 들어옴. 탭 효과음.",
+  },
+  {
+    id: "fill",
+    label: "적고·체크·서명·전송",
+    startSec: 10,
+    endSec: 20,
+    captions: ["적고, 체크하고, 서명하면", "끝입니다"],
+    narration:
+      "적고, 체크하고, 서명하면 끝입니다. 서명이 끝나면 전송 버튼이 어디 있는지 화면이 알려 줍니다.",
+    note: "성명·연락처 입력 → 방문 목적 체크 1개 → 서명 획 → 「전송」 안내 띠 점등 → 전송 탭. 입력값은 가상 인물. 탭 3회 + 서명 스크래치.",
+  },
+  {
+    id: "next",
+    label: "다음 사람 — 앞 행 가림",
+    startSec: 20,
+    endSec: 28,
+    captions: ["다음 분에게는", "앞사람 정보가 보이지 않습니다"],
+    narration: "다음 분에게는 앞사람 이름도 연락처도 보이지 않습니다. 같은 한 장인데도요.",
+    note: "전송 직후 화면이 스스로 처음으로 돌아감(「처음부터 다시」 장치는 잠깐만). 좌우 분할(SplitScreen 재사용): 왼쪽 첫 방문자가 쓴 행, 오른쪽 두 번째 방문자가 보는 화면(앞 행 가림). 짧은 「휙」 복귀음.",
+  },
+  {
+    id: "stack",
+    label: "하루 한 장 — 문서함",
+    startSec: 28,
+    endSec: 36,
+    captions: ["열 명이 써도", "문서는 하루 한 장"],
+    narration: "열 분이 써도 문서는 하루 한 장입니다. 이폼사인 문서함에 그대로 쌓입니다.",
+    note: "PC 이폼사인 문서함(정식 UI). 문서 1건, 열면 10행이 차례로 채워진 서식(완료 PDF 미리보기 — 완료본에는 모든 행이 보인다). 카드 착지음(stack-shimmer 재사용).",
+  },
+  {
+    id: "manage",
+    label: "찾고·열고·내려받기",
+    startSec: 36,
+    endSec: 44,
+    captions: ["찾고, 열고, 내려받기까지", "이폼사인 문서함에서"],
+    footnote: "운영시간이 지나면 다음 날 새 장이 열립니다",
+    narration: "찾고, 열고, 내려받기까지 이폼사인 문서함에서 끝납니다.",
+    note: "문서함 검색(이름으로) → PDF 미리보기 → 다운로드. 운영시간 하루 단위 새 장은 각주 한 줄로만. 탭.",
+  },
+  {
+    id: "branch",
+    label: "방명록은 시작일 뿐",
+    startSec: 44,
+    endSec: 50,
+    captions: ["방명록은 시작일 뿐", "계약·동의·접수도 같은 이폼사인"],
+    narration: "방명록은 시작일 뿐입니다. 계약도, 동의도, 접수도 같은 이폼사인입니다.",
+    note: "홍보편 Branch 재사용(방명록 → 계약·동의·접수). 전환음.",
+  },
+  {
+    id: "cta",
+    label: "CTA — 이폼사인 체험",
+    startSec: 50,
+    endSec: 54,
+    captions: ["지금 이폼사인을 체험해 보세요", "www.eformsign.com"],
+    narration: "지금 이폼사인을 체험해 보세요.",
+    note: "홍보편 CTA 재사용(로고 PNG + 패널). 보조 링크 한 줄: 방명록 안내 페이지. cta-reveal. 로고는 제공 PNG 만.",
+  },
+];
+
+const DEMO_TIMELINE = sceneDurationsDemo as unknown as {
+  fps: number;
+  totalFrames: number;
+  scenes: Record<string, { startFrame: number; frames: number }>;
+};
+
+for (const s of DEMO_SCENES) {
+  const t = DEMO_TIMELINE.scenes[s.id];
+  if (!t) continue;
+  s.startSec = t.startFrame / DEMO_TIMELINE.fps;
+  s.endSec = (t.startFrame + t.frames) / DEMO_TIMELINE.fps;
+}
+
+export const demoScene = (id: DemoSceneId): DemoSceneScript => {
+  const found = DEMO_SCENES.find((s) => s.id === id);
+  if (!found) throw new Error(`알 수 없는 실제 화면 편 장면: ${id}`);
+  return found;
+};
+
+export const demoSceneFrames = (id: DemoSceneId) => {
+  const s = demoScene(id);
+  return sec(s.endSec - s.startSec);
+};
+
+/** 실제 화면 편 총길이 = src/scene-durations-demo.json (나레이션 실측 파생) */
+export const DEMO_FRAMES = DEMO_TIMELINE.totalFrames;
