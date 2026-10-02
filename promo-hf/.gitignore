@@ -1,0 +1,7 @@
+node_modules/
+out/
+renders/
+snapshots/
+.hyperframes/
+# assets are copies of promo/public — restore with: node tools/sync-assets.mjs
+assets/
