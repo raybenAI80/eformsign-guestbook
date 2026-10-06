@@ -52,10 +52,13 @@ const LEGACY_CROP_SCENES = new Set<string>(["hook"]);
 type Scenes = Record<string, Record<string, DemoShot>>;
 const M = manifest as unknown as {
   plate: { file: string; screenQuadScene: number };
+  hand: { file: string };
   scenes: Scenes;
 };
 
 export const DEMO_PLATE = M.plate;
+/** Demo53 전용 손 층 파일(public/gen/ 기준) — 원본 hand-03.png 의 소매 연장부 줄무늬 수선본(레인 D3c) */
+export const DEMO_HAND = M.hand;
 
 /** 장면 하나가 요구하는 것 — { 소재키: [표식키…] }. rows 가 필요하면 표식 목록에 "#rows:N" */
 export type DemoNeed = Record<string, string[]>;

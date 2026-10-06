@@ -32,6 +32,8 @@ export const NEED_FILL = {
 const ZOOM = 2.0;
 /** 손이 누르는 프레임(그 칸이 채워진 캡처는 누른 뒤 CUT_LAG 프레임에 뜬다) */
 const T = { name: 24, phone: 78, purpose: 132, sign: 186, send: 246 };
+/* 🔴 전송 탭 = 상단 파란 바 「전송」(marks.sendButton, 레인 D3c 재측정). 하단 바 「전송」(sendBand 안)은 자막 띠
+ *    (화면 아래 34%, 거의 불투명) 밑에 묻혀 손·버튼이 안 보였다(d3b-f622). 같은 기능이라 상단 버튼을 누른다. */
 const CUT_LAG = 4;
 
 export const DemoFill: React.FC<{ mute?: boolean }> = ({ mute }) => {
@@ -53,7 +55,10 @@ export const DemoFill: React.FC<{ mute?: boolean }> = ({ mute }) => {
   const sA = shotToPhoto(sign, [sb.x + sb.w * 0.2, sb.y + sb.h / 2]);
   const sB = shotToPhoto(sign, [sb.x + sb.w * 0.8, sb.y + sb.h / 2]);
   const sMid: Pt = [(sA[0] + sB[0]) / 2, (sA[1] + sB[1]) / 2];
-  const pSend = rectToPhoto(band, band.marks.sendButton);
+  /* 손끝 = 버튼 오른쪽 아래 1/4(글자 오른쪽). 손가락이 손끝에서 오른쪽 아래로 뻗으므로 중앙을 누르면
+   *  손가락이 「전송」 글자를 덮는다(레인 D3c f622 200% 크롭) — 이 점이면 글자가 손끝 왼쪽에 보인다 */
+  const sbtn = band.marks.sendButton;
+  const pSend = shotToPhoto(band, [sbtn.x + sbtn.w * 0.8, sbtn.y + sbtn.h * 0.75]);
   const keys: HandKey[] = [
     { kind: "hover", t: 0, at: [pName[0] + 10, pName[1] + 14] },
     { kind: "tap", t: T.name, at: pName },

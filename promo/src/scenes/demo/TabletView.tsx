@@ -4,7 +4,7 @@ import { QuadShot, StagePane } from "../../components/ShotView";
 import { HandLayer } from "../../components/HandLayer";
 import { squareToQuad, type HandKey, type Pt } from "../../hand";
 import { quadAspect, screenCrop, screenQuad, shotLayer, type Rect } from "../../shots-scenes";
-import { DEMO_PLATE, type ReadyShot } from "../../demo-shots";
+import { DEMO_HAND, DEMO_PLATE, type ReadyShot } from "../../demo-shots";
 import type { Corners } from "../../components/ScreenComposite";
 
 /**
@@ -112,7 +112,7 @@ export const TabletStage: React.FC<{
       originY={focus[1]}
     >
       {children}
-      {handKeys && handKeys.length ? <HandLayer keys={handKeys} /> : null}
+      {handKeys && handKeys.length ? <HandLayer keys={handKeys} file={DEMO_HAND.file} /> : null}
     </Photo>
   </StagePane>
 );

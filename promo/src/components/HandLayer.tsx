@@ -204,11 +204,12 @@ const HandMeshes: React.FC<{
   );
 };
 
-export const HandLayer: React.FC<{ keys: HandKey[]; from?: number }> = ({ keys, from = 0 }) => {
+/** file = 손 컷아웃 PNG 바꿔 끼우기(public/gen/ 기준, 크기·원점·손끝은 spec 그대로). 생략 = spec.file(본편 기본) */
+export const HandLayer: React.FC<{ keys: HandKey[]; from?: number; file?: string }> = ({ keys, from = 0, file }) => {
   const spec = handLayerSpec();
   const cand = useCand();
   const P = isHandCand(cand) ? HAND3D_VARIANTS[cand] : cand === "v34" ? HAND3D_V34 : HAND3D;
-  const map = useHandTexture(spec?.file ?? "hand-03.png");
+  const map = useHandTexture(file ?? spec?.file ?? "hand-03.png");
   if (!spec || !keys.length || !map) return null;
   return (
     <div style={{ position: "absolute", left: 0, top: 0, width: CANVAS_W, height: CANVAS_H, pointerEvents: "none" }}>

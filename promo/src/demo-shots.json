@@ -5,6 +5,10 @@
     "file": "gen-03-plate.png",
     "screenQuadScene": 3
   },
+  "hand": {
+    "$comment": "Demo53 전용 손 층(레인 D3c). 원본 hand-03.png 의 소매 연장부 알파 결함(계단 줄무늬)을 tools/repair-hand-sleeve.py 로 수선한 사본. 본편 Main60 은 prompts.json handLayer.file(hand-03.png)을 그대로 쓴다",
+    "file": "hand-03-demo.png"
+  },
   "scenes": {
     "hook": {
       "screen": {
@@ -237,10 +241,10 @@
             "h": 175
           },
           "sendButton": {
-            "x": 1495,
-            "y": 3342,
-            "w": 175,
-            "h": 85
+            "x": 1624,
+            "y": 212,
+            "w": 140,
+            "h": 82
           }
         }
       }
