@@ -7,8 +7,9 @@
       B15 (0–2.4 s): 실캡처 4장이 1 → 2 → 4분할로 열려 「여러 사람이 차례로 쓴다」를 보여 준 뒤 어둡게 물러나 배경이 된다.
       T09 (2.3–8.0 s): 그 위 카드에서 세로 선이 50→80→20→50 % 로 오가며 전(종이 방명록 생성 이미지 gen-01)과
                        후(이폼사인 실캡처 V2-step2-signed — 앞 행 「작성 완료」로 가림)를 같은 자리에서 잘라 보인다.
-      카피 = promo/src/script.ts repeat captions(확정) 그대로. 전/후 꼬리표는 미확정 → [카피 미확정] 그대로 둔다.
-      이폼사인 화면은 실캡처 PNG 를 자르기만 한다(재구성 UI 없음).
+      카피 = promo/src/script.ts repeat captions(확정) 그대로. 전/후 꼬리표 = 「종이 방명록」/「이폼사인」(10-07 확정), 카드 위 바깥에 둔다.
+      이폼사인 화면은 실캡처 PNG 를 자르기·배율만 한다(재구성 UI 없음). 후 패널 = 서식 종이 가로 폭 맞춤·상단 정렬.
+      2.4 s 이후 B15 배경은 블러(14px)+검정 60 % 로 물러나 카드·자막만 또렷하다.
     -->
   </head>
   <body>
@@ -85,14 +86,14 @@
         #ct-dim {
           position: absolute;
           inset: 0;
-          background: #0a1626;
+          background: #000000;
           opacity: 0;
         }
         /* ---- T09 before/after card ---- */
         #ct-card {
           position: absolute;
           left: 288px;
-          top: 70px;
+          top: 86px;
           width: 1344px;
           height: 756px;
           overflow: hidden;
@@ -121,13 +122,14 @@
           /* same box as the before layer; only the line cuts it */
           clip-path: inset(0 0 0 calc(var(--p) * 1%));
         }
-        /* real capture, scaled 0.7 (1920 -> 1344), shifted down to the form rows (source y 380..1460)
-           and 200px right so the hidden first row (「작성 완료」) and row 2 sit in the half the line reveals */
+        /* real capture (1920x3473), crop + scale only: the form paper (source x 24..1896) fits the card width
+           (scale 1344/1872 = 0.71795), top-aligned at source y 350 so the FORCS header, the hidden row 1
+           (「작성 완료」), row 2 and the next blank row 3 are all in view */
         #ct-after img {
           position: absolute;
-          left: 200px;
-          top: -266px;
-          width: 1344px;
+          left: -17.23px;
+          top: -251.28px;
+          width: 1378.46px;
           height: auto;
           display: block;
         }
@@ -140,9 +142,10 @@
           background: #ffffff;
           box-shadow: 0 0 18px 4px rgba(79, 214, 255, 0.7);
         }
+        /* tags sit above the card (outside it), so they never cover the logo / company name in the captures */
         .ct-tag {
           position: absolute;
-          top: 28px;
+          top: 22px;
           padding: 10px 18px;
           font-family: "Paperlogy", sans-serif;
           font-weight: 800;
@@ -153,8 +156,8 @@
           white-space: nowrap;
           opacity: 0;
         }
-        #ct-tag-before { left: 28px; }
-        #ct-tag-after { right: 28px; }
+        #ct-tag-before { left: 288px; }
+        #ct-tag-after { right: 288px; }
         #ct-caption {
           position: absolute;
           left: 110px;
@@ -198,10 +201,10 @@
           <div id="ct-before" class="ct-layer"><img data-layout-allow-overflow src="assets/gen/gen-01.png" alt="" /></div>
           <div id="ct-after" class="ct-layer"><img data-layout-allow-overflow src="assets/shots/demo/tablet/V2-step2-signed.png" alt="" /></div>
           <div id="ct-line"></div>
-          <div id="ct-tag-before" class="ct-tag">[카피 미확정]</div>
-          <div id="ct-tag-after" class="ct-tag">[카피 미확정]</div>
           </div>
         </div>
+        <div id="ct-tag-before" class="ct-tag">종이 방명록</div>
+        <div id="ct-tag-after" class="ct-tag">이폼사인</div>
 
         <div id="ct-caption">
           <span id="ct-cap-1" class="ct-cap">앞사람 정보는</span>
@@ -236,8 +239,10 @@
           // the one wow: seams lock like a puzzle and glint once
           tl.fromTo(".ct-flash", { opacity: 0 }, { keyframes: { opacity: [0, 0.9, 0] }, duration: 0.38, ease: "none" }, 2.4);
           // grid steps back and becomes the background
-          tl.fromTo("#ct-dim", { opacity: 0 }, { opacity: 0.66, duration: 0.5, ease: "power1.inOut" }, 2.3);
-          tl.fromTo("#ct-grid", { scale: 1 }, { scale: 1.06, duration: 5.7, ease: "none" }, 2.3);
+          tl.fromTo("#ct-dim", { opacity: 0 }, { opacity: 0.6, duration: 0.5, ease: "power1.inOut" }, 2.3);
+          tl.set("#ct-grid", { scale: 1, filter: "blur(0px)" }, 0);
+          tl.to("#ct-grid", { filter: "blur(14px)", duration: 0.5, ease: "power1.inOut" }, 2.4);
+          tl.to("#ct-grid", { scale: 1.06, duration: 5.7, ease: "none" }, 2.3);
 
           // ---- T09 card ----
           tl.fromTo("#ct-card", { opacity: 0, y: 40, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out" }, 2.3);
