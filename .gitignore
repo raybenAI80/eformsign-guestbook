@@ -17,3 +17,6 @@ promo/out/
 promo/.gen-work/
 promo/.local/
 promo/public/shots/
+
+# third-party prompt catalog lives in the vault, not in this public repo
+docs/marketing/motion-dictionary/catalog.json
