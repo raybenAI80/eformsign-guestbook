@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Copy the CTA scene assets from the Remotion project (promo/public) into promo-hf/assets.
+// Copy the CTA / hook-t03 / compare-t09 scene assets from the Remotion project (promo/public) into promo-hf/assets.
 // Usage: node tools/sync-assets.mjs   (run from anywhere)
 // assets/ is not committed (copies of promo/public) — run this after a fresh clone.
 import { copyFileSync, mkdirSync } from "node:fs";
@@ -17,6 +17,15 @@ const FILES = [
   "voice/cta.mp3",
   "sfx/cta-reveal.wav",
   "bgm/track.mp3",
+  // hook-t03 / compare-t09 (motion dictionary T03·T09·B15 pilot)
+  "voice/hook.mp3",
+  "voice/repeat.mp3",
+  "gen/gen-01.png",
+  "shots/demo/tablet/S-step1-before-send.png",
+  "shots/demo/tablet/S-step1-filled.png",
+  "shots/demo/tablet/S-step1-signed.png",
+  "shots/demo/tablet/V2-step2-filled.png",
+  "shots/demo/tablet/V2-step2-signed.png",
 ];
 for (const f of FILES) {
   const to = join(root, "assets", f);

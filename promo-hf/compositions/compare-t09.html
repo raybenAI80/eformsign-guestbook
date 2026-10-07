@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      compare-t09 — 모션 주문 사전 T09 「전·후 비교 스플릿」 + B15 「분할 화면」 배경 이식 시험 (Main60 repeat 자리).
+      B15 (0–2.4 s): 실캡처 4장이 1 → 2 → 4분할로 열려 「여러 사람이 차례로 쓴다」를 보여 준 뒤 어둡게 물러나 배경이 된다.
+      T09 (2.3–8.0 s): 그 위 카드에서 세로 선이 50→80→20→50 % 로 오가며 전(종이 방명록 생성 이미지 gen-01)과
+                       후(이폼사인 실캡처 V2-step2-signed — 앞 행 「작성 완료」로 가림)를 같은 자리에서 잘라 보인다.
+      카피 = promo/src/script.ts repeat captions(확정) 그대로. 전/후 꼬리표는 미확정 → [카피 미확정] 그대로 둔다.
+      이폼사인 화면은 실캡처 PNG 를 자르기만 한다(재구성 UI 없음).
+    -->
+  </head>
+  <body>
+    <template id="compare-t09-template">
+      <style>
+        @font-face {
+          font-family: "Paperlogy";
+          src: url("assets/fonts/Paperlogy-8ExtraBold.ttf") format("truetype");
+          font-weight: 800;
+          font-display: block;
+        }
+        @font-face {
+          font-family: "Pretendard";
+          src: url("assets/fonts/Pretendard-Regular.ttf") format("truetype");
+          font-weight: 400;
+          font-display: block;
+        }
+        #compare-t09,
+        #compare-t09 * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+          word-break: keep-all;
+          overflow-wrap: break-word;
+          line-break: strict;
+        }
+        #compare-t09 {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          background: #16130e;
+          font-family: "Pretendard", sans-serif;
+        }
+        /* ---- B15 split-screen background ---- */
+        #ct-grid {
+          position: absolute;
+          inset: 0;
+          transform-origin: 50% 50%;
+        }
+        .ct-tile {
+          position: absolute;
+          overflow: hidden;
+          background: #ffffff;
+        }
+        /* portrait capture at natural aspect; the cell clip crops it, a transform places/scales it (no distortion) */
+        .ct-tile img {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 1920px;
+          height: auto;
+          display: block;
+          transform-origin: 0 0;
+        }
+        /* every cell is a full-frame layer; the split is done with clip-path only (no layout motion) */
+        .ct-tile { left: 0; top: 0; width: 1920px; height: 1080px; }
+        #ct-tile-a { clip-path: inset(0 0 0 0); }
+        #ct-tile-b { clip-path: inset(0 0 0 1920px); }
+        #ct-tile-c { clip-path: inset(1080px 960px 0 0); }
+        #ct-tile-d { clip-path: inset(1080px 0 0 960px); }
+        /* thin dark seams between cells (#16130E); .ct-flash is the one-time puzzle-lock glint on top */
+        .ct-seam {
+          position: absolute;
+          background: #16130e;
+          opacity: 0;
+        }
+        .ct-flash {
+          position: absolute;
+          background: #ffffff;
+          opacity: 0;
+        }
+        #ct-seam-v, #ct-flash-v { left: 957px; top: 0; width: 6px; height: 1080px; }
+        #ct-seam-h, #ct-flash-h { left: 0; top: 537px; width: 1920px; height: 6px; }
+        #ct-dim {
+          position: absolute;
+          inset: 0;
+          background: #0a1626;
+          opacity: 0;
+        }
+        /* ---- T09 before/after card ---- */
+        #ct-card {
+          position: absolute;
+          left: 288px;
+          top: 70px;
+          width: 1344px;
+          height: 756px;
+          overflow: hidden;
+          background: #ffffff;
+          box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+          opacity: 0;
+        }
+        #ct-frame {
+          position: absolute;
+          inset: 0;
+          --p: 50;
+        }
+        .ct-layer {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+        }
+        #ct-before img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        #ct-after {
+          background: #ffffff;
+          /* same box as the before layer; only the line cuts it */
+          clip-path: inset(0 0 0 calc(var(--p) * 1%));
+        }
+        /* real capture, scaled 0.7 (1920 -> 1344), shifted down to the form rows (source y 380..1460)
+           and 200px right so the hidden first row (「작성 완료」) and row 2 sit in the half the line reveals */
+        #ct-after img {
+          position: absolute;
+          left: 200px;
+          top: -266px;
+          width: 1344px;
+          height: auto;
+          display: block;
+        }
+        #ct-line {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: calc(var(--p) * 1% - 2px);
+          width: 4px;
+          background: #ffffff;
+          box-shadow: 0 0 18px 4px rgba(79, 214, 255, 0.7);
+        }
+        .ct-tag {
+          position: absolute;
+          top: 28px;
+          padding: 10px 18px;
+          font-family: "Paperlogy", sans-serif;
+          font-weight: 800;
+          font-size: 26px;
+          letter-spacing: 0.12em;
+          color: #9fb0d0;
+          background: rgba(10, 22, 38, 0.82);
+          white-space: nowrap;
+          opacity: 0;
+        }
+        #ct-tag-before { left: 28px; }
+        #ct-tag-after { right: 28px; }
+        #ct-caption {
+          position: absolute;
+          left: 110px;
+          right: 110px;
+          top: 868px;
+          height: 150px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.3em;
+          font-family: "Paperlogy", sans-serif;
+          font-weight: 800;
+          font-size: 64px;
+          color: #ffffff;
+          text-align: center;
+          text-wrap: balance;
+          text-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+        }
+        .ct-cap {
+          display: block;
+          white-space: nowrap;
+          opacity: 0;
+        }
+      </style>
+
+      <div id="compare-t09" data-composition-id="compare-t09" data-width="1920" data-height="1080" data-duration="8">
+        <div id="ct-grid" data-layout-allow-overflow>
+          <div id="ct-tile-a" class="ct-tile"><img id="ct-img-a" data-layout-allow-overflow src="assets/shots/demo/tablet/S-step1-before-send.png" alt="" /></div>
+          <div id="ct-tile-b" class="ct-tile"><img id="ct-img-b" data-layout-allow-overflow src="assets/shots/demo/tablet/S-step1-filled.png" alt="" /></div>
+          <div id="ct-tile-c" class="ct-tile"><img id="ct-img-c" data-layout-allow-overflow src="assets/shots/demo/tablet/S-step1-signed.png" alt="" /></div>
+          <div id="ct-tile-d" class="ct-tile"><img id="ct-img-d" data-layout-allow-overflow src="assets/shots/demo/tablet/V2-step2-filled.png" alt="" /></div>
+          <div id="ct-seam-v" class="ct-seam"></div>
+          <div id="ct-seam-h" class="ct-seam"></div>
+          <div id="ct-flash-v" class="ct-flash"></div>
+          <div id="ct-flash-h" class="ct-flash"></div>
+        </div>
+        <div id="ct-dim"></div>
+
+        <div id="ct-card">
+          <div id="ct-frame">
+          <div id="ct-before" class="ct-layer"><img data-layout-allow-overflow src="assets/gen/gen-01.png" alt="" /></div>
+          <div id="ct-after" class="ct-layer"><img data-layout-allow-overflow src="assets/shots/demo/tablet/V2-step2-signed.png" alt="" /></div>
+          <div id="ct-line"></div>
+          <div id="ct-tag-before" class="ct-tag">[카피 미확정]</div>
+          <div id="ct-tag-after" class="ct-tag">[카피 미확정]</div>
+          </div>
+        </div>
+
+        <div id="ct-caption">
+          <span id="ct-cap-1" class="ct-cap">앞사람 정보는</span>
+          <span id="ct-cap-2" class="ct-cap">다음 사람에게 보이지 않습니다</span>
+        </div>
+      </div>
+
+      <script>
+        (() => {
+          const ID = "compare-t09";
+          const tl = gsap.timeline({ paused: true });
+          const io = "power2.inOut";
+
+          // ---- B15: 1 -> 2 -> 4 split (catalog beats 0–0.6 / 0.6–1.2 / 1.2–1.8 / 1.8–2.4), clip-path only ----
+          tl.set("#ct-tile-a", { clipPath: "inset(0px 0px 0px 0px)" }, 0);
+          tl.set("#ct-tile-b", { clipPath: "inset(0px 0px 0px 1920px)" }, 0);
+          tl.set("#ct-tile-c", { clipPath: "inset(1080px 960px 0px 0px)" }, 0);
+          tl.set("#ct-tile-d", { clipPath: "inset(1080px 0px 0px 960px)" }, 0);
+          // images: A shrinks from full width to its half/quarter cell; B/C/D wait at half scale in their cells
+          tl.set("#ct-img-b", { x: 960, y: 0, scale: 0.5 }, 0);
+          tl.set("#ct-img-c", { x: 0, y: 540, scale: 0.5 }, 0);
+          tl.set("#ct-img-d", { x: 960, y: 540, scale: 0.5 }, 0);
+          tl.fromTo("#ct-img-a", { scale: 1 }, { scale: 0.5, duration: 0.6, ease: io }, 0.6);
+          tl.to("#ct-tile-a", { clipPath: "inset(0px 960px 0px 0px)", duration: 0.6, ease: io }, 0.6);
+          tl.to("#ct-tile-b", { clipPath: "inset(0px 0px 0px 960px)", duration: 0.6, ease: io }, 0.6);
+          tl.fromTo("#ct-seam-v", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: io }, 0.6);
+          tl.to("#ct-tile-a", { clipPath: "inset(0px 960px 540px 0px)", duration: 0.6, ease: io }, 1.8);
+          tl.to("#ct-tile-b", { clipPath: "inset(0px 0px 540px 960px)", duration: 0.6, ease: io }, 1.8);
+          tl.to("#ct-tile-c", { clipPath: "inset(540px 960px 0px 0px)", duration: 0.6, ease: io }, 1.8);
+          tl.to("#ct-tile-d", { clipPath: "inset(540px 0px 0px 960px)", duration: 0.6, ease: io }, 1.8);
+          tl.fromTo("#ct-seam-h", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: io }, 1.8);
+          // the one wow: seams lock like a puzzle and glint once
+          tl.fromTo(".ct-flash", { opacity: 0 }, { keyframes: { opacity: [0, 0.9, 0] }, duration: 0.38, ease: "none" }, 2.4);
+          // grid steps back and becomes the background
+          tl.fromTo("#ct-dim", { opacity: 0 }, { opacity: 0.66, duration: 0.5, ease: "power1.inOut" }, 2.3);
+          tl.fromTo("#ct-grid", { scale: 1 }, { scale: 1.06, duration: 5.7, ease: "none" }, 2.3);
+
+          // ---- T09 card ----
+          tl.fromTo("#ct-card", { opacity: 0, y: 40, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: "power3.out" }, 2.3);
+          // line: 50 -> 80 (ease out, hesitate) -> 20 (fastest through the middle) -> 50 — one keyframed tween on #ct-frame
+          tl.set("#ct-frame", { "--p": 50 }, 0);
+          tl.to(
+            "#ct-frame",
+            {
+              keyframes: [
+                { "--p": 80, duration: 1.3, ease: "power2.out" },
+                { "--p": 20, duration: 2.5, ease: "sine.inOut" },
+                { "--p": 50, duration: 1.2, ease: "power2.inOut" },
+              ],
+            },
+            2.6,
+          );
+          // glow blooms once when the line settles in the middle
+          tl.fromTo(
+            "#ct-line",
+            { boxShadow: "0 0 18px 4px rgba(79,214,255,0.7)" },
+            { boxShadow: "0 0 70px 26px rgba(79,214,255,0.95)", duration: 0.18, ease: "power2.out" },
+            7.6,
+          );
+          tl.fromTo(
+            "#ct-line",
+            { boxShadow: "0 0 70px 26px rgba(79,214,255,0.95)" },
+            { boxShadow: "0 0 24px 6px rgba(79,214,255,0.75)", duration: 0.22, ease: "power1.in", immediateRender: false },
+            7.78,
+          );
+          tl.fromTo("#ct-tag-before", { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" }, 2.65);
+          tl.fromTo("#ct-tag-after", { opacity: 0, x: 16 }, { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" }, 2.75);
+          // captions (confirmed copy) — staggered
+          tl.fromTo("#ct-cap-1", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 2.9);
+          tl.fromTo("#ct-cap-2", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, 3.15);
+          window.__timelines[ID] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

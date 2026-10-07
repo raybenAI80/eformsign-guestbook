@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      hook-t03 — 모션 주문 사전 T03 「키네틱 타이포 — 쇼츠 3초 훅」 이식 시험.
+      카피 = promo/src/script.ts hook captions (2026-09-21 사용자 확정) 그대로. 단어 단위로만 나눴다(문구 변경 없음).
+      사전 사양: 단어마다 3배→1배 0.16초 박힘 + 0.3초 좌우 떨림, 단어마다 바탕·글자색 교체, 마지막 단어에서만 화면 전체 한 번 더 세게 흔들림.
+      색은 사전 예시(주황·분홍) 대신 브랜드 파랑 범위로 제한(매핑 문서 ⚠).
+    -->
+  </head>
+  <body>
+    <template id="hook-t03-template">
+      <style>
+        @font-face {
+          font-family: "Paperlogy";
+          src: url("assets/fonts/Paperlogy-8ExtraBold.ttf") format("truetype");
+          font-weight: 800;
+          font-display: block;
+        }
+        #hook-t03,
+        #hook-t03 * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+          word-break: keep-all;
+          overflow-wrap: break-word;
+          line-break: strict;
+        }
+        #hook-t03 {
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          font-family: "Paperlogy", sans-serif;
+        }
+        #hook-t03-bg {
+          position: absolute;
+          /* bleed so the last-word frame shake never shows an edge */
+          inset: -60px;
+          background: #0b1f36;
+        }
+        #hook-t03-stage {
+          position: absolute;
+          inset: 0;
+        }
+        .ht-slot {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .ht-word {
+          display: block;
+          font-weight: 800;
+          line-height: 1.1;
+          /* one display unit per beat — never split a word mid-beat */
+          white-space: nowrap;
+          letter-spacing: -0.02em;
+          opacity: 0;
+        }
+        #hook-t03-w0 { font-size: 300px; color: #ffffff; }
+        #hook-t03-w1 { font-size: 215px; color: #ffffff; }
+        #hook-t03-w2 { font-size: 300px; color: #0e73c3; }
+        #hook-t03-w3 { font-size: 160px; color: #ffffff; }
+      </style>
+
+      <div id="hook-t03" data-composition-id="hook-t03" data-width="1920" data-height="1080" data-duration="4.5">
+        <div id="hook-t03-bg" data-layout-allow-overflow></div>
+        <div id="hook-t03-stage" data-layout-allow-overflow>
+          <div class="ht-slot"><span id="hook-t03-w0" class="ht-word">방명록,</span></div>
+          <div class="ht-slot"><span id="hook-t03-w1" class="ht-word">아직도 수기로</span></div>
+          <div class="ht-slot"><span id="hook-t03-w2" class="ht-word">작성하고</span></div>
+          <div class="ht-slot"><span id="hook-t03-w3" class="ht-word">직접 관리하시나요?</span></div>
+        </div>
+      </div>
+
+      <script>
+        (() => {
+          const ID = "hook-t03";
+          const DUR = 4.5;
+          // beat starts — equal split of the first 4 s (narration hook.mp3 = 4.41 s), last word holds to the end
+          const BEATS = [0, 1.0, 2.0, 3.0];
+          // brand-range pairs: [background] (text colour lives in CSS per word)
+          const BG = ["#0b1f36", "#0e73c3", "#ffffff", "#0a5a99"];
+          const SLAM = 0.16;
+          const SHAKE = [0, -14, 12, -9, 6, -3, 0];
+          const BIG_SHAKE = [0, -30, 26, -18, 12, -6, 0];
+
+          const tl = gsap.timeline({ paused: true });
+          // very slow camera push for the whole hook (depth without moving the words' layout)
+          tl.fromTo("#hook-t03-stage", { scale: 1 }, { scale: 1.03, duration: DUR, ease: "none" }, 0);
+
+          BEATS.forEach((t, i) => {
+            const el = `#hook-t03-w${i}`;
+            const last = i === BEATS.length - 1;
+            tl.set("#hook-t03-bg", { backgroundColor: BG[i] }, t);
+            if (i > 0) tl.to(`#hook-t03-w${i - 1}`, { opacity: 0, duration: 0.06, ease: "none" }, t);
+            // slam: 3x -> 1x in 0.16 s, accelerating into the hit
+            tl.fromTo(el, { scale: 3, opacity: 0 }, { scale: 1, opacity: 1, duration: SLAM, ease: "power3.in" }, t);
+            // side-to-side tremor for 0.3 s
+            tl.fromTo(
+              el,
+              { x: 0 },
+              { keyframes: { x: SHAKE }, duration: 0.3, ease: "none" },
+              t + SLAM,
+            );
+            if (last) {
+              // the one "wow": whole frame shakes once, harder, on the last word only
+              tl.fromTo(
+                "#hook-t03-bg",
+                { x: 0 },
+                { keyframes: { x: BIG_SHAKE }, duration: 0.4, ease: "none" },
+                t + SLAM,
+              );
+              tl.fromTo(
+                "#hook-t03-stage",
+                { y: 0 },
+                { keyframes: { y: [0, 16, -12, 8, -4, 0] }, duration: 0.4, ease: "none" },
+                t + SLAM,
+              );
+              // end breathes instead of freezing
+              tl.fromTo(el, { scale: 1 }, { scale: 1.035, duration: DUR - (t + SLAM + 0.3), ease: "sine.inOut", immediateRender: false }, t + SLAM + 0.3);
+            }
+          });
+          window.__timelines[ID] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

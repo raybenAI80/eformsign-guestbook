@@ -5,3 +5,5 @@ snapshots/
 .hyperframes/
 # assets are copies of promo/public — restore with: node tools/sync-assets.mjs
 assets/
+# temporary root-level copies made by tools/render-scene.mjs
+_render-*.html
