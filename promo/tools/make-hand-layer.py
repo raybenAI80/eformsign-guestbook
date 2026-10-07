@@ -14,6 +14,8 @@
   - 차분 키잉만으로는 손등이 배경(베이지 카운터)과 비슷해 빠진다 → 저해상 AI 알파를 GrabCut 사전으로.
   - AI 알파는 태블릿까지 「피사체」로 잡는다 → 변형본과 같은 화소(d<10)이고 어두운(L<95) 베젤은 제외.
   - 몸통(오른쪽 x≥1290)은 잘라 내고 소매를 거울 반복으로 연장한다(화면 밖으로 이어지게).
+  - 2026-10-07(레인 D3c 발견·본편 Main60 근본 수정): 연장부 알파를 절단 직전 마지막 열(흐림으로 반투명)에서 따와 가는
+    불투명 띠 3개만 남아 바탕 위에 가로 줄무늬가 났다 → 연장부를 절단선 **안쪽** 소매 열 묶음에서 만든다(rebuild_sleeve).
 """
 import argparse, json
 import numpy as np, cv2
@@ -33,12 +35,71 @@ ap.add_argument('--knuckle-zone', default='856,968',
 ap.add_argument('--knuckle-sigma', type=float, default=3.0, help='레인 HF: 재추적 윤곽 1D 평활 σ(열)')
 ap.add_argument('--check', default=None, metavar='HAND_PNG',
                 help='레인 H: 컷아웃 경계 품질만 판정(JSON 출력, 불통과 exit 1). 생성은 하지 않는다')
+ap.add_argument('--seam-back', type=int, default=6, help='연장부 시작 = 컷아웃 절단선(cut-x - 원점) 에서 이만큼 앞(반투명 이음매를 덮는다)')
+ap.add_argument('--seam-inset', type=int, default=0, help='연장부 기준 열을 이음매에서 이만큼 더 안쪽으로')
+ap.add_argument('--seam-blk', type=int, default=60, help='연장부로 가로로 늘릴 안쪽 소매 열 묶음 폭')
 ap.add_argument('--origin', default='783,500', help='--check 용: 컷아웃 원점(prompts.json handLayer.origin)')
 ap.add_argument('--tip', default='790,510', help='--check 용: 손끝(prompts.json handLayer.tip) — 스파이크 검사 제외 구역 중심')
 A = ap.parse_args()
 
 # 레인 H 판정 한도 — HEAD 684cbc0 컷아웃: 윗선 홈 5px·후광 +14L·베젤 티끌 다수·이음매 반투명 320px
 LIMITS = {"topNotchPx": 2.5, "haloL": 6.0, "darkFringePx": 5, "seamPartialPx": 0}
+
+
+def opaque_bands(col):
+    """불투명(α>128) 구간 [(y0,y1)...]"""
+    on = np.concatenate([[False], col > 128, [False]]).astype(np.int8)
+    dd = np.diff(on)
+    # 🔴 파이썬 int 로 돌려준다 — np.int64 면 기울기가 float64 로 승격돼 repair-hand-sleeve.py(float32 경로)와 48바이트 어긋났다
+    return [(int(y0), int(y1)) for y0, y1 in zip(np.nonzero(dd == 1)[0], np.nonzero(dd == -1)[0] - 1)]
+
+
+def rebuild_sleeve(img, seam_x, inset=0, blk=60):
+    """연장부(seam_x 부터 끝)를 소매 **안쪽** 열 묶음(seam_x-1-inset 앞 blk 열)을 가로로 늘려 다시 채운다.
+    알파 = 안쪽 기준 열의 불투명 띠(→255), 위·아래 테두리 침식 + 1px 페더, 팔 방향 기울기(위·아래 따로)만큼 민다.
+    tools/repair-hand-sleeve.py(레인 D3c, Demo53 사본)와 같은 식 — 같은 입력이면 같은 화소가 나온다.
+    🔴 한 기울기로 np.roll 하면 아래 경계가 캔버스 높이를 넘어 위로 감겨 들어온다 → 세로 재표본 + 아래 기울기 제한.
+    """
+    H, W = img.shape[:2]
+    ref = seam_x - 1 - inset
+    src_cols = img[:, ref - blk + 1: ref + 1].copy()
+    ext_n = W - seam_x
+
+    def band_one(col):
+        b = opaque_bands(col)
+        return max(b, key=lambda t: t[1] - t[0]) if b else (0, 0)
+
+    t0, b0 = band_one(img[:, ref - 80, 3]); ta, ba = band_one(img[:, ref, 3])
+    st, sb = (ta - t0) / 80.0, (ba - b0) / 80.0
+    bot_max = H - 3
+    if ba + sb * ext_n > bot_max:  # 캔버스 안에 머물게 아래 기울기만 줄인다(크기 = prompts.json size 불변)
+        sb = (bot_max - ba) / ext_n
+    ys = np.arange(H, dtype=np.float32)
+    cols = []
+    for j in range(ext_n):
+        k = int(blk - 1 - (j * blk) // ext_n)  # 거울 반복 대신 가로 늘임(대칭 무늬 방지)
+        c = src_cols[:, k].astype(np.float32)
+        dj = j + 1 + inset
+        top, bot = ta + st * dj, ba + sb * dj
+        sy = ta + (ys - top) * (ba - ta) / max(1e-3, bot - top)  # 새 [top,bot] → 기준 열 [ta,ba]
+        col = np.stack([np.interp(sy, ys, c[:, ch]) for ch in range(3)], 1)
+        al_ = np.clip(np.minimum(ys - (top + 1.5), (bot - 1.0) - ys) + 0.5, 0, 1)
+        cols.append(np.concatenate([col, (al_ * 255)[:, None]], 1).round().clip(0, 255).astype(np.uint8)[:, None])
+    ext = np.concatenate(cols, 1)
+    ext[:, :, :3] = cv2.GaussianBlur(ext[:, :, :3], (0, 0), sigmaX=4, sigmaY=1.2)  # 늘인 결을 누그러뜨린다
+    out = img.copy()
+    out[:, seam_x:] = ext
+    return out
+
+
+def check_sleeve(alpha, seam_x):
+    """연장부 각 열 = 불투명 띠 1개, 두께 ≥120px(소매 두께 ~168px). 레인 D3c 줄무늬 결함 회귀 검사."""
+    bad = []
+    for x in range(seam_x, alpha.shape[1]):
+        b = opaque_bands(alpha[:, x])
+        if len(b) != 1 or (b[0][1] - b[0][0]) < 120:
+            bad.append(x)
+    return bad
 
 
 def check_cutout(path, origin, cut_x):
@@ -102,6 +163,13 @@ def check_cutout(path, origin, cut_x):
     res["silhouetteLimitDeg"] = sp["limitDeg"]
     if not sp["pass"]:
         bad.append("silhouetteMinDeg")
+    sx = cut_x - origin[0] - A.seam_back
+    sb_ = check_sleeve(a8, sx)
+    res["sleeveSeamX"] = int(sx)
+    res["sleeveBadColumns"] = len(sb_)
+    res["sleeveFirstBad"] = [int(v) for v in sb_[:5]]
+    if sb_:
+        bad.append("sleeveBadColumns")
     res["pass"] = not bad
     res["fail"] = bad
     return res
@@ -243,12 +311,11 @@ inside = np.where(den > 1e-3, num / np.maximum(den, 1e-3), a.astype(np.float32))
 wdf = np.clip((3.0 - din) / 2.0, 0, 1)[..., None] * (mh[..., None] > 0)
 a_h = (a.astype(np.float32) * (1 - wdf) + inside * wdf).round().clip(0, 255).astype(np.uint8)
 
-# 5) 손 컷아웃 + 소매 연장(거울 반복)
+# 5) 손 컷아웃 + 소매 연장(안쪽 소매 열 가로 늘임 — rebuild_sleeve)
 #    (bbox·손끝은 기존 m 기준 — prompts.json handLayer 원점·크기·손끝 불변)
 ys, xs = np.nonzero(m)
 bx0, by0, bx1, by1 = xs.min() - 4, ys.min() - 4, A.cut_x, ys.max() + 4
 rgba = np.dstack([a_h[by0:by1, bx0:bx1],(alpha[by0:by1, bx0:bx1] * 255).round().astype(np.uint8)])
-blk = 60
 # 소매 위·아래 경계의 기울기(절단면 앞 80px 에서 측정) — 연장부가 팔 방향으로 이어지게
 def band(col):
     yy = np.nonzero(col > 128)[0]
@@ -259,19 +326,10 @@ t0, b0_ = band(alpha_v[:, -80]); t1, b1 = band(alpha_v[:, -1])
 slope = ((t1 - t0) + (b1 - b0_)) / 2 / 79.0
 hh = rgba.shape[0] + int(abs(slope) * A.extend) + 2
 rgba = np.concatenate([rgba, np.zeros((hh - rgba.shape[0],) + rgba.shape[1:], np.uint8)], 0)
-last = rgba[:, -1:].copy(); last[:, :, 3] = np.where(last[:, :, 3] > 128, 255, 0)
-last[:, :, 3] = cv2.erode(last[:, :, 3], np.ones((5, 1), np.uint8))  # 위·아래 밝은 테두리 제거
-cols = []
-for j in range(A.extend):
-    # 🔴 거울 반복은 대칭 무늬가 눈에 띈다 → 마지막 blk 열을 가로로 늘린다(천 결이 결 방향으로 번진다)
-    k = int(blk - 1 - (j * blk) // A.extend)
-    c = rgba[:, -1 - k].copy()
-    c[:, 3] = last[:, 0, 3]
-    c = np.roll(c, int(round(slope * (j + 1))), axis=0)
-    cols.append(c[:, None])
-ext = np.concatenate(cols, 1)
-ext[:, :, :3] = cv2.GaussianBlur(ext[:, :, :3], (0, 0), sigmaX=4, sigmaY=1.2)  # 늘인 결을 누그러뜨린다
-out = np.concatenate([rgba, ext], 1)
+# 🔴 2026-10-07: 예전엔 연장부 알파를 rgba[:, -1](절단 직전 열, 흐림으로 반투명)에서 따와 띠 3개만 불투명했다(레인 D3c).
+#    캔버스 크기(hh·extend)는 그대로 두고, 이음매(절단선 - seam_back)부터 끝까지를 안쪽 소매 열에서 다시 만든다.
+out = np.concatenate([rgba, np.zeros((hh, A.extend, 4), np.uint8)], 1)
+out = rebuild_sleeve(out, rgba.shape[1] - A.seam_back, A.seam_inset, A.seam_blk)
 cv2.imwrite(A.hand_out, out)
 # 손끝 = 가장 왼쪽 화소들의 세로 중앙
 xm = xs.min(); tipy = int(np.median(ys[xs <= xm + 2]))
