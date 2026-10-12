@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, useCurrentFrame } from "remotion";
-import { bookZoomPlan, hookScaleAt, paperScaleAt } from "../camera";
+import { bookZoomPlan, hookScaleAt, paperLeadScaleAt } from "../camera";
 
 /**
  * 훅과 Paper 앞 컷이 **공유하는 카메라**.
@@ -21,13 +21,20 @@ import { bookZoomPlan, hookScaleAt, paperScaleAt } from "../camera";
  */
 const PLAN = bookZoomPlan();
 
+/**
+ * v4.1 — 카메라 프레임 보정값. 기본 0. Main60 의 hook→paper 크로스페이드 리드인이
+ * `<Freeze frame={0}>` 로 Paper 를 세워 둔 채 이 값에 음수(−XFADE..−1)를 넣어
+ * **사진 줌만** 경계 앞 프레임으로 움직인다(자막·스크림은 화면 고정이라 무관).
+ */
+export const CameraFrameOffset = React.createContext(0);
+
 export const BookCamera: React.FC<{
   /** "hook" = 1.00 → 인계 배율(ease-in) · "paper" = 인계 배율 → 최대(속도 연속) */
   phase: "hook" | "paper";
   children: React.ReactNode;
 }> = ({ phase, children }) => {
-  const frame = useCurrentFrame();
-  const scale = phase === "hook" ? hookScaleAt(frame, PLAN) : paperScaleAt(frame, PLAN);
+  const frame = useCurrentFrame() + React.useContext(CameraFrameOffset);
+  const scale = phase === "hook" ? hookScaleAt(frame, PLAN) : paperLeadScaleAt(frame, PLAN);
   return (
     <AbsoluteFill
       style={{

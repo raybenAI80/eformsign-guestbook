@@ -1,6 +1,14 @@
 /**
  * 훅 → Paper 경계에서 카메라 줌이 **끊기지 않는지** 기계로 판정한다.
  *
+ * 🔴 v4.1 재조준(2026-10-12): 본편 Main60 의 hook 은 HyperFrames 렌더본(HfHook)이라 Remotion
+ *    훅 카메라가 없다. 그래서 판정 대상이 둘이다.
+ *    [A] Main60 — HF hook → Paper 크로스페이드 리드인(XFADE_FRAMES). Paper 가 경계 앞 −XFADE..−1
+ *        프레임부터 겹쳐 들어오며 그 구간 배율은 paperLeadScaleAt(옛 훅 곡선 꼬리)이다.
+ *        Paper 의 Remotion 쪽 첫 프레임(0)에서 값·증분이 이어지는지, 리드인 구간이 단조인지 본다.
+ *        Main60.tsx 가 hook=HfHook 이고 hook→paper lead-in 경계를 갖는지도 소스로 확인한다.
+ *    [B] 옛 Remotion Hook → Paper(Preview9·Cut15 등 Remotion 훅을 계속 쓰는 컴포지션) — 아래 기존 판정.
+ *
  * 사용: node tools/check-zoom-continuity.mjs
  *
  * 왜 필요한가 (2026-09-21 레인 J)
@@ -75,7 +83,7 @@ const line = (ok, msg) => {
   if (!ok) fail.push(msg);
 };
 
-console.log("훅 → Paper 연속 줌 판정");
+console.log("[B] 옛 Remotion 훅 → Paper 연속 줌 판정 (Preview9·Cut15 용)");
 console.log(
   `  계획: ${p.zoomStart.toFixed(4)} → ${p.zoomHandoff.toFixed(4)} → ${p.zoomEnd.toFixed(4)}` +
     ` · 초점 (${p.origin[0].toFixed(2)}, ${p.origin[1].toFixed(2)})` +
@@ -133,6 +141,33 @@ console.log(
     (1.42 - 1.06) / Math.max((before + after) / 2, 1e-12)
   ).toFixed(1)}`,
 );
+
+/* ---------- [A] v4.1 Main60: HF hook → Paper 리드인 ---------- */
+console.log("");
+console.log("[A] Main60 HF hook → Paper 크로스페이드 리드인 판정");
+const main60 = fs.readFileSync(path.join(root, "src/compositions/Main60.tsx"), "utf8");
+const xm = main60.match(/export const XFADE_FRAMES = (\d+);/);
+const XF = xm ? Number(xm[1]) : NaN;
+line(Number.isFinite(XF) && XF > 0 && XF <= p.hookFrames, `Main60 XFADE_FRAMES = ${XF} (0 < XF ≤ 훅 ${p.hookFrames}f)`);
+line(/hook:\s*HfHook/.test(main60), "Main60 hook 화면 = HfHook(HF 렌더본) — 아니면 [A] 판정 전제가 바뀐다");
+line(/from:\s*"hook",\s*to:\s*"paper",\s*kind:\s*"lead-in"/.test(main60), "Main60 hook→paper 경계 = lead-in 크로스페이드");
+const bookCam = fs.readFileSync(path.join(root, "src/components/BookCamera.tsx"), "utf8");
+line(/paperLeadScaleAt\(frame, PLAN\)/.test(bookCam) && /CameraFrameOffset/.test(bookCam), "BookCamera paper 단계 = paperLeadScaleAt + CameraFrameOffset");
+if (Number.isFinite(XF)) {
+  const lead = [];
+  for (let f = -XF; f <= p.paperRampFrames; f++) lead.push(cam.paperLeadScaleAt(f, p));
+  line(Math.abs(cam.paperLeadScaleAt(0, p) - paperScaleAt(0, p)) < 1e-12, `Paper 첫 프레임 배율 = 램프 시작 ${paperScaleAt(0, p).toFixed(6)}`);
+  let m = true;
+  for (let i = 1; i < lead.length; i++) if (lead[i] < lead[i - 1] - 1e-12) m = false;
+  line(m, `리드인(−${XF}f)~램프 끝 배율 단조 증가 (${lead[0].toFixed(4)} → ${lead[lead.length - 1].toFixed(4)})`);
+  const i0 = XF; // lead[i0] = frame 0
+  const dB = lead[i0] - lead[i0 - 1];
+  const dN = ((lead[i0 - 1] - lead[i0 - 2]) + (lead[i0 + 1] - lead[i0])) / 2;
+  const r = dB / Math.max(dN, 1e-12);
+  line(r > 0.5 && r < 1.5, `Paper 첫 프레임 경계 증분 ${dB.toFixed(6)} vs 이웃 평균 ${dN.toFixed(6)} → 비 ${r.toFixed(3)} (0.5~1.5)`);
+  const frozenJump = paperScaleAt(0, p) - cam.paperLeadScaleAt(-XF, p);
+  console.log(`  참고: 줌을 멈춘 채(Freeze) 겹쳤다면 0프레임에서 출발할 때 ${XF}f 분량 ${frozenJump.toFixed(4)} 배율을 정지했다가 갑자기 움직였다`);
+}
 
 if (fail.length) {
   console.error(`\n실패 ${fail.length}건`);

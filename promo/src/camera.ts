@@ -119,6 +119,15 @@ export const paperScaleAt = (frame: number, p: ZoomPlan): number =>
   p.zoomHandoff +
   (p.zoomEnd - p.zoomHandoff) * paperEase(clamp01(frame / p.paperRampFrames), p.k);
 
+/**
+ * v4.1(2026-10-12) — Main60 의 hook→paper 크로스페이드 리드인. 본편 hook 은 HyperFrames 렌더본이라
+ * Remotion 카메라가 없다. 대신 Paper 가 경계 XFADE 프레임 앞부터 겹쳐 들어오는데(Main60.tsx),
+ * 그 음수 프레임 구간의 배율은 옛 훅 ease-in 곡선의 꼬리를 그대로 쓴다 →
+ * 프레임 0 에서 값·속도가 Paper 램프와 이어진다(C1). 0 이상이면 paperScaleAt 과 같다.
+ */
+export const paperLeadScaleAt = (frame: number, p: ZoomPlan): number =>
+  frame < 0 ? hookScaleAt(p.hookFrames + frame, p) : paperScaleAt(frame, p);
+
 /* ---------- 해석적 속도(프레임당 배율 변화) — 검증용 ---------- */
 
 export const hookScaleSlopeAt = (frame: number, p: ZoomPlan): number =>

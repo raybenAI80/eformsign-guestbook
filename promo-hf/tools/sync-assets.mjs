@@ -21,10 +21,10 @@ const FILES = [
   "voice/hook.mp3",
   "voice/repeat.mp3",
   "gen/gen-01.png",
-  "shots/demo/tablet/S-step1-before-send.png",
-  "shots/demo/tablet/S-step1-filled.png",
-  "shots/demo/tablet/S-step1-signed.png",
-  "shots/demo/tablet/V2-step2-filled.png",
+  "shots/demo/tablet/V3-step1-filled-x25.png",
+  "shots/demo/tablet/V3-step3-filled-x25.png",
+  "shots/demo/tablet/V3-step4-filled-x25.png",
+  "shots/demo/tablet/V3-step5-filled-x25.png",
   "shots/demo/tablet/V2-step2-signed.png",
 ];
 for (const f of FILES) {
