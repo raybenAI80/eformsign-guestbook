@@ -67,6 +67,15 @@ export const MIN_VISUAL_FRAMES = {
 };
 
 /**
+ * 🔴 v4.0 A안(2026-10-12 사용자 확정) — HyperFrames 렌더본이 차지하는 장면은 **길이가 렌더본에 고정**된다.
+ * 값 = promo/public/hf/*.mp4 프레임 수(tools/build-hf-clips.mjs HF_CLIPS 와 짝, 다르면 그 도구가 exit 1).
+ * 고정 장면은 음성·시각최소로 늘거나 줄지 않고, 60초 하한 보충(tail 패딩)도 받지 않는다 —
+ * 보충은 나머지 Remotion 장면이 나눠 가진다. 나레이션은 장면 시작에 재생되므로
+ * 고정 길이 ≥ 나레이션 길이여야 한다(아니면 notes 에 🔴, ok=false).
+ */
+export const HF_FIXED_FRAMES = { hook: 135, repeat: 240, cta: 135 };
+
+/**
  * 실제 화면 편(demo set) — 2026-10-03 레인 D1.
  * 총길이 규약 = 스토리보드 §0 「45~60초(나레이션 길이가 결정)」.
  */
@@ -98,6 +107,7 @@ export function computeDurations(voice, order, opts = {}) {
   const pad = { ...PAD, ...(opts.pad ?? {}) };
   const bounds = opts.bounds ?? BOUNDS;
   const minVisualTable = opts.minVisual ?? MIN_VISUAL_FRAMES;
+  const fixed = opts.fixed ?? {};
   const minFrames = Math.round(bounds.minSec * FPS);
   const maxFrames = Math.round(bounds.maxSec * FPS);
 
@@ -112,8 +122,8 @@ export function computeDurations(voice, order, opts = {}) {
         narrationSec,
         minVisualFrames: minVisual,
         voiceFrames: fromVoice,
-        frames: Math.max(fromVoice, minVisual),
-        driver: fromVoice >= minVisual ? "voice" : "visual",
+        frames: fixed[id] ?? Math.max(fromVoice, minVisual),
+        driver: fixed[id] ? "fixed" : fromVoice >= minVisual ? "voice" : "visual",
       };
     });
 
@@ -139,10 +149,11 @@ export function computeDurations(voice, order, opts = {}) {
   let padded = 0;
   if (total < minFrames) {
     const deficit = minFrames - total;
-    const each = Math.floor(deficit / rows.length);
-    let rest = deficit - each * rows.length;
-    const byLen = [...rows].sort((a, b) => b.narrationSec - a.narrationSec);
-    for (const r of rows) r.frames += each;
+    const flex = rows.filter((r) => !fixed[r.id]);
+    const each = Math.floor(deficit / flex.length);
+    let rest = deficit - each * flex.length;
+    const byLen = [...flex].sort((a, b) => b.narrationSec - a.narrationSec);
+    for (const r of flex) r.frames += each;
     for (const r of byLen) {
       if (rest <= 0) break;
       r.frames += 1;
@@ -163,12 +174,15 @@ export function computeDurations(voice, order, opts = {}) {
       startFrame: at,
       frames: r.frames,
       seconds: Math.round((r.frames / FPS) * 1000) / 1000,
-      driver: r.frames > r.voiceFrames && r.frames === r.minVisualFrames ? "visual" : r.driver,
+      driver: r.driver === "fixed" ? "fixed" : r.frames > r.voiceFrames && r.frames === r.minVisualFrames ? "visual" : r.driver,
     };
+    if (fixed[r.id] && Math.ceil(r.narrationSec * FPS - 1e-9) > r.frames) {
+      notes.push(`🔴 ${r.id}: 나레이션 ${r.narrationSec}s 가 고정 장면 ${r.frames}f 를 넘는다`);
+    }
     at += r.frames;
   }
 
-  const ok = total >= minFrames && total <= maxFrames;
+  const ok = total >= minFrames && total <= maxFrames && !notes.some((n) => n.includes("고정 장면"));
   if (!ok) notes.push(`🔴 총길이 ${(total / FPS).toFixed(2)}초 — 규약 ${bounds.minSec}~${bounds.maxSec}초를 벗어난다`);
 
   return {
@@ -209,7 +223,7 @@ export function run({ write = true, set: setName } = {}) {
   const outPath = isMain ? OUT_JSON : path.join(ROOT, "src", set.sceneDurations);
   const voice = JSON.parse(fs.readFileSync(voicePath, "utf8"));
   const res = isMain
-    ? computeDurations(voice, sceneOrder())
+    ? computeDurations(voice, sceneOrder(), { fixed: HF_FIXED_FRAMES })
     : computeDurations(voice, sceneOrder(set.array), { bounds: DEMO_BOUNDS, minVisual: DEMO_MIN_VISUAL_FRAMES });
   if (!isMain) res.set = set.name;
   if (write) fs.writeFileSync(outPath, `${JSON.stringify(res, null, 2)}\n`, "utf8");
@@ -234,7 +248,7 @@ function main() {
         "시각최소": s.minVisualFrames,
         "장면(프레임)": s.frames,
         "장면(초)": s.seconds,
-        결정: s.driver === "visual" ? "시각최소" : "음성",
+        결정: s.driver === "visual" ? "시각최소" : s.driver === "fixed" ? "HF고정" : "음성",
       })),
     );
     console.log(

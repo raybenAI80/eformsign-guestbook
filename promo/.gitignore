@@ -24,3 +24,6 @@ public/voice/_raw/
 # BGM — tools/make-bgm.mjs 가 결정적으로 합성한다. 사용자 라이선스 음원도 커밋하지 않는다
 public/bgm/track.*
 public/bgm/.synthesized
+
+# HyperFrames 렌더본(무음) — tools/build-hf-clips.mjs 가 다시 만든다
+public/hf/

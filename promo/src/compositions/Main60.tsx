@@ -1,13 +1,12 @@
 import React from "react";
 import { AbsoluteFill, Sequence } from "remotion";
-import { Hook } from "../scenes/Hook";
 import { Paper } from "../scenes/Paper";
 import { Designer } from "../scenes/Designer";
 import { Fill } from "../scenes/Fill";
-import { Repeat } from "../scenes/Repeat";
 import { Manage } from "../scenes/Manage";
 import { Branch } from "../scenes/Branch";
-import { CTA } from "../scenes/CTA";
+import { Hook } from "../scenes/Hook";
+import { HfHook, HfRepeat, HfCta } from "../scenes/hf/HfScenes";
 import { SCENES, sceneFrames, sec, type SceneId } from "../script";
 import { Bgm } from "../audio";
 
@@ -16,15 +15,16 @@ export interface PromoProps {
   mute?: boolean;
 }
 
+/** 🔴 v4.0 A안(2026-10-12): hook·repeat·cta 화면 = HyperFrames 렌더본(무음) — src/scenes/hf/HfScenes.tsx. 원래 Hook·Repeat·CTA 는 Preview9·Cut15·Loop30·Demo53 이 계속 쓴다 */
 const COMPONENTS: Record<SceneId, React.FC<{ mute?: boolean }>> = {
-  hook: Hook,
+  hook: HfHook,
   paper: Paper,
   designer: Designer,
   fill: Fill,
-  repeat: Repeat,
+  repeat: HfRepeat,
   manage: Manage,
   branch: Branch,
-  cta: CTA,
+  cta: HfCta,
 };
 
 export const Main60: React.FC<PromoProps> = ({ mute = false }) => (
