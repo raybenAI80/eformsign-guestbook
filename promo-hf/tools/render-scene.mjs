@@ -22,7 +22,7 @@ const tmp = `_render-${scene}.html`;
 copyFileSync(host, join(root, tmp));
 let code = 1;
 try {
-  const r = spawnSync("npx", ["--yes", "hyperframes@0.8.108", "render", "-c", tmp, "-o", out, "--quiet"], {
+  const r = spawnSync("npx", ["--yes", "hyperframes@0.8.149", "render", "-c", tmp, "-o", out, "--quiet"], {
     cwd: root,
     stdio: "inherit",
     shell: process.platform === "win32",

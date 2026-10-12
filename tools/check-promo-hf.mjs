@@ -2,7 +2,7 @@
 // Oracle for the HyperFrames promo project (promo-hf/).
 // Usage: node tools/check-promo-hf.mjs --project <promo-hf dir> [--skip-hf]
 //
-// 1) `npx hyperframes@0.8.108 check --at-transitions` in the project (exit code passed through)
+// 1) `npx hyperframes@0.8.149 check --at-transitions` in the project (exit code passed through)
 // 2) headline banned words (태블릿|설치|키오스크) and the unconfirmed-copy placeholder (카피 미확정)
 //    counted in compositions/, hosts/, index.html. Asset paths such as `tablet/...` are English,
 //    so they never match the Korean pattern — no path exclusion needed beyond that.
@@ -12,7 +12,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const HF_VERSION = "0.8.108";
+const HF_VERSION = "0.8.149";
 const BANNED = /태블릿|설치|키오스크/g;
 const PLACEHOLDER = /카피 미확정/g;
 
