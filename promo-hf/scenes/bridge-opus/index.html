@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ko" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Bridge</title>
+    <meta name="viewport" content="width=1920, height=1080" />
+    <!-- v5.1 bridge scene (7.0 s): paper guestbook spread -> tablet guestbook table.
+         Motion = dictionary F46 (screen replacement) adapted: the real capture is pinned onto the
+         open notebook spread in the photo's own perspective, then one slow camera push-in flattens it.
+         Render: node scenes/bridge-opus/render.mjs (assets copied from promo/public). -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "Paperlogy";
+        src: url("assets/fonts/Paperlogy-8ExtraBold.ttf") format("truetype");
+        font-weight: 800;
+        font-display: block;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #f2f5f9;
+      }
+      #bridge,
+      #bridge * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        /* Korean line breaking (W3C klreq 7.1) — never overflow-wrap:anywhere */
+        word-break: keep-all;
+        overflow-wrap: break-word;
+        line-break: strict;
+      }
+      #bridge {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #f2f5f9;
+      }
+      /* camera layer: the paper photo, transformed only (scale/translate) */
+      #bo-paper {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1920px;
+        height: 1080px;
+        transform-origin: 0 0;
+        will-change: transform;
+      }
+      /* light veil that turns the photo into a calm background as the table takes over */
+      #bo-veil {
+        position: absolute;
+        inset: 0;
+        background: #f2f5f9;
+        opacity: 0;
+      }
+      /* tablet table = real capture cropped (x142 y530, 1646x1110); placed by a matrix3d homography */
+      #bo-table {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1646px;
+        height: 1110px;
+        overflow: hidden;
+        transform-origin: 0 0;
+        background: #ffffff;
+        border-radius: 18px;
+        box-shadow: 0 30px 80px rgba(19, 33, 63, 0.18);
+        opacity: 0;
+        will-change: transform, opacity;
+      }
+      #bo-table img {
+        position: absolute;
+        left: -142px;
+        top: -530px;
+        width: 1920px;
+        height: 3473px;
+      }
+      /* hand layer = gen-01 hands + pen + cuffs only (alpha matte, same pixel grid as the photo);
+         sits above the table so the pen hand is never covered, rides the same camera transform */
+      #bo-hand {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1920px;
+        height: 1080px;
+        transform-origin: 0 0;
+        will-change: transform, opacity;
+      }
+      #bo-caption {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 896px;
+        text-align: center;
+        font-family: "Paperlogy", sans-serif;
+        font-weight: 800;
+        font-size: 58px;
+        line-height: 1.25;
+        color: #13213f;
+        text-wrap: balance;
+        opacity: 0;
+      }
+      #bo-caption .line {
+        display: block;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="bridge"
+      data-composition-id="bridge"
+      data-start="0"
+      data-duration="7"
+      data-fps="30"
+      data-width="1920"
+      data-height="1080"
+    >
+      <img id="bo-paper" src="assets/gen/gen-01.png" alt="" data-layout-allow-overflow />
+      <div id="bo-veil"></div>
+      <div id="bo-table" data-layout-allow-overflow>
+        <img src="assets/shots/demo/tablet/V3-step1-filled-x25.png" alt="방문자 명부" />
+      </div>
+      <img id="bo-hand" src="assets/gen/gen-01-hand.png" alt="" data-layout-allow-overflow />
+      <div id="bo-caption">
+        <span class="line">종이 그대로,</span>
+        <span class="line">한 장에 여러 명</span>
+      </div>
+    </div>
+    <script>
+      (function () {
+        const W = 1646, H = 1110;
+        // open notebook spread in gen-01.png (measured px): TL, TR, BR, BL
+        const SPREAD = [[615, 786], [1242, 805], [1247, 965], [505, 922]];
+        const F = [880, 870];            // spread centre = camera focus
+        const S_END = 2.0;               // camera push-in factor
+        const F_END = [960, 660];        // focus target (keeps the photo's bottom edge pinned to 1080)
+        // final table rect: 1240 x 836 (crop aspect 1646:1110), centred, caption below
+        const R = { x: 340, y: 36, w: 1240, h: 836 };
+        const RECT = [[R.x, R.y], [R.x + R.w, R.y], [R.x + R.w, R.y + R.h], [R.x, R.y + R.h]];
+        const T0 = 0.5, T1 = 4.0;        // transition window
+        // hand layer fade: the table's top edge (photo coords) passes the cuff clip lines (y 690/655)
+        // at ~2.0-2.15 s, so the hand is gone before its straight sleeve clip can show over the table
+        const HAND_OUT = [1.75, 2.15];
+        const ease = gsap.parseEase("power2.inOut");
+        const lerp = (a, b, t) => a + (b - a) * t;
+        const clamp01 = (v) => Math.min(1, Math.max(0, v));
+        const smooth = (a, b, v) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
+
+        // square->quad homography (Heckbert), returned as CSS matrix3d for a W x H element
+        function quadMatrix(q) {
+          const [x0, y0] = q[0], [x1, y1] = q[1], [x2, y2] = q[2], [x3, y3] = q[3];
+          const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3;
+          const dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+          let g = 0, h = 0;
+          if (Math.abs(dx3) > 1e-9 || Math.abs(dy3) > 1e-9) {
+            const den = dx1 * dy2 - dx2 * dy1;
+            g = (dx3 * dy2 - dx2 * dy3) / den;
+            h = (dx1 * dy3 - dx3 * dy1) / den;
+          }
+          const a = x1 - x0 + g * x1, b = x3 - x0 + h * x3, c = x0;
+          const d = y1 - y0 + g * y1, e = y3 - y0 + h * y3, f = y0;
+          const m = [a / W, d / W, 0, g / W, b / H, e / H, 0, h / H, 0, 0, 1, 0, c, f, 0, 1];
+          return "matrix3d(" + m.map((v) => +v.toFixed(8)).join(",") + ")";
+        }
+
+        const paper = document.getElementById("bo-paper");
+        const veil = document.getElementById("bo-veil");
+        const table = document.getElementById("bo-table");
+        const hand = document.getElementById("bo-hand");
+
+        function renderAt(time) {
+          const p = ease(clamp01((time - T0) / (T1 - T0)));
+          // one camera: scale s around the spread centre, centre drifting to F_END
+          const s = lerp(1, S_END, p);
+          const fx = lerp(F[0], F_END[0], p), fy = lerp(F[1], F_END[1], p);
+          const cam = ([x, y]) => [s * (x - F[0]) + fx, s * (y - F[1]) + fy];
+          const camT = `translate(${fx - s * F[0]}px, ${fy - s * F[1]}px) scale(${s})`;
+          paper.style.transform = camT;
+          hand.style.transform = camT;
+          hand.style.opacity = String(1 - smooth(HAND_OUT[0], HAND_OUT[1], time));
+          // table: pinned on the spread through the same camera, then straightened into the final rect
+          const k = smooth(0.12, 1, p);
+          const q = SPREAD.map((pt, i) => { const c = cam(pt); return [lerp(c[0], RECT[i][0], k), lerp(c[1], RECT[i][1], k)]; });
+          table.style.transform = quadMatrix(q);
+          table.style.opacity = String(smooth(0, 0.3, p));
+          table.style.borderRadius = `${lerp(2, 18, k)}px`;
+          veil.style.opacity = String(0.94 * smooth(0.25, 1, p));
+        }
+
+        window.__timelines = window.__timelines || {};
+        const tl = gsap.timeline({ paused: true });
+        // driver: the whole 7 s; layout is computed from the timeline's own time (deterministic seek)
+        tl.to({ v: 0 }, { v: 1, duration: 7, ease: "none", onUpdate: () => renderAt(tl.time()) }, 0);
+        // caption: one block, 3.5 s
+        tl.fromTo("#bo-caption", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" }, 3.5);
+        window.__timelines["bridge"] = tl;
+        window.addEventListener("hf-seek", () => renderAt(window.__timelines["bridge"] ? window.__timelines["bridge"].time() : 0));
+        renderAt(0);
+      })();
+    </script>
+  </body>
+</html>
