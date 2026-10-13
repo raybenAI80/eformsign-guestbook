@@ -1,0 +1,316 @@
+{
+  "set": "v51",
+  "voice": "clova-dubbing:봄달",
+  "rate": "n/a(외부 더빙)",
+  "generatedAt": "2026-10-13T02:32:23.029Z",
+  "leadIn": 0.35,
+  "tailOut": 0.7,
+  "import": {
+    "tool": "tools/voice-import.mjs",
+    "map": "tools/voice-import/v51-clova.json",
+    "source": "public/voice/clova/v51-full.mp3",
+    "sourceSha1": "7affbe333e51",
+    "sourceSec": 58.015,
+    "method": "스윕(-35~-45dB x 0.06~0.12s)에 14구간 조합 없음 → silencedetect noise=-40dB d=0.45 (발화 18구간) + 글자 비율 정렬(cost 0.1465)",
+    "edgeSec": 0.05,
+    "gapSec": 0.35,
+    "boundaries": [
+      {
+        "n": 1,
+        "scene": "hook",
+        "start": 0.081,
+        "end": 3.844,
+        "sec": 3.763,
+        "innerPauses": 0
+      },
+      {
+        "n": 2,
+        "scene": "promise",
+        "start": 4.444,
+        "end": 11.177,
+        "sec": 6.734,
+        "innerPauses": 1
+      },
+      {
+        "n": 3,
+        "scene": "promise",
+        "start": 11.767,
+        "end": 16.034,
+        "sec": 4.268,
+        "innerPauses": 1
+      },
+      {
+        "n": 4,
+        "scene": "bridge",
+        "start": 16.613,
+        "end": 20.186,
+        "sec": 3.573,
+        "innerPauses": 1
+      },
+      {
+        "n": 5,
+        "scene": "visitor",
+        "start": 20.78,
+        "end": 26.259,
+        "sec": 5.479,
+        "innerPauses": 0
+      },
+      {
+        "n": 6,
+        "scene": "visitor",
+        "start": 26.857,
+        "end": 30.097,
+        "sec": 3.24,
+        "innerPauses": 0
+      },
+      {
+        "n": 7,
+        "scene": "visitor",
+        "start": 30.692,
+        "end": 32.14,
+        "sec": 1.448,
+        "innerPauses": 0
+      },
+      {
+        "n": 8,
+        "scene": "staff",
+        "start": 32.744,
+        "end": 35.527,
+        "sec": 2.783,
+        "innerPauses": 0
+      },
+      {
+        "n": 9,
+        "scene": "staff",
+        "start": 36.124,
+        "end": 39.806,
+        "sec": 3.682,
+        "innerPauses": 0
+      },
+      {
+        "n": 10,
+        "scene": "staff",
+        "start": 40.41,
+        "end": 44.367,
+        "sec": 3.958,
+        "innerPauses": 0
+      },
+      {
+        "n": 11,
+        "scene": "staff",
+        "start": 44.974,
+        "end": 46.758,
+        "sec": 1.784,
+        "innerPauses": 0
+      },
+      {
+        "n": 12,
+        "scene": "expand",
+        "start": 47.376,
+        "end": 49.492,
+        "sec": 2.116,
+        "innerPauses": 0
+      },
+      {
+        "n": 13,
+        "scene": "expand",
+        "start": 50.085,
+        "end": 54.746,
+        "sec": 4.661,
+        "innerPauses": 1
+      },
+      {
+        "n": 14,
+        "scene": "cta",
+        "start": 55.343,
+        "end": 57.579,
+        "sec": 2.236,
+        "innerPauses": 0
+      }
+    ]
+  },
+  "scenes": {
+    "hook": {
+      "text": "방명록, 아직도 수기로 작성하고 직접 관리하시나요?",
+      "hash": "000a1c16dda0",
+      "seconds": 3.863,
+      "bytes": 94210,
+      "storyboardSec": 6,
+      "neededSec": 4.91,
+      "sentences": [
+        {
+          "n": 1,
+          "text": "방명록, 아직도 수기로 작성하고 직접 관리하시나요?",
+          "startSec": 0.05,
+          "speechSec": 3.763,
+          "sourceStart": 0.081,
+          "sourceEnd": 3.844
+        }
+      ]
+    },
+    "promise": {
+      "text": "앞사람 이름과 연락처는 그대로 노출되고, 그 기록은 결국 누군가 옮겨 적어야 합니다. 이폼사인 방명록은 종이 그대로인데, 그 둘이 사라집니다.",
+      "hash": "192e8b4b85a4",
+      "seconds": 11.451,
+      "bytes": 276802,
+      "storyboardSec": 9,
+      "neededSec": 12.5,
+      "sentences": [
+        {
+          "n": 2,
+          "text": "앞사람 이름과 연락처는 그대로 노출되고, 그 기록은 결국 누군가 옮겨 적어야 합니다.",
+          "startSec": 0.05,
+          "speechSec": 6.734,
+          "sourceStart": 4.444,
+          "sourceEnd": 11.177
+        },
+        {
+          "n": 3,
+          "text": "이폼사인 방명록은 종이 그대로인데, 그 둘이 사라집니다.",
+          "startSec": 7.134,
+          "speechSec": 4.268,
+          "sourceStart": 11.767,
+          "sourceEnd": 16.034
+        }
+      ]
+    },
+    "bridge": {
+      "text": "종이 방명록 그대로, 한 장에 여러 분이 씁니다.",
+      "hash": "82c0a66134c3",
+      "seconds": 3.673,
+      "bytes": 90178,
+      "storyboardSec": 7,
+      "neededSec": 4.72,
+      "sentences": [
+        {
+          "n": 4,
+          "text": "종이 방명록 그대로, 한 장에 여러 분이 씁니다.",
+          "startSec": 0.05,
+          "speechSec": 3.573,
+          "sourceStart": 16.613,
+          "sourceEnd": 20.186
+        }
+      ]
+    },
+    "visitor": {
+      "text": "열려 있는 한 줄에 이름과 연락처, 방문 목적만 적고 서명해 전송합니다. 다음 분에게는 앞사람 정보가 보이지 않습니다. 같은 한 장인데도요.",
+      "hash": "6e1db0576a04",
+      "seconds": 10.967,
+      "bytes": 264706,
+      "storyboardSec": 16,
+      "neededSec": 12.02,
+      "sentences": [
+        {
+          "n": 5,
+          "text": "열려 있는 한 줄에 이름과 연락처, 방문 목적만 적고 서명해 전송합니다.",
+          "startSec": 0.05,
+          "speechSec": 5.479,
+          "sourceStart": 20.78,
+          "sourceEnd": 26.259
+        },
+        {
+          "n": 6,
+          "text": "다음 분에게는 앞사람 정보가 보이지 않습니다.",
+          "startSec": 5.879,
+          "speechSec": 3.24,
+          "sourceStart": 26.857,
+          "sourceEnd": 30.097
+        },
+        {
+          "n": 7,
+          "text": "같은 한 장인데도요.",
+          "startSec": 9.469,
+          "speechSec": 1.448,
+          "sourceStart": 30.692,
+          "sourceEnd": 32.14
+        }
+      ]
+    },
+    "staff": {
+      "text": "열 분이 써도 문서는 한 장입니다. 다음 날 담당자 문서함에는 그 한 장만 있습니다. 찾고, 열고, 내려받기까지 거기서 끝납니다. 옮겨 적는 일이 사라집니다.",
+      "hash": "be0da8e56e52",
+      "seconds": 13.357,
+      "bytes": 322306,
+      "storyboardSec": 16,
+      "neededSec": 14.41,
+      "sentences": [
+        {
+          "n": 8,
+          "text": "열 분이 써도 문서는 한 장입니다.",
+          "startSec": 0.05,
+          "speechSec": 2.783,
+          "sourceStart": 32.744,
+          "sourceEnd": 35.527
+        },
+        {
+          "n": 9,
+          "text": "다음 날 담당자 문서함에는 그 한 장만 있습니다.",
+          "startSec": 3.183,
+          "speechSec": 3.682,
+          "sourceStart": 36.124,
+          "sourceEnd": 39.806
+        },
+        {
+          "n": 10,
+          "text": "찾고, 열고, 내려받기까지 거기서 끝납니다.",
+          "startSec": 7.216,
+          "speechSec": 3.958,
+          "sourceStart": 40.41,
+          "sourceEnd": 44.367
+        },
+        {
+          "n": 11,
+          "text": "옮겨 적는 일이 사라집니다.",
+          "startSec": 11.523,
+          "speechSec": 1.784,
+          "sourceStart": 44.974,
+          "sourceEnd": 46.758
+        }
+      ]
+    },
+    "expand": {
+      "text": "방명록은 시작일 뿐입니다. 계약서도, 동의서도, 신청서도 같은 이폼사인입니다.",
+      "hash": "a3cab164d39e",
+      "seconds": 7.228,
+      "bytes": 175426,
+      "storyboardSec": 7,
+      "neededSec": 8.28,
+      "sentences": [
+        {
+          "n": 12,
+          "text": "방명록은 시작일 뿐입니다.",
+          "startSec": 0.05,
+          "speechSec": 2.116,
+          "sourceStart": 47.376,
+          "sourceEnd": 49.492
+        },
+        {
+          "n": 13,
+          "text": "계약서도, 동의서도, 신청서도 같은 이폼사인입니다.",
+          "startSec": 2.517,
+          "speechSec": 4.661,
+          "sourceStart": 50.085,
+          "sourceEnd": 54.746
+        }
+      ]
+    },
+    "cta": {
+      "text": "지금 이폼사인을 체험해 보세요.",
+      "hash": "4a4cf0780c15",
+      "seconds": 2.336,
+      "bytes": 57922,
+      "storyboardSec": 6,
+      "neededSec": 3.39,
+      "sentences": [
+        {
+          "n": 14,
+          "text": "지금 이폼사인을 체험해 보세요.",
+          "startSec": 0.05,
+          "speechSec": 2.236,
+          "sourceStart": 55.343,
+          "sourceEnd": 57.579
+        }
+      ]
+    }
+  }
+}

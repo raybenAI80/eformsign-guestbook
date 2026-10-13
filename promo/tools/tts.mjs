@@ -8,6 +8,7 @@
  *   node tools/tts.mjs --voice InJoon --rate 0 음성·속도를 바꿔 생성
  *   node tools/tts.mjs --out-dir <경로>        다른 폴더에 생성(본편을 건드리지 않는 시험용)
  *   node tools/tts.mjs --set demo              실제 화면 편(DEMO_SCENES) — demo-<id>.mp3 · voice-demo.json
+ *   node tools/tts.mjs --set v51               v5.1 애니매틱(V51_SCENES) — v51-<id>.mp3 · voice-v51.json
  *                                              (기본 --set main = 본편 SCENES, 기존 동작 그대로)
  *
  * 산출(기본 out-dir = public/voice):
@@ -56,6 +57,14 @@ export const SETS = {
     voiceJson: "voice-demo.json",
     voiceDurations: "voice-durations-demo.json",
     sceneDurations: "scene-durations-demo.json",
+  },
+  // v5.1 애니매틱(2026-10-13) — 정본 tools/storyboard-sets/v5.1.json, 배열 V51_SCENES
+  v51: {
+    array: "V51_SCENES",
+    prefix: "v51-",
+    voiceJson: "voice-v51.json",
+    voiceDurations: "voice-durations-v51.json",
+    sceneDurations: "scene-durations-v51.json",
   },
 };
 

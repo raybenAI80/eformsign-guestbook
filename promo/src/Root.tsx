@@ -6,6 +6,7 @@ import { Loop30, Gif3, Still } from "./compositions/Extras";
 import { CandB } from "./compositions/CandB";
 import { PageTexture, pageTextureFrames, pageTextureSize } from "./compositions/PageTexture";
 import { Demo53 } from "./compositions/Demo";
+import { Animatic51, ANIMATIC51_FRAMES } from "./compositions/Animatic51";
 import {
   CUT15_FRAMES,
   DEMO_FRAMES,
@@ -118,6 +119,16 @@ export const RemotionRoot: React.FC = () => (
       width={1920}
       height={1080}
       defaultProps={{ mute: false }}
+    />
+
+    {/* ⑨ v5.1 애니매틱 — 스틸 + 나레이션 + 자막. 길이 = src/scene-durations-v51.json. 2026-10-13 */}
+    <Composition
+      id="Animatic51"
+      component={Animatic51}
+      durationInFrames={ANIMATIC51_FRAMES}
+      fps={FPS}
+      width={1920}
+      height={1080}
     />
 
     {/* ⑦ 9초 시안 — Hook + Paper 스타일 확정용 */}

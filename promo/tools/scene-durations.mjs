@@ -5,6 +5,8 @@
  *   node tools/scene-durations.mjs            public/voice/voice.json → src/scene-durations.json
  *   node tools/scene-durations.mjs --check     쓰지 않고 표만 (CI·게이트용, 값이 다르면 exit 1)
  *   node tools/scene-durations.mjs --json      JSON 만
+ *   node tools/scene-durations.mjs --set v51   v5.1 애니매틱: 장면 = max(목표 길이, lead + 나레이션 + tail + 숨 0.4s),
+ *                                              총길이 보정 없음(산출값 그대로) → src/scene-durations-v51.json
  *   node tools/scene-durations.mjs --set demo  실제 화면 편: public/voice/voice-demo.json → src/scene-durations-demo.json
  *                                              (DEMO_SCENES 순서 · 시각 최소 DEMO_MIN_VISUAL_FRAMES · 총길이 DEMO_BOUNDS)
  *
@@ -96,6 +98,26 @@ export const DEMO_MIN_VISUAL_FRAMES = {
   // 홍보편 CTA 재사용 — 3단 등장 58프레임 + 머무름 2초
   cta: 120,
 };
+
+/**
+ * v5.1 애니매틱(2026-10-13) — 목표 길이(V51_SCENES endSec-startSec)를 시각 최소로 쓰고,
+ * 여운에 숨 0.4초를 더한다. 총길이는 늘리거나 줄이지 않는다(bounds 를 넓게 둔다).
+ */
+export const V51_BREATH_SEC = 0.4;
+export const V51_BOUNDS = { minSec: 0, maxSec: 600 };
+export function v51TargetFrames() {
+  const src = fs.readFileSync(path.join(ROOT, "src", "script.ts"), "utf8");
+  const m = src.match(/export const V51_SCENES[^=]*=\s*\[/);
+  if (!m) throw new Error("V51_SCENES 를 못 찾았다");
+  let i = m.index + m[0].length - 1, depth = 0, end = i;
+  for (; end < src.length; end++) {
+    if (src[end] === "[") depth++;
+    else if (src[end] === "]" && --depth === 0) break;
+  }
+  // eslint-disable-next-line no-new-func
+  const arr = new Function(`return ${src.slice(i, end + 1)};`)();
+  return Object.fromEntries(arr.map((s) => [s.id, Math.round((s.endSec - s.startSec) * FPS)]));
+}
 
 const ceilFrames = (sec) => Math.ceil(sec * FPS - 1e-9);
 
@@ -224,7 +246,13 @@ export function run({ write = true, set: setName } = {}) {
   const voice = JSON.parse(fs.readFileSync(voicePath, "utf8"));
   const res = isMain
     ? computeDurations(voice, sceneOrder(), { fixed: HF_FIXED_FRAMES })
-    : computeDurations(voice, sceneOrder(set.array), { bounds: DEMO_BOUNDS, minVisual: DEMO_MIN_VISUAL_FRAMES });
+    : set.name === "v51"
+      ? computeDurations(voice, sceneOrder(set.array), {
+          bounds: V51_BOUNDS,
+          minVisual: v51TargetFrames(),
+          pad: { leadSec: PAD.leadSec, tailSec: PAD.tailSec + V51_BREATH_SEC },
+        })
+      : computeDurations(voice, sceneOrder(set.array), { bounds: DEMO_BOUNDS, minVisual: DEMO_MIN_VISUAL_FRAMES });
   if (!isMain) res.set = set.name;
   if (write) fs.writeFileSync(outPath, `${JSON.stringify(res, null, 2)}\n`, "utf8");
   return { ...res, outPath };

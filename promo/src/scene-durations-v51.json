@@ -1,0 +1,78 @@
+{
+  "fps": 30,
+  "voice": "clova-dubbing:봄달",
+  "rate": "n/a(외부 더빙)",
+  "leadSec": 0.3,
+  "tailSec": 0.9,
+  "paddedFrames": 0,
+  "totalFrames": 2163,
+  "totalSec": 72.1,
+  "ok": true,
+  "notes": [],
+  "scenes": {
+    "hook": {
+      "narrationSec": 3.863,
+      "minVisualFrames": 180,
+      "voiceFrames": 152,
+      "startFrame": 0,
+      "frames": 180,
+      "seconds": 6,
+      "driver": "visual"
+    },
+    "promise": {
+      "narrationSec": 11.451,
+      "minVisualFrames": 270,
+      "voiceFrames": 380,
+      "startFrame": 180,
+      "frames": 380,
+      "seconds": 12.667,
+      "driver": "voice"
+    },
+    "bridge": {
+      "narrationSec": 3.673,
+      "minVisualFrames": 210,
+      "voiceFrames": 147,
+      "startFrame": 560,
+      "frames": 210,
+      "seconds": 7,
+      "driver": "visual"
+    },
+    "visitor": {
+      "narrationSec": 10.967,
+      "minVisualFrames": 480,
+      "voiceFrames": 366,
+      "startFrame": 770,
+      "frames": 480,
+      "seconds": 16,
+      "driver": "visual"
+    },
+    "staff": {
+      "narrationSec": 13.357,
+      "minVisualFrames": 480,
+      "voiceFrames": 437,
+      "startFrame": 1250,
+      "frames": 480,
+      "seconds": 16,
+      "driver": "visual"
+    },
+    "expand": {
+      "narrationSec": 7.228,
+      "minVisualFrames": 210,
+      "voiceFrames": 253,
+      "startFrame": 1730,
+      "frames": 253,
+      "seconds": 8.433,
+      "driver": "voice"
+    },
+    "cta": {
+      "narrationSec": 2.336,
+      "minVisualFrames": 180,
+      "voiceFrames": 107,
+      "startFrame": 1983,
+      "frames": 180,
+      "seconds": 6,
+      "driver": "visual"
+    }
+  },
+  "set": "v51"
+}

@@ -355,3 +355,105 @@ export const demoSceneFrames = (id: DemoSceneId) => {
 
 /** 실제 화면 편 총길이 = src/scene-durations-demo.json (나레이션 실측 파생) */
 export const DEMO_FRAMES = DEMO_TIMELINE.totalFrames;
+
+/* ---------- v5.1 애니매틱(스틸 + 나레이션 + 자막) — 2026-10-13 ---------- */
+/**
+ * 정본 = `tools/storyboard-sets/v5.1.json` (7장면). captions = 그 파일 cap 을 " / " 로 나눈 줄,
+ * narration = narr 원문 그대로(카피 확정은 사용자 시사에서 — 여기서 고치지 않는다).
+ * startSec/endSec = 스토리보드 목표 길이(누적). 실제 길이는 src/scene-durations-v51.json
+ * (node tools/voice-build.mjs --set v51 → node tools/scene-durations.mjs --set v51).
+ * 이 배열도 리터럴만 잘라 eval 되므로 리터럴 안에서 JSON·변수를 참조하지 않는다.
+ */
+export type V51SceneId = "hook" | "promise" | "bridge" | "visitor" | "staff" | "expand" | "cta";
+
+export interface V51SceneScript extends Omit<SceneScript, "id"> {
+  id: V51SceneId;
+}
+
+export const V51_SCENES: V51SceneScript[] = [
+  {
+    "id": "hook",
+    "label": "hook",
+    "startSec": 0,
+    "endSec": 6,
+    "captions": [
+      "방명록,",
+      "아직도 수기로 작성하고 직접 관리하시나요?"
+    ],
+    "narration": "방명록, 아직도 수기로 작성하고 직접 관리하시나요?",
+    "note": "종이 방명록 쓰는 방문자, 뒤에 줄. 느린 줌"
+  },
+  {
+    "id": "promise",
+    "label": "pain + promise",
+    "startSec": 6,
+    "endSec": 15,
+    "captions": [
+      "노출도, 옮겨 적기도",
+      "이폼사인이면 사라집니다"
+    ],
+    "narration": "앞사람 이름과 연락처는 그대로 노출되고, 그 기록은 결국 누군가 옮겨 적어야 합니다. 이폼사인 방명록은 종이 그대로인데, 그 둘이 사라집니다.",
+    "note": "종이 푸시인 → 밤 옮겨 적기 → 마지막 문장에서 태블릿 방명록으로 넘어감"
+  },
+  {
+    "id": "bridge",
+    "label": "product_intro",
+    "startSec": 15,
+    "endSec": 22,
+    "captions": [
+      "종이 그대로,",
+      "한 장에 여러 명"
+    ],
+    "narration": "종이 방명록 그대로, 한 장에 여러 분이 씁니다.",
+    "note": "종이 표가 태블릿 표로 모핑. 같은 열·같은 행"
+  },
+  {
+    "id": "visitor",
+    "label": "feature_showcase",
+    "startSec": 22,
+    "endSec": 38,
+    "captions": [
+      "열린 한 줄만 적고 전송",
+      "앞사람 정보는 가려집니다"
+    ],
+    "narration": "열려 있는 한 줄에 이름과 연락처, 방문 목적만 적고 서명해 전송합니다. 다음 분에게는 앞사람 정보가 보이지 않습니다. 같은 한 장인데도요.",
+    "note": "한 샷(컷 없음): 한 줄 입력 → 서명 → 전송 → 앞 행이 가려짐 → 다른 손이 다음 줄에"
+  },
+  {
+    "id": "staff",
+    "label": "benefit_highlight",
+    "startSec": 38,
+    "endSec": 54,
+    "captions": [
+      "열 명이 써도 문서는 한 장",
+      "옮겨 적는 일은 없습니다"
+    ],
+    "narration": "열 분이 써도 문서는 한 장입니다. 다음 날 담당자 문서함에는 그 한 장만 있습니다. 찾고, 열고, 내려받기까지 거기서 끝납니다. 옮겨 적는 일이 사라집니다.",
+    "note": "아침, 같은 담당자 노트북 → 문서함에 어제 한 장 → 검색 → PDF 열기(컷 2)"
+  },
+  {
+    "id": "expand",
+    "label": "branding",
+    "startSec": 54,
+    "endSec": 61,
+    "captions": [
+      "방명록은 시작일 뿐",
+      "계약서 · 동의서 · 신청서, 전부 이폼사인"
+    ],
+    "narration": "방명록은 시작일 뿐입니다. 계약서도, 동의서도, 신청서도 같은 이폼사인입니다.",
+    "note": "이폼사인 서식 목록에서 계약서·동의서·신청서가 보인다"
+  },
+  {
+    "id": "cta",
+    "label": "cta",
+    "startSec": 61,
+    "endSec": 67,
+    "captions": [
+      "이폼사인",
+      "지금 체험해 보세요",
+      "eformsign.com"
+    ],
+    "narration": "지금 이폼사인을 체험해 보세요.",
+    "note": "로고"
+  }
+];
