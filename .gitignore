@@ -20,3 +20,5 @@ promo/public/shots/
 
 # third-party prompt catalog lives in the vault, not in this public repo
 docs/marketing/motion-dictionary/catalog.json
+
+.claude/worktrees/
