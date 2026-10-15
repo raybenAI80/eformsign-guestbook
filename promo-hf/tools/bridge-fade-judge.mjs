@@ -2,6 +2,9 @@
 // Judge the bridge-opus hand fade: hand-mask region color vs the same scene rendered without the hand layer.
 // Usage: node bridge-fade-judge.mjs [--video mp4] [--hand alpha.png] [--out-dir dir] [--name base]
 //        [--times 1.5,1.7,...] [--ref-video nohand.mp4] [--after 1.737] [--max-de 3]
+// --ref-video: render the scene once more from a temp copy of scenes/bridge-opus/index.html with
+//   `#bo-hand{display:none}` added (hand layer hidden, everything else identical), same render settings,
+//   saved as promo/out/ab/bridge-opus-v3-nohand.mp4. Never use another timestamp of the same video as reference.
 // No npm deps; needs ffmpeg on PATH. Camera constants mirror scenes/bridge-opus/index.html.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync, existsSync, mkdtempSync, readFileSync } from "node:fs";
