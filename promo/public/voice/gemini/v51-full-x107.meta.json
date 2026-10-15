@@ -1,0 +1,9 @@
+{
+  "source": "v51-full.wav",
+  "rate": 1.07,
+  "filter": "atempo=1.07",
+  "originalSec": 61.24,
+  "newWavSec": 57.242,
+  "newMp3Sec": 57.242,
+  "note": "Gemini 재생성 대신 atempo 로 한도 0 소모"
+}

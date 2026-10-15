@@ -1,6 +1,6 @@
 {
   "set": "v51",
-  "source": "public/voice/gemini/v51-full.mp3",
+  "source": "public/voice/gemini/v51-full-x107.mp3",
   "origin": "Gemini 3.8 Flash TTS 「Kore」 무료 등급 — 14문장 전문 1회 요청(tools/tts-gemini.mjs --batch), 문장 사이 빈 줄",
   "voice": "gemini-3.8-flash-tts:Kore",
   "detect": {
@@ -87,5 +87,6 @@
       "scene": "cta",
       "text": "지금 이폼사인을 체험해 보세요."
     }
-  ]
+  ],
+  "note": "10-15 시사: 속도 살짝 빠르게 → atempo 1.07 (tools/voice-tempo.mjs, 원본 v51-full.wav 보존). minSilenceSec 0.40 유지: x107 에서도 발화 17구간(원본과 동일) → 글자 비율 DP 가 14문장 정렬."
 }

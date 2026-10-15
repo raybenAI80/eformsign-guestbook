@@ -5,8 +5,8 @@
   "voice": "clova-dubbing:봄달",
   "detect": { "noiseDb": -40, "minSilenceSec": 0.45 },
   "edgeSec": 0.05,
-  "gapSec": 0.35,
-  "gapNote": "gapSec = 묶은 장면 안 문장 사이 발화-발화 간격(초). 잘라낸 구간 앞뒤 edgeSec 를 포함한 값이다",
+  "gapSec": 0.55,
+  "gapNote": "gapSec = 묶은 장면 안 문장 사이 발화-발화 간격(초). 잘라낸 구간 앞뒤 edgeSec 를 포함한 값이다 / 0.35→0.55 (2026-10-13 시사 후, 클로바 원 간격 0.52~0.62 에 맞춤)",
   "output": { "sampleRate": 48000, "channels": 1, "bitrate": "192k" },
   "sentences": [
     { "n": 1, "scene": "hook", "text": "방명록, 아직도 수기로 작성하고 직접 관리하시나요?" },
