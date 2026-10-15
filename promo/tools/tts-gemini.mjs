@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 /**
- * Gemini TTS 프로브 — v5.1 나레이션 14문장을 Gemini TTS 로 문장별 생성해 클로바 「봄달」과 비교한다.
+ * Gemini TTS — v5.1 나레이션 14문장을 Gemini TTS 로 생성한다(문장별 프로브 / 전문 1회 제작).
+ *
+ * 🔴 무료 한도 10회/일 — 제작은 --batch 1회(14문장 전문을 요청 1건으로). 문장별 모드는 문장 수만큼 요청을 쓴다.
+ *   --batch 는 429 를 재시도하지 않는다(재시도도 한도를 쓴다). 한도 초기화 후 다시 실행한다.
+ *   node tools/tts-gemini.mjs --batch --voice Kore
+ *     → public/voice/gemini/v51-full.wav(24kHz) · v51-full.mp3(48kHz mono 192k) · v51-full.meta.json
+ *   이후 분할: node tools/voice-import.mjs --map tools/voice-import/v51-gemini.json --plan  (확인) → 실행
+ *   본문 = 문장을 빈 줄(줄바꿈 2개)로 이은 순수 대본. 말투는 speech_metadata.style 에만 둔다(--style "" 로 끈다).
  *
  * 사용법 (promo/ 에서)
  *   node tools/tts-gemini.mjs --voice Kore
@@ -57,6 +64,8 @@ function parseArgs(argv) {
     gapSec: 0.55,
     dryRun: false,
     compare: false,
+    batch: false,
+    batchDir: path.join(ROOT, "public", "voice", "gemini"),
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -71,6 +80,8 @@ function parseArgs(argv) {
     else if (a === "--gap") o.gapSec = Number(next());
     else if (a === "--dry-run") o.dryRun = true;
     else if (a === "--compare") o.compare = true;
+    else if (a === "--batch") o.batch = true;
+    else if (a === "--batch-dir") o.batchDir = path.resolve(next());
     else throw new Error(`알 수 없는 옵션: ${a}`);
   }
   if (!["interactions", "generateContent"].includes(o.api)) throw new Error("--api 는 interactions|generateContent");
@@ -132,7 +143,7 @@ export function pcmToWav(pcm, rate = 24000, ch = 1) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function callTts(key, req, stats) {
+async function callTts(key, req, stats, retry429 = true) {
   for (let attempt = 0; ; attempt++) {
     stats.requests++;
     const r = await fetch(req.url, {
@@ -142,7 +153,7 @@ async function callTts(key, req, stats) {
     });
     if (r.status === 429) {
       stats.r429++;
-      if (attempt >= 3) throw Object.assign(new Error("429 한도 초과 — 백오프 3회 후 중단"), { code: 429 });
+      if (!retry429 || attempt >= 3) throw Object.assign(new Error(retry429 ? "429 한도 초과 — 백오프 3회 후 중단" : "429 한도 초과 — --batch 는 재시도하지 않는다"), { code: 429 });
       const wait = 4000 * 2 ** attempt;
       console.error(`  429 → ${wait / 1000}s 대기 (${attempt + 1}/3)`);
       await sleep(wait);
@@ -233,6 +244,32 @@ async function writeCompare(o, map) {
   console.log(`compare: ${out} (${voices.join(", ")})`);
 }
 
+/** 전문 1회 요청 — 14문장을 빈 줄로 이어 한 번에 보낸다 */
+async function runBatch(o, map, key) {
+  const text = map.sentences.map((s) => s.text).join("\n\n");
+  const req = buildRequest(o.api, o.model, o.voice, text, o.style);
+  const stats = { requests: 0, r429: 0 };
+  fs.mkdirSync(o.batchDir, { recursive: true });
+  const base = path.join(o.batchDir, `${map.set}-full`);
+  const requestedAt = new Date().toISOString();
+  const json = await callTts(key, req, stats, false);
+  const audio = extractAudio(o.api, json);
+  if (!audio) throw new Error("응답에 오디오 없음");
+  const buf = Buffer.from(audio.b64, "base64");
+  const wav = buf.subarray(0, 4).toString("ascii") === "RIFF" ? buf : pcmToWav(buf);
+  fs.writeFileSync(base + ".wav", wav);
+  ffmpeg(["-i", base + ".wav", "-ar", "48000", "-ac", "1", "-b:a", "192k", base + ".mp3"]);
+  const meta = {
+    model: o.model, voice: o.voice, api: o.api, style: o.style || null,
+    requestedAt, responseMime: audio.mime, requests: stats.requests,
+    inputChars: text.length, sentences: map.sentences.length,
+    wavSec: probeSec(base + ".wav"), mp3Sec: probeSec(base + ".mp3"),
+  };
+  fs.writeFileSync(base + ".meta.json", JSON.stringify(meta, null, 2));
+  console.log(`batch: ${meta.sentences}문장 ${meta.inputChars}자 → ${meta.mp3Sec}s, 요청 ${stats.requests}`);
+  console.log(`  ${path.relative(ROOT, base + ".mp3").replace(/\\/g, "/")}`);
+}
+
 async function main() {
   const o = parseArgs(process.argv.slice(2));
   const map = JSON.parse(fs.readFileSync(o.map, "utf8"));
@@ -240,6 +277,19 @@ async function main() {
   if (o.only) sentences = sentences.filter((s) => o.only.includes(s.n));
 
   if (o.compare) return writeCompare(o, map);
+
+  if (o.batch) {
+    const text = map.sentences.map((s) => s.text).join("\n\n");
+    if (o.dryRun) {
+      const req = buildRequest(o.api, o.model, o.voice, text, o.style);
+      console.log(req.url);
+      console.log(JSON.stringify(req.body, null, 2));
+      return;
+    }
+    const k = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!k) throw new Error("GEMINI_API_KEY 또는 GOOGLE_API_KEY 환경변수가 필요하다");
+    return runBatch(o, map, k);
+  }
 
   if (o.dryRun) {
     const req = buildRequest(o.api, o.model, o.voice, sentences[0].text, o.style);

@@ -1,0 +1,91 @@
+{
+  "set": "v51",
+  "source": "public/voice/gemini/v51-full.mp3",
+  "origin": "Gemini 3.8 Flash TTS 「Kore」 무료 등급 — 14문장 전문 1회 요청(tools/tts-gemini.mjs --batch), 문장 사이 빈 줄",
+  "voice": "gemini-3.8-flash-tts:Kore",
+  "detect": {
+    "noiseDb": -40,
+    "minSilenceSec": 0.4
+  },
+  "edgeSec": 0.05,
+  "gapSec": 0.6,
+  "gapNote": "gapSec = 묶은 장면 안 문장 사이 발화-발화 간격(초), 앞뒤 edgeSec 포함 / 0.60 = Kore 문장 끝 평균 무음 0.31s + 다음 문장 앞 평균 무음 0.28s(11문장 실측 -40dB). 클로바(0.55)보다 약간 길다. 시사 후 조정.",
+  "output": {
+    "sampleRate": 48000,
+    "channels": 1,
+    "bitrate": "192k"
+  },
+  "sentences": [
+    {
+      "n": 1,
+      "scene": "hook",
+      "text": "방명록, 아직도 수기로 작성하고 직접 관리하시나요?"
+    },
+    {
+      "n": 2,
+      "scene": "promise",
+      "text": "앞사람 이름과 연락처는 그대로 노출되고, 그 기록은 결국 누군가 옮겨 적어야 합니다."
+    },
+    {
+      "n": 3,
+      "scene": "promise",
+      "text": "이폼사인 방명록은 종이 그대로인데, 그 둘이 사라집니다."
+    },
+    {
+      "n": 4,
+      "scene": "bridge",
+      "text": "종이 방명록 그대로, 한 장에 여러 분이 씁니다."
+    },
+    {
+      "n": 5,
+      "scene": "visitor",
+      "text": "열려 있는 한 줄에 이름과 연락처, 방문 목적만 적고 서명해 전송합니다."
+    },
+    {
+      "n": 6,
+      "scene": "visitor",
+      "text": "다음 분에게는 앞사람 정보가 보이지 않습니다."
+    },
+    {
+      "n": 7,
+      "scene": "visitor",
+      "text": "같은 한 장인데도요."
+    },
+    {
+      "n": 8,
+      "scene": "staff",
+      "text": "열 분이 써도 문서는 한 장입니다."
+    },
+    {
+      "n": 9,
+      "scene": "staff",
+      "text": "다음 날 담당자 문서함에는 그 한 장만 있습니다."
+    },
+    {
+      "n": 10,
+      "scene": "staff",
+      "text": "찾고, 열고, 내려받기까지 거기서 끝납니다."
+    },
+    {
+      "n": 11,
+      "scene": "staff",
+      "text": "옮겨 적는 일이 사라집니다."
+    },
+    {
+      "n": 12,
+      "scene": "expand",
+      "text": "방명록은 시작일 뿐입니다."
+    },
+    {
+      "n": 13,
+      "scene": "expand",
+      "text": "계약서도, 동의서도, 신청서도 같은 이폼사인입니다."
+    },
+    {
+      "n": 14,
+      "scene": "cta",
+      "text": "지금 이폼사인을 체험해 보세요."
+    }
+  ],
+  "detectNote": "Kore 11문장 실측(-40dB): 쉼표 없는 문장 내부 무음 최대 0.33s(#9)·0.26s(#6), 쉼표 있는 문장 내부 최대 0.68s(#2), 문장 앞 0.19~0.34s·뒤 0.26~0.43s(합 약 0.5~0.75s). minSilenceSec 0.40 = 쉼표 없는 문장 내부(<0.35)보다 크고 문장 사이 예상(≥0.5)보다 작다. 쉼표 문장 내부 휴지는 aligner 가 쉼표 수 제약으로 묶는다. 실제 전문 응답으로 --plan 확인 후 조정."
+}
