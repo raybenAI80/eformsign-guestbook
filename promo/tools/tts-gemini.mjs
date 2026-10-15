@@ -145,10 +145,11 @@ async function runBatch(o, map, apiKey) {
     model: meta.model, voice: meta.voice, api: meta.api, style: meta.style,
     requestedAt: meta.requestedAt, responseMime: meta.responseMime, requests: meta.requests,
     inputChars: meta.inputChars, sentences: meta.sentences,
+    r429: meta.r429, keyIndex: meta.keyIndex ?? null, keysTotal: meta.keysTotal ?? null,
     wavSec: tts.probeSec(base + ".wav"), mp3Sec: tts.probeSec(base + ".mp3"),
   };
   fs.writeFileSync(base + ".meta.json", JSON.stringify(out, null, 2));
-  console.log(`batch: ${out.sentences}문장 ${out.inputChars}자 → ${out.mp3Sec}s, 요청 ${out.requests}`);
+  console.log(`batch: ${out.sentences}문장 ${out.inputChars}자 → ${out.mp3Sec}s, 요청 ${out.requests}, 키 ${out.keyIndex}/${out.keysTotal}`);
   console.log(`  ${path.relative(ROOT, base + ".mp3").replace(/\\/g, "/")}`);
 }
 
