@@ -144,10 +144,15 @@
         const R = { x: 340, y: 36, w: 1240, h: 836 };
         const RECT = [[R.x, R.y], [R.x + R.w, R.y], [R.x + R.w, R.y + R.h], [R.x, R.y + R.h]];
         const T0 = 0.5, T1 = 4.0;        // transition window
-        // hand layer fade: the table's top edge (photo coords) passes the cuff clip lines (y 690/655)
-        // at ~2.0-2.15 s, so the hand is gone before its straight sleeve clip can show over the table
-        const HAND_OUT = [1.75, 2.15];
         const ease = gsap.parseEase("power2.inOut");
+        // page fade (veil over the paper) starts at p = 0.25; power2.inOut inverse for p < 0.5 is x = sqrt(p / 2)
+        const VEIL_P0 = 0.25;
+        const PAGE_FADE_T = T0 + (T1 - T0) * Math.sqrt(VEIL_P0 / 2); // ~1.737 s
+        // hand layer leaves BEFORE the page fade starts ("lifts the hand"): opacity 1->0 plus a small
+        // downward slide, finished 0.05 s before PAGE_FADE_T so no translucent hand/pen ghost can sit
+        // over the table's navy header band while the paper fades (v2 defect at 1.9-2.15 s)
+        const HAND_OUT = [PAGE_FADE_T - 0.45, PAGE_FADE_T - 0.05]; // ~1.287-1.687 s
+        const HAND_DROP = 32; // px, screen space
         const lerp = (a, b, t) => a + (b - a) * t;
         const clamp01 = (v) => Math.min(1, Math.max(0, v));
         const smooth = (a, b, v) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
@@ -182,8 +187,9 @@
           const cam = ([x, y]) => [s * (x - F[0]) + fx, s * (y - F[1]) + fy];
           const camT = `translate(${fx - s * F[0]}px, ${fy - s * F[1]}px) scale(${s})`;
           paper.style.transform = camT;
-          hand.style.transform = camT;
-          hand.style.opacity = String(1 - smooth(HAND_OUT[0], HAND_OUT[1], time));
+          const hk = smooth(HAND_OUT[0], HAND_OUT[1], time);
+          hand.style.transform = `translate(0px, ${HAND_DROP * hk}px) ${camT}`;
+          hand.style.opacity = String(1 - hk);
           // table: pinned on the spread through the same camera, then straightened into the final rect
           const k = smooth(0.12, 1, p);
           const q = SPREAD.map((pt, i) => { const c = cam(pt); return [lerp(c[0], RECT[i][0], k), lerp(c[1], RECT[i][1], k)]; });
