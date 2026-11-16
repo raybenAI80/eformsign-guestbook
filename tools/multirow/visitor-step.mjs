@@ -3,7 +3,7 @@
 // 「방문자 1」) with every coordinate MEASURED live (measure-row.mjs), never hard-coded.
 //
 //   node tools/multirow/visitor-step.mjs --port 9242 --tab <idPrefix> --row N --name <성명> --phone <연락처>
-//        --purpose 회의|납품|면접|기타 [--staff <담당자>] --tag V3 --ev <evidence dir>
+//        --purpose '단순 문의'|'도입 상담'|기타 [--staff <담당자>] --tag V3 --ev <evidence dir>
 //
 // Flow: scale-1 shot + state check (「입력 시작」 visible, row N open, not done; else exit 2)
 //   -> 입력 시작 -> 성명·연락처·[담당자] typed (values read back) -> 목적 체크 -> 서명 버튼 -> signpad touch stroke (seed=N)
@@ -30,9 +30,9 @@ import { measureRow, measureChrome, rowValues, consentState } from './measure-ro
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf(k); return i > -1 ? argv[i + 1] : d; };
-const N = Number(arg('--row')), NAME = arg('--name'), PHONE = arg('--phone'), PURPOSE = arg('--purpose', '회의');
+const N = Number(arg('--row')), NAME = arg('--name'), PHONE = arg('--phone'), PURPOSE = arg('--purpose', '단순 문의');
 const STAFF = arg('--staff'), TAG = arg('--tag', 'V3'), EV = arg('--ev', '.');
-const PURPOSES = ['회의', '납품', '면접', '기타'];
+const PURPOSES = ['단순 문의', '도입 상담', '기타'];
 const evidence = [];
 const log = (...a) => console.error(new Date().toTimeString().slice(0, 8), ...a);
 const out = (status, reason, code) => {
@@ -77,7 +77,7 @@ await field('phone', PHONE);
 if (STAFF) await field('staff', STAFF);
 row = await measureRow(c, N);
 const chk = row?.checks?.[PURPOSES.indexOf(PURPOSE)];
-if (!chk || row.checks.length !== 4) await stop(`purpose checkboxes ${row?.checks?.length}`);
+if (!chk || row.checks.length !== 3) await stop(`purpose checkboxes ${row?.checks?.length}`);
 await c.click(...chk.click); log(`purpose ${PURPOSE} @${chk.click}`); await sleep(600);
 const vals = await rowValues(c, N);
 log('values', JSON.stringify(vals));

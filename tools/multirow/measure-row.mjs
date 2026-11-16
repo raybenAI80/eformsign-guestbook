@@ -36,7 +36,7 @@ const done=[...d.querySelectorAll('text')].filter(t=>/작성 완료/.test(t.text
 const en=x=>!!x&&!x.e.disabled&&!x.e.readOnly;
 const P=x=>x?{rect:x.r,center:C(x.r),value:x.e.value,enabled:en(x)}:null;
 return {row:N,cy:Math.round(cy),cyFrom,done,open:en(name),time:time&&time.e.value,name:P(name),phone:P(phone),staff:P(staff),sign:P(sign),
- checks:checks.map(r=>({rect:r,click:[r[0]+6,r[1]+24]})),purposeOrder:['회의','납품','면접','기타']};
+ checks:checks.map(r=>({rect:r,click:[r[0]+6,r[1]+24]})),purposeOrder:['단순 문의','도입 상담','기타']};
 })()`;
 
 const CHROME_JS = (ox, oy) => `(()=>{const OX=${ox},OY=${oy};

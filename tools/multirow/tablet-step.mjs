@@ -15,7 +15,7 @@
 // D안 (2026-09-28, --layout tools/multirow/layout-product.json --variant D): own row = the visible enabled signature button +
 //   the editable text inputs on the same row band (성명·연락처·기타내용·담당자, 시각 is read-only). 방문 목적 checkboxes are not
 //   <input> elements in the mobile viewer -> clicked at coordinates mapped from layout pt (scale from 성명/연락처 input lefts).
-//   --check "회의,기타"  --manager "<담당자>"  --other "<기타 내용>"  --min (성명+서명 only)
+//   --check "단순 문의,기타"  --manager "<담당자>"  --other "<기타 내용>"  --min (성명+서명 only)
 // --attach (with --tab <id prefix>, v5 2026-09-28): drive a tab that is ALREADY loaded — e.g. the kiosk wrapper
 //   (probe.mjs serve, external visitor) after the consent screen was passed by a person. No navigation; the eformsign OOPIF
 //   (external_view_service or m_view_service) is looked up under that tab. The Chrome process must carry --user-agent=<tablet UA>.
@@ -159,7 +159,7 @@ if (!out.ownInViewport && !has('--start')) {
 }
 const m3 = await ev(measure); const g3 = pickOwn(m3);
 const c = (e) => [Math.round(e.x + e.w / 2), Math.round(e.y + e.h / 2)];
-const vals = [`방문자${row}`, `010-${String(1000 + row).slice(-4)}-${String(5000 + row).slice(-4)}`, ['회의', '납품', '면접', '견학'][row % 4]];
+const vals = [`방문자${row}`, `010-${String(1000 + row).slice(-4)}-${String(5000 + row).slice(-4)}`, ['단순 문의', '도입 상담', '견학'][row % 3]];
 const active = `(()=>{const f=[...document.querySelectorAll('iframe')].find(x=>/view_iframe/.test(x.src));const a=f.contentDocument.activeElement;return (a&&a.tagName)+' '+(a&&a.id)+' ro='+(a&&a.readOnly)})()`;
 out.clicks = [];
 if (LAY?.style === 'reception') {
@@ -176,7 +176,7 @@ if (LAY?.style === 'reception') {
   const pc = LAY.cols.find((q) => q.type === 'purpose'); const G = LAY.purposeGeo; const t0 = rowTopPt(LAY, row);
   const pos = Object.fromEntries(purposeItems(LAY, pc, t0).map(([lab, x, y]) => [lab, pt2px(x, y)]));
   out.checkboxTouchPx = Math.round(G.touch * sx * 10) / 10; out.checkboxPos = pos; out.scalePxPerPt = Math.round(sx * 1000) / 1000;
-  // --poke "1:회의,4:면접": tap checkboxes of OTHER rows (lock test — previous rows hidden, later rows disabled; judge by API values)
+  // --poke "1:단순 문의,4:기타": tap checkboxes of OTHER rows (lock test — previous rows hidden, later rows disabled; judge by API values)
   for (const pk of (arg('--poke', '') || '').split(',').filter(Boolean)) {
     const [pr, lab] = pk.split(':'); const it = purposeItems(LAY, pc, rowTopPt(LAY, Number(pr))).find((q) => q[0] === lab);
     const xy = pt2px(it[1], it[2]);

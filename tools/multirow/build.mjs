@@ -235,13 +235,25 @@ if (!lay.design) {
     }
   }
   const pcol = lay.cols.find((c) => c.type === 'purpose');
+// label width estimate (pt): CJK glyph = font size, space = 0.35 em (matches the PDF text widths measured with PyMuPDF at 7/8pt)
+const textW = (t, size) => [...t].reduce((w, ch) => w + (ch === ' ' ? size * 0.35 : size), 0);
   if (lay.highlightOwnRow && pcol && lay.purposeGeo) {
     const g = lay.purposeGeo;
     for (let r = 1; r <= lay.rows; r++) {
       const t = rowTop(r);
       // v5 (inline): label shape ends where the next option's checkbox component starts (cx + itemDX - touch/2)
-      purposeItems(lay, pcol, t).forEach(([lab, cx, cy], k) => extraKids.push(shape(`OwnOpt${r}_${k}`, +(cx + g.box / 2 + g.labelGap - 5).toFixed(2), +(cy - 8).toFixed(2), g.inline ? +(g.itemDX - g.touch / 2 - g.box / 2 - g.labelGap + 5).toFixed(2) : 26, 16, lab,
+      purposeItems(lay, pcol, t).forEach(([lab, cx, cy], k) => extraKids.push(shape(`OwnOpt${r}_${k}`, +(cx + g.box / 2 + g.labelGap - 5).toFixed(2), +(cy - 8).toFixed(2), g.inline ? +Math.min(textW(lab, g.labelSize) + 4, pcol.x1 - (cx + g.box / 2 + g.labelGap - 5) - 2).toFixed(2) : 26, 16, lab,
         { bg: -1, transparent: 'true', fg: ozc(C.optLabel), size: g.labelSize, style: 0, halign: 1, valign: 0, hidden: true }, hiJs(r)), rowPage(lay, r)));
+      // 「기타 내용」 hint + underline are drawn in the background PDF (make-pdf-product.py: hint at x0+itemX0 / baseline top+otherText[3]-3, rule at top+otherText[3]
+      // from x0+otherText[0] to x0+otherText[2]); the own-row cell fill covers both -> redraw them as NOPRINT shapes (same rule as OwnOpt; 2026-11-16 defect)
+      if (g.otherHint && g.otherText) {
+        const ot = g.otherText; const hs = g.otherHintSize ?? 7;
+        const hintW = textW(g.otherHint, hs) + 4;
+        extraKids.push(shape(`OwnHint${r}`, +(pcol.x0 + g.itemX0 - 1).toFixed(2), +(t + ot[3] - 3 - hs * 0.36 - 7).toFixed(2), +hintW.toFixed(2), 14, g.otherHint,
+          { bg: -1, transparent: 'true', fg: ozc(C.optLabel), size: hs, style: 0, halign: 1, valign: 0, hidden: true }, hiJs(r)), rowPage(lay, r));
+        extraKids.push(shape(`OwnLine${r}`, +(pcol.x0 + ot[0]).toFixed(2), +(t + ot[3] - 0.4).toFixed(2), +(ot[2] - ot[0]).toFixed(2), 0.8, '',
+          { bg: ozc(C.optBox), transparent: 'false', fg: -16777216, size: 6, style: 0, halign: 0, valign: 0, hidden: true }, hiJs(r)), rowPage(lay, r));
+      }
     }
   }
   if (SH) {
@@ -283,6 +295,20 @@ if (lay.design) {
   }
   xml = xml.replace(/<OZICSIGNPAD ([^>]*?)FORMID="([^"]+) (\d+)"([^>]*?)ICONSIZE="\d+"/g, (all, a, key, row, b) =>
     `<OZICSIGNPAD ${a}FORMID="${key} ${row}"${b}ICONSIZE="${lay.signIconSizeByRow?.[row] ?? lay.signIconSize}"`);
+}
+// col.keyboard (2026-11-16): 입력칸에 화상 키보드 종류를 지정한다. OZICTEXTBOX KEYBOARDTYPE 정수를 뷰어가 input 의 inputmode 로 바꾼다
+//   (phone=5 -> tel, numeric=2 -> decimal, email=4, url=6. 근거: 볼트 ozr-docflow-pack claim docflow-card-phone-keypad-postcode-2026-09-29, 뷰어 OZJSViewer.js c5P).
+//   inputmode 는 키보드 모양만 바꾸고 입력 문자는 막지 않는다. 옵션이 없으면 아무것도 바꾸지 않는다(기존 바이트 동일).
+const KEYBOARD_CODE = { phone: 5, numeric: 2, email: 4, url: 6 };
+for (const c of lay.cols.filter((x) => x.keyboard)) {
+  const code = KEYBOARD_CODE[c.keyboard];
+  if (!code) throw new Error('unknown col.keyboard: ' + c.keyboard);
+  let n = 0;
+  xml = xml.replace(new RegExp('<OZICTEXTBOX [^>]*?FORMID="' + c.key + ' \\d+"[^>]*>', 'g'), (all) => {
+    n++;
+    return all.replace(/ KEYBOARDTYPE="\d+"/, '').replace(/^<OZICTEXTBOX /, '<OZICTEXTBOX KEYBOARDTYPE="' + code + '" ');
+  });
+  if (n !== lay.rows) throw new Error('col.keyboard ' + c.key + ': patched ' + n + ' textboxes != rows ' + lay.rows);
 }
 // signKind "handwriting" (2026-11-16): 서명 칸을 이폼사인 정식 「손글씨」 입력 항목(OZICHANDWRITING, VALUEMEANINGCODE 285278480)으로 방출한다.
 //   서명 항목 285279248 은 서명 창을 띄우고 signpad_type=direct 로도 안 바뀐다. 손글씨는 report 의 OZICSIGNPAD 에 코드 285278480 +
