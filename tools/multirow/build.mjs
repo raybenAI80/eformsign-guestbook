@@ -284,6 +284,22 @@ if (lay.design) {
   xml = xml.replace(/<OZICSIGNPAD ([^>]*?)FORMID="([^"]+) (\d+)"([^>]*?)ICONSIZE="\d+"/g, (all, a, key, row, b) =>
     `<OZICSIGNPAD ${a}FORMID="${key} ${row}"${b}ICONSIZE="${lay.signIconSizeByRow?.[row] ?? lay.signIconSize}"`);
 }
+// signKind "handwriting" (2026-11-16): 서명 칸을 이폼사인 정식 「손글씨」 입력 항목(OZICHANDWRITING, VALUEMEANINGCODE 285278480)으로 방출한다.
+//   서명 항목 285279248 은 서명 창을 띄우고 signpad_type=direct 로도 안 바뀐다. 손글씨는 report 의 OZICSIGNPAD 에 코드 285278480 +
+//   KEEPTEXTAFTERSIGN(=showHandwritingText, false: true 면 완료 PDF 에 펜 아이콘) + TRACINGOUTLINE 을 쓰고 OZFORMID 코드도 같게 맞춘다
+//   (같은 구조 = eformsign-guestbook-demo/kiosk-guestbook/form/patch-handwriting.mjs). 옵션이 없으면 아래 블록은 실행되지 않는다(기존 D v8 바이트 동일).
+//   이 빌드는 .ozr 로 나가므로 ozw1 tail 은 없다(.ozw 로 방출하면 patch-handwriting.mjs 처럼 tail 의 OZICHANDWRITING 도 맞춰야 한다).
+if (lay.signKind === 'handwriting') {
+  const HW = '285278480'; let nPad = 0;
+  xml = xml.replace(/<OZICSIGNPAD ([^>]*?)>/g, (all, a) => {
+    if (!/FORMID="[^"]+ \d+"/.test(a)) return all;
+    nPad++;
+    return `<OZICSIGNPAD ${a.replace(/VALUEMEANINGCODE="\d+"/, `VALUEMEANINGCODE="${HW}"`)} KEEPTEXTAFTERSIGN="false" TRACINGOUTLINE="true">`;
+  });
+  let nId = 0;
+  xml = xml.replace(/(<OZFORMID COMPTYPE="SignPad" VALUEMEANINGCODE=")\d+(" FORMID="[^"]+ \d+")/g, (a, p, q) => { nId++; return p + HW + q; });
+  if (nPad !== lay.rows || nId !== lay.rows) throw new Error(`signKind handwriting: SIGNPAD ${nPad} / OZFORMID ${nId} != rows ${lay.rows}`);
+}
 let nExtra = 0;
 for (let pg = 1; pg <= lay.pages; pg++) {
   const ex = extraByPage.get(pg) ?? []; const bk = backByPage.get(pg) ?? [];
