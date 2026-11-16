@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { judgeDocument, currentStepToken, placeholderEmail, buildCreateBody, readTemplatePlan, stamp, headerFieldValues, visitDateText, sheetIndexToday, headerFromEnv,
   parseClock, sheetWindow, isSheetOfToday, shouldReuse, newSheetReason, sheetOptionsFromEnv, sheetOptionErrors, resolveMultirowStep } from '../../api/lib/eformsign-multirow.mjs';
+import { issueToken, clearTokenCache } from '../../api/lib/eformsign-report.mjs';
 import handler from '../../api/multirow.mjs';
 
 const now = Date.UTC(2026, 8, 28, 5);
@@ -121,8 +122,8 @@ eq([r400b.status, r400b.body.invalid], [400, ['KIOSK_MULTIROW_NEW_SHEET']], 'han
 const { generateKeyPairSync } = await import('node:crypto');
 const ecHex = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).privateKey.export({ format: 'der', type: 'pkcs8' }).toString('hex');
 const API = 'https://api.test';
-function fakeServer({ docs = [], createFail = false, holdFormsFor = 0 } = {}) {
-  const st = { docs: docs.slice(), posts: 0, formsCalls: 0, seq: 0 };
+function fakeServer({ docs = [], createFail = false, holdFormsFor = 0, expiresIn } = {}) {
+  const st = { docs: docs.slice(), posts: 0, formsCalls: 0, seq: 0, tokens: 0, invalid: new Set(), unauthorized: 0, createAuth: [] };
   const tick = () => new Promise((r) => setTimeout(r, 0));
   const full = (d) => ({ id: d.id, created_date: d.created_date, template: { id: 't' },
     current_status: { status_type: '060', step_type: '05', step_index: 2, step_name: '방문자 1', expired_date: Date.now() + 86400000, step_recipients: [{ email: 'me+v1@x.com', name: '방문자 1' }] },
@@ -131,7 +132,10 @@ function fakeServer({ docs = [], createFail = false, holdFormsFor = 0 } = {}) {
     const u = String(url); const method = (init.method || 'GET').toUpperCase();
     const reply = (obj, status = 200) => ({ ok: status < 400, status, text: async () => JSON.stringify(obj) });
     await tick();
-    if (u.includes('access_token')) return reply({ oauth_token: { access_token: 'AT' }, api_key: { company: { company_id: 'C', api_url: API } } });
+    if (u.includes('access_token')) { st.tokens++; return reply({ oauth_token: { access_token: 'AT' + st.tokens, ...(expiresIn === undefined ? {} : { expires_in: expiresIn }) }, api_key: { company: { company_id: 'C', api_url: API } } }); }
+    // 이미 쓸 수 없게 된 토큰(st.invalid)이면 401 — 만료·폐기 흉내
+    const bearer = String((init.headers || {}).Authorization || '').replace('Bearer ', '');
+    if (st.invalid.has(bearer)) { st.unauthorized++; return reply({ code: 'token' }, 401); }
     if (u.startsWith(API + '/v2.0/api/list_document')) return reply({ documents: st.docs.map(full) });
     if (u.startsWith(API + '/v2.0/api/forms/')) {
       st.formsCalls++;
@@ -143,7 +147,7 @@ function fakeServer({ docs = [], createFail = false, holdFormsFor = 0 } = {}) {
       return reply({ config: { step_settings: [{ type: 'participant', name: '방문자 1' }, { type: 'participant', name: '방문자 2' }] } });
     }
     if (u.startsWith(API + '/v2.0/api/documents') && method === 'POST') {
-      st.posts++;
+      st.posts++; st.createAuth.push(bearer);
       await tick();
       if (createFail) return reply({ code: 'x' }, 500);
       const id = ('c' + (++st.seq)).padStart(32, '0');
@@ -157,7 +161,7 @@ function fakeServer({ docs = [], createFail = false, holdFormsFor = 0 } = {}) {
   return { st, fetchFake };
 }
 const realFetch = globalThis.fetch;
-const withFake = async (srv, fn) => { globalThis.fetch = srv.fetchFake; try { return await fn(); } finally { globalThis.fetch = realFetch; } };
+const withFake = async (srv, fn) => { clearTokenCache(); globalThis.fetch = srv.fetchFake; try { return await fn(); } finally { globalThis.fetch = realFetch; } };
 const rOpts = { apiKey: 'k', privateKey: ecHex, memberId: 'm', tokenUrl: 'https://auth.test/access_token', templateId: 't', email: 'me@x.com', timeZone: 'Asia/Seoul', now: Date.now() };
 const mkDocs = (n, base) => Array.from({ length: n }, (_, i) => ({ id: (base + i).toString(16).padStart(32, '0'), created_date: rOpts.now - 5000 + i * 1000 }));
 
@@ -184,6 +188,85 @@ const mkDocs = (n, base) => Array.from({ length: n }, (_, i) => ({ id: (base + i
   const srv = fakeServer({ createFail: true });
   await withFake(srv, async () => { await assert.rejects(() => resolveMultirowStep({ ...rOpts }), /HTTP 500/); }); extra++;
   eq(srv.st.posts, 1, '생성 실패 시 재시도 없음(호출 1회)');
+}
+// ── 토큰 재사용(2026-11-16: 요청마다 새로 발급하던 것을 함수 메모리에서 재사용) ──
+const tokOpts = { apiKey: 'k', privateKey: ecHex, memberId: 'm', tokenUrl: 'https://auth.test/access_token' };
+// ④ 같은 키로 연속 발급 = 네트워크 1회, 같은 토큰
+{
+  const srv = fakeServer({ expiresIn: 3600 });
+  const [x, y] = await withFake(srv, async () => [await issueToken(tokOpts), await issueToken(tokOpts)]);
+  eq(srv.st.tokens, 1, '연속 발급 = 토큰 호출 1회'); eq(x.accessToken, y.accessToken, '같은 토큰 재사용');
+}
+// ⑤ 다른 멤버·다른 키는 캐시를 공유하지 않는다
+{
+  const srv = fakeServer({ expiresIn: 3600 });
+  await withFake(srv, async () => { await issueToken(tokOpts); await issueToken({ ...tokOpts, memberId: 'm2' }); await issueToken({ ...tokOpts, apiKey: 'k2' }); });
+  eq(srv.st.tokens, 3, '멤버·키가 다르면 따로 발급');
+}
+// ⑥ 만료 후(expires_in − 60초 지난 뒤)에는 다시 발급
+{
+  const srv = fakeServer({ expiresIn: 3600 });
+  const realNow = Date.now; let t = realNow();
+  Date.now = () => t;
+  try {
+    await withFake(srv, async () => {
+      await issueToken(tokOpts);
+      t += (3600 - 61) * 1000; await issueToken(tokOpts); eq(srv.st.tokens, 1, '만료 61초 전 = 재사용');
+      t += 2000; await issueToken(tokOpts); eq(srv.st.tokens, 2, '만료 59초 전 = 재발급');
+    });
+  } finally { Date.now = realNow; }
+}
+// ⑦ 동시 요청은 같은 발급 Promise 를 나눠 쓴다(발급 1회)
+{
+  const srv = fakeServer({ expiresIn: 3600 });
+  const r = await withFake(srv, () => Promise.all([issueToken(tokOpts), issueToken(tokOpts), issueToken(tokOpts)]));
+  eq(srv.st.tokens, 1, '동시 3요청 = 발급 1회'); eq(new Set(r.map((x) => x.accessToken)).size, 1, '모두 같은 토큰');
+}
+// ⑧ 발급 실패는 캐시하지 않는다(다음 호출이 다시 시도)
+{
+  const srv = fakeServer({ expiresIn: 3600 });
+  let first = true; const inner = srv.fetchFake;
+  const flaky = { st: srv.st, fetchFake: async (u, i) => { if (String(u).includes('access_token') && first) { first = false; return { ok: false, status: 500, text: async () => 'x' }; } return inner(u, i); } };
+  await withFake(flaky, async () => { await assert.rejects(() => issueToken(tokOpts), /HTTP 500/); await issueToken(tokOpts); });
+  eq(srv.st.tokens, 1, '실패 뒤 재시도 성공'); extra++;
+}
+// ⑨ expires_in 이 응답에 없으면 짧게(120초 − 60초 여유가 아니라 120초) 캐시한다
+{
+  const srv = fakeServer();
+  const realNow = Date.now; let t = realNow(); Date.now = () => t;
+  try {
+    await withFake(srv, async () => {
+      await issueToken(tokOpts); t += 100 * 1000; await issueToken(tokOpts); eq(srv.st.tokens, 1, 'expires_in 없음: 100초 뒤 재사용');
+      t += 30 * 1000; await issueToken(tokOpts); eq(srv.st.tokens, 2, 'expires_in 없음: 130초 뒤 재발급');
+    });
+  } finally { Date.now = realNow; }
+}
+// ⑩ 조회 호출이 401 이면 캐시를 버리고 1회만 재발급해 같은 호출을 다시 한다
+{
+  const srv = fakeServer({ docs: mkDocs(1, 1), expiresIn: 3600 });
+  const r = await withFake(srv, async () => {
+    const a = await resolveMultirowStep({ ...rOpts });
+    srv.st.invalid.add('AT1');                        // 캐시된 토큰이 서버에서 폐기됨
+    const b = await resolveMultirowStep({ ...rOpts });
+    return [a, b];
+  });
+  eq(srv.st.tokens, 2, '401 뒤 재발급 1회'); eq(srv.st.unauthorized, 1, '401 은 1번만 받음(재시도는 새 토큰)');
+  eq(r[1].document_id, r[0].document_id, '재시도 결과 정상');
+}
+// ⑪ 생성 호출이 401 이면 재시도하지 않고 오류로 끝나며, 캐시는 버려 다음 요청이 새 토큰을 받는다
+{
+  const srv = fakeServer({ expiresIn: 3600 });
+  const orig = srv.fetchFake;
+  await withFake(srv, async () => {
+    await issueToken(tokOpts);                         // AT1 캐시
+    // 생성 호출만 401 이 되도록, 생성 요청이 들어오는 순간 그 토큰을 폐기한다(조회는 정상 통과)
+    const wrapped = { st: srv.st, fetchFake: async (u, i = {}) => { if ((i.method || 'GET') === 'POST' && /\/v2\.0\/api\/documents(\?|$)/.test(String(u))) srv.st.invalid.add(String((i.headers || {}).Authorization || '').replace('Bearer ', '')); return orig(u, i); } };
+    globalThis.fetch = wrapped.fetchFake;
+    await assert.rejects(() => resolveMultirowStep({ ...rOpts }), /401/); extra++;
+    globalThis.fetch = orig;
+    eq([srv.st.unauthorized, srv.st.posts, srv.st.tokens], [1, 0, 1], '생성 호출은 401 이어도 재시도·재발급 없음(401 1회, 생성 성공 0회, 토큰 발급 1회)');
+    const t2 = await issueToken(tokOpts); eq(t2.accessToken, 'AT2', '다음 요청은 새 토큰'); 
+  });
 }
 console.log(`PASS ${cases.length + 18 + extra} checks`);
 

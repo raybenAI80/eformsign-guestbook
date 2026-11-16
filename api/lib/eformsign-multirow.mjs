@@ -22,7 +22,7 @@
  *
  * 의존성 0 — eformsign-report.mjs 의 토큰 발급을 재사용한다.
  */
-import { issueToken } from './eformsign-report.mjs';
+import { issueToken, invalidateToken } from './eformsign-report.mjs';
 
 /** 참여자 단계가 "지금 방문자를 받을 수 있는" 상태 코드. 그 밖(003 완료·013/042 취소·061 반려·049 삭제 …)은 끝난 문서로 본다. */
 const OPEN_STATUS = new Set(['060', '062', '063']);
@@ -336,9 +336,22 @@ export async function resolveMultirowStep(opts) {
     return { closed: true, openAt, closeAt, sheet: sheetInfo(win.beforeOpen ? 'before_open' : 'after_close'), log: ['closed'] };
   }
 
-  const { accessToken, apiUrl, company } = await issueToken({ apiKey, privateKey, memberId, tokenUrl });
+  const tokenOpts = { apiKey, privateKey, memberId, tokenUrl };
+  let { accessToken, apiUrl, company } = await issueToken(tokenOpts);
+  // 토큰은 함수 메모리에서 재사용된다. 서버가 401 로 거절하면 캐시를 버리고 새 토큰으로 같은 호출을 딱 1번 다시 한다.
+  // 🔴 문서 생성(POST /documents)은 재시도하지 않는다 — 401 이어도 오류로 끝내고 캐시만 버린다(생성 1건 = 요금 1건, 화면이 판정부터 다시 요청한다).
+  const call = async (pathname, o = {}) => {
+    try { return await api(apiUrl, accessToken, pathname, o); } catch (e) {
+      if (e.status !== 401) throw e;
+      invalidateToken(tokenOpts);
+      if (o.noRetry) throw e;
+      log.push('token_reissued');
+      ({ accessToken, apiUrl } = await issueToken(tokenOpts));
+      return api(apiUrl, accessToken, pathname, o);
+    }
+  };
   const companyId = company?.company_id || company?.id || '';
-  const getDoc = (id) => api(apiUrl, accessToken, `/v2.0/api/documents/${id}`, { query: { include_external_token: 'true' } });
+  const getDoc = (id) => call(`/v2.0/api/documents/${id}`, { query: { include_external_token: 'true' } });
 
   const answer = (doc, created, reason) => {
     const tok = currentStepToken(doc);
@@ -378,7 +391,7 @@ export async function resolveMultirowStep(opts) {
   }
 
   // ── 2. 진행 중 문서를 목록에서 찾는다 ──
-  const listOpen = () => api(apiUrl, accessToken, '/v2.0/api/list_document', {
+  const listOpen = () => call('/v2.0/api/list_document', {
     method: 'POST',
     body: {
       type: '04', limit: '50', skip: '0', template_ids: [templateId],
@@ -406,7 +419,7 @@ export async function resolveMultirowStep(opts) {
   // ── 3. 없으면 새 장 — 수신자 수는 서식의 참여자 단계 수로 정한다 ──
   let stepNames = [];
   try {
-    const plan = readTemplatePlan(await api(apiUrl, accessToken, `/v2.0/api/forms/${templateId}`, { query: { is_include_config: 'true' } }));
+    const plan = readTemplatePlan(await call(`/v2.0/api/forms/${templateId}`, { query: { is_include_config: 'true' } }));
     if (plan.stepNames.length) {
       if (plan.stepNames.length !== n) log.push(`rows_from_template:${plan.stepNames.length}(env ${n})`);
       n = Math.min(30, plan.stepNames.length);
@@ -427,7 +440,7 @@ export async function resolveMultirowStep(opts) {
   }
   const body = buildCreateBody({ rows: n, email, visitorPrefix, documentName: `${documentName} ${stamp(new Date(now), timeZone)}`, splitEmail, stepNames, validDays, fields });
   // 🔴 생성 호출은 자동 재시도하지 않는다(실패하면 오류로 끝나고 화면이 판정부터 다시 요청한다). 문서 생성 1건 = 요금 1건.
-  const created = await api(apiUrl, accessToken, '/v2.0/api/documents', { method: 'POST', query: { template_id: templateId }, body });
+  const created = await call('/v2.0/api/documents', { method: 'POST', query: { template_id: templateId }, body, noRetry: true });
   const newId = created?.document?.id;
   if (!newId) throw new Error('새 문서를 만들었지만 문서 번호가 응답에 없습니다.');
   log.push('created');
