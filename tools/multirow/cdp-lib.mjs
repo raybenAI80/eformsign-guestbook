@@ -30,6 +30,8 @@ export async function connect({ port = '9242', tab: tabPrefix = '', metrics = tr
     if (m.id && pend.has(m.id)) { const p = pend.get(m.id); pend.delete(m.id); m.error ? p.rej(new Error(JSON.stringify(m.error))) : p.res(m.result); return; }
     if (m.method === 'Target.attachedToTarget') frames.set(m.params.sessionId, m.params.targetInfo);
     if (m.method === 'Target.detachedFromTarget') frames.delete(m.params.sessionId);
+    // the OOPIF url is only final after its first navigation; keep the stored url current (2026-11-16: stale url hid the viewer frame after the wrapper reloaded it)
+    if (m.method === 'Target.targetInfoChanged') { for (const [sid, ti] of frames) if (ti.targetId === m.params.targetInfo.targetId) frames.set(sid, m.params.targetInfo); }
   };
   await new Promise((r) => (ws.onopen = r));
   await send('Page.enable');

@@ -116,5 +116,74 @@ const r400 = await call({ ...envOk, KIOSK_MULTIROW_OPEN_AT: '16:00', KIOSK_MULTI
 eq([r400.status, r400.body.reason, r400.body.invalid], [400, 'bad_env', ['KIOSK_MULTIROW_OPEN_AT', 'KIOSK_MULTIROW_CLOSE_AT']], 'handler 400 close<open');
 const r400b = await call({ ...envOk, KIOSK_MULTIROW_NEW_SHEET: 'weekly' });
 eq([r400b.status, r400b.body.invalid], [400, ['KIOSK_MULTIROW_NEW_SHEET']], 'handler 400 enum');
+// ── 동시 요청·중복 생성 방지(2026-11-16 전시 데모: 같은 순간 문서 2건, 둘 다 「1장」) ──
+// 가짜 이폼사인 서버. fetch 를 바꿔 끼우고, 생성 호출(POST /documents) 횟수와 선택된 문서를 본다.
+const { generateKeyPairSync } = await import('node:crypto');
+const ecHex = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).privateKey.export({ format: 'der', type: 'pkcs8' }).toString('hex');
+const API = 'https://api.test';
+function fakeServer({ docs = [], createFail = false, holdFormsFor = 0 } = {}) {
+  const st = { docs: docs.slice(), posts: 0, formsCalls: 0, seq: 0 };
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  const full = (d) => ({ id: d.id, created_date: d.created_date, template: { id: 't' },
+    current_status: { status_type: '060', step_type: '05', step_index: 2, step_name: '방문자 1', expired_date: Date.now() + 86400000, step_recipients: [{ email: 'me+v1@x.com', name: '방문자 1' }] },
+    recipients: [{ id: 'me+v1@x.com', name: '방문자 1', token_id: 'TOK-' + d.id }] });
+  const fetchFake = async (url, init = {}) => {
+    const u = String(url); const method = (init.method || 'GET').toUpperCase();
+    const reply = (obj, status = 200) => ({ ok: status < 400, status, text: async () => JSON.stringify(obj) });
+    await tick();
+    if (u.includes('access_token')) return reply({ oauth_token: { access_token: 'AT' }, api_key: { company: { company_id: 'C', api_url: API } } });
+    if (u.startsWith(API + '/v2.0/api/list_document')) return reply({ documents: st.docs.map(full) });
+    if (u.startsWith(API + '/v2.0/api/forms/')) {
+      st.formsCalls++;
+      // holdFormsFor 번째 호출은 첫 생성이 끝날 때까지 늦춘다(= 두 번째 요청이 목록을 본 뒤 첫 요청이 문서를 만드는 순서를 결정적으로 만든다)
+      if (holdFormsFor && st.formsCalls === holdFormsFor) {
+        for (let i = 0; i < 200 && st.posts < 1; i++) await tick();
+        for (let i = 0; i < 20; i++) await tick();   // 목록 반영 대기
+      }
+      return reply({ config: { step_settings: [{ type: 'participant', name: '방문자 1' }, { type: 'participant', name: '방문자 2' }] } });
+    }
+    if (u.startsWith(API + '/v2.0/api/documents') && method === 'POST') {
+      st.posts++;
+      await tick();
+      if (createFail) return reply({ code: 'x' }, 500);
+      const id = ('c' + (++st.seq)).padStart(32, '0');
+      st.docs.push({ id, created_date: Date.now() + st.seq });
+      return reply({ document: { id } });
+    }
+    const m = /\/v2\.0\/api\/documents\/([0-9a-f]{32})/.exec(u);
+    if (m && method === 'GET') { const d = st.docs.find((x) => x.id === m[1]); return d ? reply(full(d)) : reply({}, 404); }
+    return reply({}, 404);
+  };
+  return { st, fetchFake };
+}
+const realFetch = globalThis.fetch;
+const withFake = async (srv, fn) => { globalThis.fetch = srv.fetchFake; try { return await fn(); } finally { globalThis.fetch = realFetch; } };
+const rOpts = { apiKey: 'k', privateKey: ecHex, memberId: 'm', tokenUrl: 'https://auth.test/access_token', templateId: 't', email: 'me@x.com', timeZone: 'Asia/Seoul', now: Date.now() };
+const mkDocs = (n, base) => Array.from({ length: n }, (_, i) => ({ id: (base + i).toString(16).padStart(32, '0'), created_date: rOpts.now - 5000 + i * 1000 }));
+
+// ① 동시 2요청: 첫 요청이 문서를 만든 뒤 두 번째 요청이 생성 직전 목록을 다시 보면 생성하지 않고 그 문서를 쓴다
+{
+  const srv = fakeServer({ holdFormsFor: 2 });
+  const [a, b] = await withFake(srv, () => Promise.all([resolveMultirowStep({ ...rOpts }), resolveMultirowStep({ ...rOpts })]));
+  eq(srv.st.posts, 1, '동시 2요청 = 생성 호출 1회');
+  eq(a.document_id, b.document_id, '동시 2요청 = 같은 문서');
+  eq([a.created, b.created].sort(), [false, true], '한 요청만 created');
+}
+// ② 같은 날 열린 장 2건: 두 요청 모두 가장 먼저 만든 장으로 수렴하고, 생성도 삭제도 하지 않는다
+{
+  const docs = mkDocs(2, 1);
+  const srv = fakeServer({ docs });
+  const [a, b] = await withFake(srv, () => Promise.all([resolveMultirowStep({ ...rOpts }), resolveMultirowStep({ ...rOpts })]));
+  eq(a.document_id, docs[0].id, '같은 날 다건 = 가장 오래된 장');
+  eq(b.document_id, docs[0].id, '두 요청이 같은 문서');
+  eq(srv.st.posts, 0, '다건이어도 생성 0회'); ok(a.log.some((s) => s === 'extra_open:1'), 'extra_open 로그');
+  eq(srv.st.docs.length, 2, '자동 삭제 없음');
+}
+// ③ 생성 실패: 자동 재시도 0회(호출 1회, 오류로 끝)
+{
+  const srv = fakeServer({ createFail: true });
+  await withFake(srv, async () => { await assert.rejects(() => resolveMultirowStep({ ...rOpts }), /HTTP 500/); }); extra++;
+  eq(srv.st.posts, 1, '생성 실패 시 재시도 없음(호출 1회)');
+}
 console.log(`PASS ${cases.length + 18 + extra} checks`);
 

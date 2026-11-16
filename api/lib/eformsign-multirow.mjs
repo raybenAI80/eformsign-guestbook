@@ -284,6 +284,31 @@ export function stamp(d = new Date(), timeZone = 'Asia/Seoul') {
   }
 }
 
+/** 목록에서 지금 방문자를 받을 수 있는 열린 장(제외 목록 뺌). */
+function openOf(documents, { exclude, templateId, now }) {
+  return (documents || [])
+    .filter((d) => d && d.id && !exclude.has(d.id))
+    .filter((d) => judgeDocument(d, { templateId, now }).open);
+}
+
+/**
+ * 이어 쓸 후보를 **결정적으로** 정렬한다 — 서로 다른 요청이 같은 목록을 보면 항상 같은 장을 고른다.
+ * 같은 날(고객 시간대) 열린 장이 여러 건이면 가장 먼저 만든 것이 첫째다(생성 시각이 같으면 문서 번호 순).
+ * 이렇게 하면 동시 요청이 장을 둘 만들었어도 모두가 한 장으로 모인다. 남는 빈 장은 건드리지 않는다(삭제는 사람이 판단).
+ * 날짜가 다른 장끼리는 최신 날짜 쪽이 앞선다(예전 never 모드가 쓰던 「최신 우선」 유지).
+ */
+export function pickCandidates(documents, { exclude = new Set(), templateId, now, sheetOpts, timeZone }) {
+  const cands = openOf(documents, { exclude, templateId, now }).filter((d) => shouldReuse(d, now, sheetOpts));
+  if (cands.length < 2) return cands;
+  const created = (d) => Number(d.created_date || 0);
+  const newest = cands.reduce((m, d) => (created(d) > created(m) ? d : m));
+  const day = localDay(created(newest), timeZone);
+  const same = cands.filter((d) => localDay(created(d), timeZone) === day);
+  const rest = cands.filter((d) => !same.includes(d)).sort((a, b) => created(b) - created(a));
+  same.sort((a, b) => created(a) - created(b) || String(a.id).localeCompare(String(b.id)));
+  return [...same, ...rest];
+}
+
 /**
  * 지금 열어야 할 단계를 정한다.
  * @returns {Promise<{company_id, template_id, document_id, step_no, step_name, token_id, visitor_name, created, rows, sheet, log}
@@ -353,30 +378,30 @@ export async function resolveMultirowStep(opts) {
   }
 
   // ── 2. 진행 중 문서를 목록에서 찾는다 ──
-  const list = await api(apiUrl, accessToken, '/v2.0/api/list_document', {
+  const listOpen = () => api(apiUrl, accessToken, '/v2.0/api/list_document', {
     method: 'POST',
     body: {
       type: '04', limit: '50', skip: '0', template_ids: [templateId],
-      start_create_date: now - lookbackDays * 86400000, end_create_date: now + 60000,
+      start_create_date: now - lookbackDays * 86400000, end_create_date: Date.now() + 60000,
     },
   });
-  const open = (list?.documents || [])
-    .filter((d) => d && d.id && !exclude.has(d.id))
-    .filter((d) => judgeDocument(d, { templateId, now }).open)
-    .sort((a, b) => Number(b.created_date || 0) - Number(a.created_date || 0));
-  // daily: 어제 장·마감된 장은 진행 중으로 그대로 두고(취소하지 않는다) 이어 쓰지 않는다.
-  const cands = open.filter((d) => shouldReuse(d, now, sheetOpts));
-  const stale = open.filter((d) => !cands.includes(d));
+  const list = await listOpen();
+  const cands = pickCandidates(list?.documents, { exclude, templateId, now, sheetOpts, timeZone });
+  const stale = openOf(list?.documents, { exclude, templateId, now }).filter((d) => !cands.includes(d));
   log.push(`list:${(list?.documents || []).length}/open:${cands.length}`);
   if (stale.length) log.push(`closed_sheet:${stale.length}`);
-  if (cands.length > 1) log.push(`extra_open:${cands.length - 1}`);   // 가장 최근 1건만 쓴다. 나머지는 그대로 둔다(삭제 금지)
+  if (cands.length > 1) log.push(`extra_open:${cands.length - 1}`);   // 가장 먼저 만든 1건만 쓴다. 나머지는 그대로 둔다(삭제 금지)
 
-  for (const c of (forceNew ? [] : cands)) {
-    const d = await getDoc(c.id);                     // 목록은 오래됐을 수 있다 — 상세로 다시 판정
-    const j = judgeDocument(d, { templateId, now });
-    if (j.open && currentStepToken(d)) return answer(d, false, 'reuse');
-    log.push(`cand:${j.reason}`);
-  }
+  const tryReuse = async (found) => {
+    for (const c of found) {
+      const d = await getDoc(c.id);                   // 목록은 오래됐을 수 있다 — 상세로 다시 판정
+      const j = judgeDocument(d, { templateId, now });
+      if (j.open && currentStepToken(d)) return answer(d, false, 'reuse');
+      log.push(`cand:${j.reason}`);
+    }
+    return null;
+  };
+  if (!forceNew) { const hit = await tryReuse(cands); if (hit) return hit; }
 
   // ── 3. 없으면 새 장 — 수신자 수는 서식의 참여자 단계 수로 정한다 ──
   let stepNames = [];
@@ -393,7 +418,15 @@ export async function resolveMultirowStep(opts) {
   }
   const fields = headerFieldValues(header, { now, timeZone, sheetIndex: header.sheetNo ? sheetIndexToday(list?.documents, { now, timeZone, templateId }) : 1 });
   if (fields.length) log.push(`fields:${fields.map((f) => f.id).join('+')}`);
+  // 🔴 생성 직전에 목록을 한 번 더 본다 — 서식 조회 사이에 다른 요청이 장을 만들었을 수 있다(동시 요청 중복 생성 방지, 2026-11-16).
+  //    그 사이에 열린 장이 생겼으면 만들지 않고 그것을 쓴다. 이 확인으로 막지 못하는 것은 서로의 목록이 아직 비어 보이는 같은 순간의 두 요청뿐이다.
+  if (!forceNew) {
+    const list2 = await listOpen();
+    const again = pickCandidates(list2?.documents, { exclude, templateId, now, sheetOpts, timeZone });
+    if (again.length) { log.push(`recheck:found_${again.length}`); const hit = await tryReuse(again); if (hit) return hit; }
+  }
   const body = buildCreateBody({ rows: n, email, visitorPrefix, documentName: `${documentName} ${stamp(new Date(now), timeZone)}`, splitEmail, stepNames, validDays, fields });
+  // 🔴 생성 호출은 자동 재시도하지 않는다(실패하면 오류로 끝나고 화면이 판정부터 다시 요청한다). 문서 생성 1건 = 요금 1건.
   const created = await api(apiUrl, accessToken, '/v2.0/api/documents', { method: 'POST', query: { template_id: templateId }, body });
   const newId = created?.document?.id;
   if (!newId) throw new Error('새 문서를 만들었지만 문서 번호가 응답에 없습니다.');
