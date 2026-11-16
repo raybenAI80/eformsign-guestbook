@@ -29,6 +29,28 @@ const OPEN_STATUS = new Set(['060', '062', '063']);
 const PARTICIPANT_STEP = '05';
 const ID_RE = /^[0-9a-f]{32}$/i;
 
+// ── 같은 순간 들어온 요청의 중복 생성 차단(2026-11-16) ─────────────────────────────
+// 2ms 간격으로 들어온 서로 다른 요청 2건이 둘 다 「열린 장 없음」으로 보고 문서를 1건씩, 총 2건 만들었다(생성 1건 = 요금 1건).
+//  ① 같은 인스턴스 안: 「생성 구간」을 서식별로 한 번에 하나씩 실행하고(createChains), 앞 요청이 만든 문서 id 를
+//     RECENT_TTL_MS 동안 기억해(recentSheets) 뒤 요청이 목록 반영 지연과 무관하게 그 문서를 쓴다.
+//  ② 생성 직후 수렴: 만든 뒤 목록을 다시 보고(필요하면 convergeDelayMs 뒤 1회 더) 같은 날 열린 장이 2건 이상이면
+//     pickCandidates 의 결정적 정렬(가장 이른 장, 동률이면 문서 번호 순)로 정답 장을 골라 그 장으로 응답한다. 내가 만든 문서는 지우지 않는다.
+// 🔴 한계: ①은 함수 인스턴스 메모리 안에서만 통한다. 서버리스 인스턴스가 서로 다르면 ①은 효과가 없고 ②만 남는다.
+//    그때도 서로 다른 인스턴스의 목록 반영이 convergeDelayMs 보다 오래 늦으면 둘 다 자기 문서를 쓸 수 있다(문서는 2건 남는다).
+// 추가 API 호출: 문서를 만들 때만 목록 1~2회 + 상세 0~1회. 만들지 않는 일반 요청은 그대로다.
+const RECENT_TTL_MS = 60000;
+const createChains = new Map();   // 키 → 직렬화 Promise 꼬리
+const recentSheets = new Map();   // 키 → { id, at }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function withCreateLock(key, fn) {
+  const prev = createChains.get(key) || Promise.resolve();
+  let release; const mine = new Promise((r) => { release = r; });
+  const tail = prev.then(() => mine);
+  createChains.set(key, tail);
+  await prev;   // prev 는 reject 되지 않는다(mine 은 resolve 만 한다)
+  try { return await fn(); } finally { release(); if (createChains.get(key) === tail) createChains.delete(key); }
+}
+
 async function api(apiUrl, accessToken, pathname, { method = 'GET', query, body } = {}) {
   const qs = query ? '?' + new URLSearchParams(query).toString() : '';
   const res = await fetch(`${apiUrl}${pathname}${qs}`, {
@@ -322,6 +344,7 @@ export async function resolveMultirowStep(opts) {
     forceNew = false,   // 검증 도구 전용: 진행 중 문서가 있어도 새 장을 만든다(핸들러는 쓰지 않는다)
     header = {},        // 머리 칸(기관명·부서·방문일·장번호) — headerFieldValues 참고. 비어 있으면 fields 를 보내지 않는다
     newSheet = 'never', openAt = null, closeAt = null, afterClose = 'new',   // 시간창·하루 단위 새 장(sheetWindow·shouldReuse)
+    convergeDelayMs = 700,   // 생성 직후 첫 재조회에서 다른 장이 안 보이면 이만큼 기다렸다 1회 더 본다
   } = opts;
   if (!templateId) throw new Error('KIOSK_MULTIROW_FORM_ID 가 없습니다.');
   if (!email) throw new Error('KIOSK_MULTIROW_EMAIL 이 없습니다.');
@@ -429,20 +452,61 @@ export async function resolveMultirowStep(opts) {
   } catch (e) {
     log.push(`template_read_error_${e.status || 'x'}`);   // 못 읽으면 환경변수 값으로 진행
   }
-  const fields = headerFieldValues(header, { now, timeZone, sheetIndex: header.sheetNo ? sheetIndexToday(list?.documents, { now, timeZone, templateId }) : 1 });
-  if (fields.length) log.push(`fields:${fields.map((f) => f.id).join('+')}`);
-  // 🔴 생성 직전에 목록을 한 번 더 본다 — 서식 조회 사이에 다른 요청이 장을 만들었을 수 있다(동시 요청 중복 생성 방지, 2026-11-16).
-  //    그 사이에 열린 장이 생겼으면 만들지 않고 그것을 쓴다. 이 확인으로 막지 못하는 것은 서로의 목록이 아직 비어 보이는 같은 순간의 두 요청뿐이다.
-  if (!forceNew) {
-    const list2 = await listOpen();
-    const again = pickCandidates(list2?.documents, { exclude, templateId, now, sheetOpts, timeZone });
-    if (again.length) { log.push(`recheck:found_${again.length}`); const hit = await tryReuse(again); if (hit) return hit; }
+  // 🔴 여기부터는 같은 서식의 생성 구간이다 — 같은 인스턴스에서는 한 번에 한 요청만 들어온다(위 설명 ①).
+  return withCreateLock(`${tokenUrl}|${memberId}|${templateId}`, async () => {
+    const lockKey = `${tokenUrl}|${memberId}|${templateId}`;
+    // 앞 요청이 방금 만든 장이 있으면 목록에 아직 안 보여도 그것을 쓴다(상세로 다시 판정).
+    const recent = recentSheets.get(lockKey);
+    if (!forceNew && recent && Date.now() - recent.at < RECENT_TTL_MS && !exclude.has(recent.id)) {
+      try {
+        const d = await getDoc(recent.id);
+        if (shouldReuse(d, now, sheetOpts) && currentStepToken(d)) { log.push('recent_reuse'); return answer(d, false, 'reuse'); }
+      } catch (e) { log.push(`recent:error_${e.status || 'x'}`); }
+      recentSheets.delete(lockKey);
+    }
+    // 🔴 생성 직전에 목록을 한 번 더 본다 — 서식 조회 사이에 다른 요청이 장을 만들었을 수 있다(동시 요청 중복 생성 방지, 2026-11-16).
+    //    그 사이에 열린 장이 생겼으면 만들지 않고 그것을 쓴다. 이 확인으로 막지 못하는 것은 서로의 목록이 아직 비어 보이는 같은 순간의 다른 인스턴스 요청뿐이다(아래 수렴으로 줄인다).
+    let latest = list;
+    if (!forceNew) {
+      latest = await listOpen();
+      const again = pickCandidates(latest?.documents, { exclude, templateId, now, sheetOpts, timeZone });
+      if (again.length) { log.push(`recheck:found_${again.length}`); const hit = await tryReuse(again); if (hit) return hit; }
+    }
+    const fields = headerFieldValues(header, { now, timeZone, sheetIndex: header.sheetNo ? sheetIndexToday(latest?.documents, { now, timeZone, templateId }) : 1 });
+    if (fields.length) log.push(`fields:${fields.map((f) => f.id).join('+')}`);
+    const body = buildCreateBody({ rows: n, email, visitorPrefix, documentName: `${documentName} ${stamp(new Date(now), timeZone)}`, splitEmail, stepNames, validDays, fields });
+    // 🔴 생성 호출은 자동 재시도하지 않는다(실패하면 오류로 끝나고 화면이 판정부터 다시 요청한다). 문서 생성 1건 = 요금 1건.
+    const created = await call('/v2.0/api/documents', { method: 'POST', query: { template_id: templateId }, body, noRetry: true });
+    const newId = created?.document?.id;
+    if (!newId) throw new Error('새 문서를 만들었지만 문서 번호가 응답에 없습니다.');
+    log.push('created');
+    const mine = await getDoc(newId);
+    recentSheets.set(lockKey, { id: newId, at: Date.now() });
+    // 생성 직후 수렴(위 설명 ②): 다른 인스턴스의 요청도 장을 만들었다면 가장 이른 장으로 모인다. 내 문서는 지우지 않는다.
+    if (!forceNew) {
+      const winner = await convergeAfterCreate(mine, newId);
+      if (winner && winner.id !== newId) {
+        const hit = await tryReuse([winner]);
+        if (hit) { recentSheets.set(lockKey, { id: winner.id, at: Date.now() }); log.push('converged_to_earlier'); return hit; }
+      }
+    }
+    return answer(mine, true, newSheetReason(now, stale, sheetOpts));
+  });
+
+  /** 만든 직후 목록을 보고 정답 장을 고른다. 다른 장이 안 보이면 convergeDelayMs 뒤 1회만 더 본다. 오류는 삼키고 null(내 장 사용). */
+  async function convergeAfterCreate(mine, newId) {
+    let picked = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt) await sleep(convergeDelayMs);
+      try {
+        const l = await listOpen();
+        const docs = [...(l?.documents || [])];
+        if (!docs.some((d) => d && d.id === newId)) docs.push({ ...mine, id: newId, created_date: mine.created_date || Date.now() });   // 내 문서가 목록에 아직 없어도 비교에 넣는다
+        picked = pickCandidates(docs, { exclude, templateId, now, sheetOpts, timeZone });
+      } catch (e) { log.push(`converge:error_${e.status || 'x'}`); return null; }
+      if (picked.length > 1) break;
+    }
+    if (picked.length > 1) log.push(`extra_open:${picked.length - 1}`);   // 로그만 남긴다(삭제는 사람이 판단)
+    return picked[0] || null;
   }
-  const body = buildCreateBody({ rows: n, email, visitorPrefix, documentName: `${documentName} ${stamp(new Date(now), timeZone)}`, splitEmail, stepNames, validDays, fields });
-  // 🔴 생성 호출은 자동 재시도하지 않는다(실패하면 오류로 끝나고 화면이 판정부터 다시 요청한다). 문서 생성 1건 = 요금 1건.
-  const created = await call('/v2.0/api/documents', { method: 'POST', query: { template_id: templateId }, body, noRetry: true });
-  const newId = created?.document?.id;
-  if (!newId) throw new Error('새 문서를 만들었지만 문서 번호가 응답에 없습니다.');
-  log.push('created');
-  return answer(await getDoc(newId), true, newSheetReason(now, stale, sheetOpts));
 }

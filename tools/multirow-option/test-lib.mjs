@@ -122,8 +122,8 @@ eq([r400b.status, r400b.body.invalid], [400, ['KIOSK_MULTIROW_NEW_SHEET']], 'han
 const { generateKeyPairSync } = await import('node:crypto');
 const ecHex = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).privateKey.export({ format: 'der', type: 'pkcs8' }).toString('hex');
 const API = 'https://api.test';
-function fakeServer({ docs = [], createFail = false, holdFormsFor = 0, expiresIn } = {}) {
-  const st = { docs: docs.slice(), posts: 0, formsCalls: 0, seq: 0, tokens: 0, invalid: new Set(), unauthorized: 0, createAuth: [] };
+function fakeServer({ docs = [], createFail = false, holdFormsFor = 0, expiresIn, listLag = 0 } = {}) {
+  const st = { docs: docs.slice(), listCalls: 0, posts: 0, formsCalls: 0, seq: 0, tokens: 0, invalid: new Set(), unauthorized: 0, createAuth: [] };
   const tick = () => new Promise((r) => setTimeout(r, 0));
   const full = (d) => ({ id: d.id, created_date: d.created_date, template: { id: 't' },
     current_status: { status_type: '060', step_type: '05', step_index: 2, step_name: '방문자 1', expired_date: Date.now() + 86400000, step_recipients: [{ email: 'me+v1@x.com', name: '방문자 1' }] },
@@ -136,7 +136,11 @@ function fakeServer({ docs = [], createFail = false, holdFormsFor = 0, expiresIn
     // 이미 쓸 수 없게 된 토큰(st.invalid)이면 401 — 만료·폐기 흉내
     const bearer = String((init.headers || {}).Authorization || '').replace('Bearer ', '');
     if (st.invalid.has(bearer)) { st.unauthorized++; return reply({ code: 'token' }, 401); }
-    if (u.startsWith(API + '/v2.0/api/list_document')) return reply({ documents: st.docs.map(full) });
+    if (u.startsWith(API + '/v2.0/api/list_document')) {
+      st.listCalls++;
+      // listLag: 새로 만든 문서가 목록에는 listLag 번째 조회 뒤에야 보인다(이폼사인 목록 반영 지연 흉내). 상세 조회는 바로 된다.
+      return reply({ documents: st.docs.filter((d) => !d.visibleAt || st.listCalls >= d.visibleAt).map(full) });
+    }
     if (u.startsWith(API + '/v2.0/api/forms/')) {
       st.formsCalls++;
       // holdFormsFor 번째 호출은 첫 생성이 끝날 때까지 늦춘다(= 두 번째 요청이 목록을 본 뒤 첫 요청이 문서를 만드는 순서를 결정적으로 만든다)
@@ -151,7 +155,7 @@ function fakeServer({ docs = [], createFail = false, holdFormsFor = 0, expiresIn
       await tick();
       if (createFail) return reply({ code: 'x' }, 500);
       const id = ('c' + (++st.seq)).padStart(32, '0');
-      st.docs.push({ id, created_date: Date.now() + st.seq });
+      st.docs.push({ id, created_date: Date.now() + st.seq, ...(listLag ? { visibleAt: st.listCalls + listLag } : {}) });
       return reply({ document: { id } });
     }
     const m = /\/v2\.0\/api\/documents\/([0-9a-f]{32})/.exec(u);
@@ -162,7 +166,7 @@ function fakeServer({ docs = [], createFail = false, holdFormsFor = 0, expiresIn
 }
 const realFetch = globalThis.fetch;
 const withFake = async (srv, fn) => { clearTokenCache(); globalThis.fetch = srv.fetchFake; try { return await fn(); } finally { globalThis.fetch = realFetch; } };
-const rOpts = { apiKey: 'k', privateKey: ecHex, memberId: 'm', tokenUrl: 'https://auth.test/access_token', templateId: 't', email: 'me@x.com', timeZone: 'Asia/Seoul', now: Date.now() };
+const rOpts = { apiKey: 'k', privateKey: ecHex, memberId: 'm', tokenUrl: 'https://auth.test/access_token', templateId: 't', email: 'me@x.com', timeZone: 'Asia/Seoul', now: Date.now(), convergeDelayMs: 5 };
 const mkDocs = (n, base) => Array.from({ length: n }, (_, i) => ({ id: (base + i).toString(16).padStart(32, '0'), created_date: rOpts.now - 5000 + i * 1000 }));
 
 // ① 동시 2요청: 첫 요청이 문서를 만든 뒤 두 번째 요청이 생성 직전 목록을 다시 보면 생성하지 않고 그 문서를 쓴다
@@ -188,6 +192,29 @@ const mkDocs = (n, base) => Array.from({ length: n }, (_, i) => ({ id: (base + i
   const srv = fakeServer({ createFail: true });
   await withFake(srv, async () => { await assert.rejects(() => resolveMultirowStep({ ...rOpts }), /HTTP 500/); }); extra++;
   eq(srv.st.posts, 1, '생성 실패 시 재시도 없음(호출 1회)');
+}
+// ── 같은 순간 들어온 서로 다른 요청의 중복 생성 차단(2026-11-16, 2ms 차 2건이 문서 2건을 만든 결함) ──
+// ⑫ 같은 인스턴스 동시 2요청 + 목록 반영 지연: 둘 다 목록이 비어 보여도 생성 1회, 같은 문서
+{
+  const srv = fakeServer({ listLag: 100 });
+  const [a, b] = await withFake(srv, () => Promise.all([resolveMultirowStep({ ...rOpts }), resolveMultirowStep({ ...rOpts })]));
+  eq(srv.st.posts, 1, '⑫ 같은 인스턴스 동시 2요청(목록 지연) = 생성 호출 1회');
+  eq(a.document_id, b.document_id, '⑫ 두 응답이 같은 문서');
+  eq([a.created, b.created].sort(), [false, true], '⑫ 한 요청만 created');
+  const c = await withFake(srv, () => resolveMultirowStep({ ...rOpts }));   // 목록이 아직 비어 보이는 채로 뒤늦게 온 요청도 최근 생성 문서를 쓴다
+  eq([srv.st.posts, c.document_id], [1, a.document_id], '⑫ 뒤늦은 요청도 최근 생성 문서 재사용');
+}
+// ⑬ 서로 다른 인스턴스(직렬화 우회 = 모듈을 따로 불러 전역 상태를 분리): 각자 생성했어도 생성 뒤 재조회에서 가장 이른 장으로 수렴
+for (const lag of [0, 3]) {
+  const [m1, m2] = await Promise.all([import('../../api/lib/eformsign-multirow.mjs?inst1-' + lag), import('../../api/lib/eformsign-multirow.mjs?inst2-' + lag)]);
+  const srv = fakeServer({ listLag: lag });
+  const [a, b] = await withFake(srv, () => Promise.all([m1.resolveMultirowStep({ ...rOpts }), m2.resolveMultirowStep({ ...rOpts })]));
+  eq(srv.st.posts, 2, '⑬ 인스턴스가 다르면 각자 생성(lag ' + lag + ')');
+  const earliest = srv.st.docs.slice().sort((x, y) => x.created_date - y.created_date)[0].id;
+  eq([a.document_id, b.document_id], [earliest, earliest], '⑬ 둘 다 가장 이른 장으로 응답(lag ' + lag + ')');
+  eq([a, b].map((r) => r.created).sort(), [false, true], '⑬ 정답 장을 만든 쪽만 created(lag ' + lag + ')');
+  ok([a, b].some((r) => r.log.includes('extra_open:1')), '⑬ extra_open 로그(lag ' + lag + ')');
+  eq(srv.st.docs.length, 2, '⑬ 자동 삭제 없음(lag ' + lag + ')');
 }
 // ── 토큰 재사용(2026-11-16: 요청마다 새로 발급하던 것을 함수 메모리에서 재사용) ──
 const tokOpts = { apiKey: 'k', privateKey: ecHex, memberId: 'm', tokenUrl: 'https://auth.test/access_token' };
