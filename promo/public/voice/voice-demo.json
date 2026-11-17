@@ -1,0 +1,100 @@
+{
+  "set": "demo",
+  "voice": "ko-KR-InJoonNeural",
+  "rate": "+0%",
+  "generatedAt": "2026-10-02T17:12:28.859Z",
+  "leadIn": 0.35,
+  "tailOut": 0.7,
+  "scenes": {
+    "hook": {
+      "text": "수기 방명록을 이폼사인으로 바꾸면, 실제 화면은 이렇습니다.",
+      "hash": "0d1516cfc68d",
+      "seconds": 5.054,
+      "bytes": 122733,
+      "storyboardSec": 4,
+      "neededSec": 6.83,
+      "rawSeconds": 5.784
+    },
+    "arrive": {
+      "text": "방문하신 분은 열려 있는 한 줄에 이름과 연락처, 방문 목적만 적습니다.",
+      "hash": "81bc3ff5e707",
+      "seconds": 5.865,
+      "bytes": 142317,
+      "storyboardSec": 6,
+      "neededSec": 7.89,
+      "rawSeconds": 6.84
+    },
+    "fill": {
+      "text": "적고, 체크하고, 서명하면 끝입니다. 서명이 끝나면 전송 버튼이 어디 있는지 화면이 알려 줍니다.",
+      "hash": "429065bc8b8c",
+      "seconds": 8.085,
+      "bytes": 195309,
+      "storyboardSec": 10,
+      "neededSec": 11.13,
+      "rawSeconds": 10.08
+    },
+    "next": {
+      "text": "다음 분에게는 앞사람 이름도 연락처도 보이지 않습니다. 같은 한 장인데도요.",
+      "hash": "dccbf8c1ff54",
+      "seconds": 5.994,
+      "bytes": 145197,
+      "storyboardSec": 8,
+      "neededSec": 8.8,
+      "rawSeconds": 7.752
+    },
+    "stack": {
+      "text": "열 분이 써도 문서는 하루 한 장입니다. 이폼사인 문서함에 그대로 쌓입니다.",
+      "hash": "f6b7cdc72077",
+      "seconds": 6.035,
+      "bytes": 146349,
+      "storyboardSec": 8,
+      "neededSec": 8.9,
+      "rawSeconds": 7.848
+    },
+    "manage": {
+      "text": "찾고, 열고, 내려받기까지 이폼사인 문서함에서 끝납니다.",
+      "hash": "35ba6960d3c4",
+      "seconds": 5.563,
+      "bytes": 134829,
+      "storyboardSec": 8,
+      "neededSec": 7.53,
+      "rawSeconds": 6.48
+    },
+    "branch": {
+      "text": "방명록은 시작일 뿐입니다. 계약도, 동의도, 접수도 같은 이폼사인입니다.",
+      "hash": "ed213a3135a4",
+      "seconds": 6.822,
+      "bytes": 165357,
+      "storyboardSec": 6,
+      "neededSec": 9.88,
+      "rawSeconds": 8.832
+    },
+    "cta": {
+      "text": "지금 이폼사인을 체험해 보세요.",
+      "hash": "e8d9b4769a63",
+      "seconds": 2.858,
+      "bytes": 70317,
+      "storyboardSec": 4,
+      "neededSec": 4.63,
+      "rawSeconds": 3.576
+    }
+  },
+  "setInfo": {
+    "name": "demo",
+    "array": "DEMO_SCENES",
+    "prefix": "demo-",
+    "voiceJson": "voice-demo.json",
+    "voiceDurations": "voice-durations-demo.json",
+    "sceneDurations": "scene-durations-demo.json"
+  },
+  "postProcess": {
+    "maxPauseSec": 0.38,
+    "leadSec": 0.19,
+    "tailSec": 0.3,
+    "edgeFadeSec": 0.02,
+    "thresholdDb": -40,
+    "lufs": -16,
+    "truePeak": -1.5
+  },
+  "postProcessedAt": "2026-10-02T17:12:47.671Z"
+}

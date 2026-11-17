@@ -1,0 +1,19 @@
+{
+  "title": "방명록 (누적형 실측)",
+  "subtitle": "한 장에 여러 방문자가 차례로 적습니다. 끝난 줄은 다음 사람에게 보이지 않아야 합니다.",
+  "headerTop": 120, "headerH": 28, "rowH": 64, "rows": 3,
+  "cols": [
+    {"key": "no", "label": "번호", "x0": 40, "x1": 80},
+    {"key": "성명", "label": "성명", "x0": 80, "x1": 190, "type": "text"},
+    {"key": "연락처", "label": "연락처", "x0": 190, "x1": 310, "type": "text"},
+    {"key": "방문목적", "label": "방문 목적", "x0": 310, "x1": 450, "type": "text"},
+    {"key": "서명", "label": "서명", "x0": 450, "x1": 555, "type": "signature"}
+  ],
+  "hideMethodByRow": {"1": "visible", "2": "visible", "3": "visible"},
+  "coverLabel": true,
+  "coverStyleByRow": {"1": "opaque", "2": "opaque"},
+  "highlightOwnRow": true,
+  "requiredCols": ["성명", "서명"],
+  "ozrRequired": "static",
+  "stepNamePrefix": "방문자 "
+}

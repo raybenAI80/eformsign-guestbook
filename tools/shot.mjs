@@ -2,10 +2,13 @@
  * node tools/shot.mjs --port 9240 [--url <u>] [--wait 12000] --out <name> [--click x,y[,waitMs]]... [--text "..."] [--drag x1,y1,x2,y2]
  */
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DEFAULT_ATTACH_CDP_PORT } from './form-coords.mjs';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg=(n,d)=>{const i=process.argv.indexOf('--'+n);return i>-1?process.argv[i+1]:d;};
 const all=(n)=>process.argv.map((v,i)=>v==='--'+n?process.argv[i+1]:null).filter(Boolean);
-const PORT=arg('port',String(DEFAULT_ATTACH_CDP_PORT)), EV=arg('ev','D:/pjt/eformsign/kiosk-product/evidence/final');
+const PORT=arg('port',String(DEFAULT_ATTACH_CDP_PORT)), EV=arg('ev',path.join(ROOT,'evidence','final'));
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const targets=await (await fetch(`http://127.0.0.1:${PORT}/json`)).json();
 const t=targets.find(x=>x.type==='page'&&!/devtools/.test(x.url))||targets.find(x=>x.type==='page');

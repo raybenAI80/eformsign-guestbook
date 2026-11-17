@@ -230,6 +230,13 @@
       </div>
     </section>
 
+    <!-- 운영 시간 밖(누적형 + 「받지 않기」) — 방문자용 안내. 시작 시각이 되면 저절로 열린다 -->
+    <section class="overlay" id="ovClosed" role="status" aria-live="polite" hidden>
+      <h2>지금은 방명록을 받지 않습니다.</h2>
+      <p id="closedHours" class="nb">운영 시간에 다시 와 주세요.</p>
+      <p class="hint">운영 시간이 되면 이 화면이 저절로 바뀝니다.</p>
+    </section>
+
     <!-- 오류 -->
     <section class="overlay" id="ovError" hidden>
       <h2>작성 화면을 열지 못했습니다.</h2>
@@ -260,6 +267,9 @@
   if (q.get('template')) C.templateId = q.get('template');
   if (q.get('company')) C.companyId = q.get('company');
   if (q.get('debug')) C.debug = q.get('debug') !== '0';
+  if (q.get('docmode')) C.docMode = q.get('docmode');
+  // 누적형(한 장에 N명, 서버 포함 옵션): 회사·서식·문서·단계 토큰을 /api/multirow 가 정해 준다.
+  var MULTI = C.docMode === 'multirow';
   if (C.mode !== 'immediate' && C.mode !== 'thanks') C.mode = 'thanks';
   if (!(C.thanksSeconds > 0)) C.thanksSeconds = 4;
   // 무응답 리셋: 입력 시작 전(idle) / 입력 중 이탈(abandon) 두 기준을 따로 둔다.
@@ -272,6 +282,7 @@
   var els = {
     stage: $('stage'), host: $('frameHost'),
     loading: $('ovLoading'), thanks: $('ovThanks'), error: $('ovError'),
+    closed: $('ovClosed'), closedHours: $('closedHours'),
     idle: $('ovIdle'), idleRing: $('idleRing'), idleSub: $('idleSub'), btnKeep: $('btnKeep'),
     errBox: $('errBox'), errHint: $('errHint'), countdown: $('countdown'),
     hTitle: $('hTitle'), hSub: $('hSub'),
@@ -305,7 +316,13 @@
   })();
 
   els.hTitle.textContent = C.title || '문서 작성';
-  els.hSub.textContent = C.subtitle || '내용을 작성한 뒤 전송을 눌러 주세요.';
+  // 누적형은 한 장에 여러 명이 차례로 쓰는 다른 흐름이라 안내 문구를 고정한다(설정값의 한 사람 한 장용
+  // 문구가 남아 있어도 덮는다). 2026-09-29 태블릿 시험: 서명을 마친 뒤 다음에 무엇을 누를지 몰랐다 —
+  // 프레임 안 활동은 관측할 수 없으므로(아래 무응답 리셋 주석) 이 머리글이 래퍼 층의 유일한 안내다.
+  // 하단 고정 띠는 뷰어 하단 바(필수 입력 항목 n/2 · 전송)를 가려서 넣지 않는다.
+  els.hSub.textContent = MULTI
+    ? '차례대로 한 줄씩 적고, 서명까지 마치면 오른쪽 아래 「전송」을 눌러 주세요.'
+    : (C.subtitle || '내용을 작성한 뒤 전송을 눌러 주세요.');
   els.thanksTitle.textContent = C.thanksMessage || '작성해 주셔서 감사합니다.';
   els.thanksSub.textContent = C.thanksSubMessage || '';
   els.idleRing.textContent = String(C.countdownSeconds);
@@ -326,14 +343,16 @@
   }
 
   // ---------- 상태 ----------
-  var state = { session: 0, phase: 'boot', docs: [], formReady: false, loads: 0, submits: 0 };
+  var state = { session: 0, phase: 'boot', docs: [], formReady: false, loads: 0, submits: 0, mr: null, lastDoc: '' };
   window.__kioskState = state;
 
   function show(which) {
     els.loading.hidden = which !== 'loading';
     els.thanks.hidden = which !== 'thanks';
     els.error.hidden = which !== 'error';
-    els.btnRestart.hidden = which === 'thanks';   // 감사 화면에서는 되돌릴 것이 없다
+    els.closed.hidden = which !== 'closed';
+    els.btnRestart.hidden = which === 'thanks' || which === 'closed';   // 감사·닫힘 화면에서는 되돌릴 것이 없다
+    if (which !== 'closed') stopClosedPoll();
     if (which !== null) closeRestartConfirm();
     if (which) cancelWarn('show:' + which);      // 무응답 경고는 작성 화면에서만 뜬다
     state.phase = which || 'form';
@@ -358,7 +377,7 @@
   //    오래 쓰는 작성자는 카운트다운 덮개를 한 번 터치하면 계속 쓸 수 있다(덮개가 화면
   //    전체를 덮으므로 어디를 터치해도 부모가 받는다).
   var WARN_SECONDS = C.countdownSeconds;      // 복귀 카운트다운(초) — config.countdownSeconds / ?countdown=
-  var idle = { last: Date.now(), source: 'boot', engaged: false, warnLeft: 0, inFrame: false };
+  var idle = { last: Date.now(), source: 'boot', engaged: false, warnLeft: 0, inFrame: false, outside: false, warnLimit: 0 };
   window.__kioskIdle = idle;
 
   function frameFocused() {
@@ -374,9 +393,10 @@
   function noteFrameFocus() {
     if (idle.inFrame) return false;
     idle.inFrame = true;
+    idle.outside = false;
     if (!idle.engaged) {
       idle.engaged = true;
-      log('작성 프레임 진입(engaged) — 이후 리셋 기준 abandonResetSeconds=' + C.abandonResetSeconds + 's');
+      log('작성 프레임 진입(engaged) — 이후 리셋 기준: 프레임 안 ' + Math.max(C.abandonResetSeconds, C.idleResetSeconds) + 's · 프레임 밖 ' + C.abandonResetSeconds + 's');
     } else {
       log('작성 프레임 재진입 — 활동으로 기록(frame-focus)');
     }
@@ -384,16 +404,26 @@
     return true;
   }
   ['pointerdown', 'touchstart', 'keydown', 'wheel'].forEach(function (ev) {
-    window.addEventListener(ev, function () { armIdle('parent:' + ev); }, { passive: true });
+    window.addEventListener(ev, function () {
+      armIdle('parent:' + ev);
+      if (idle.engaged) idle.outside = true;        // 작성을 시작한 뒤 프레임 밖을 만졌다 = 이탈 후보
+    }, { passive: true });
   });
   // window blur 시 포커스가 iframe 으로 넘어갔으면 = 작성자가 작성 프레임 안에 있다
   window.addEventListener('blur', function () {
     setTimeout(function () { if (frameFocused()) noteFrameFocus(); }, 0);
   });
 
+  // 🔴 2026-09-29: 포커스가 프레임 안에 머무는 동안은 "입력 중"과 "쓰다 떠남"을 구분할 수 없다.
+  //    그 구간에 짧은 abandon(데모 15초)을 그대로 쓰면 입력 중인 방문자에게 10초마다
+  //    「계속 작성하시겠습니까?」가 뜬다(태블릿 실사용 보고). 그래서
+  //      · 포커스가 프레임 안 = max(abandon, idle) — 떠난 방문자도 이 한도에서는 리셋된다(09-16 결함 재발 없음)
+  //      · 프레임 밖(머리글·여백·덮개)을 만진 뒤 포커스가 프레임 밖에 있음(실제 이탈 신호) = abandon
+  //    프레임 밖을 만지지 않았는데 포커스만 빠진 경우(헤드리스 실측 3회 중 1회 관측)는 이탈로 보지 않는다.
   function idleLimitSeconds() {
     if (!(C.idleResetSeconds > 0)) return 0;          // 0 = 리셋 끔
-    return idle.engaged ? C.abandonResetSeconds : C.idleResetSeconds;
+    if (!idle.engaged) return C.idleResetSeconds;
+    return (idle.inFrame || !idle.outside) ? Math.max(C.abandonResetSeconds, C.idleResetSeconds) : C.abandonResetSeconds;
   }
 
   // 낭독기가 초마다 떠들지 않도록, 처음 뜰 때와 3초 남았을 때만 문장을 새로 읽힌다.
@@ -426,6 +456,7 @@
   function cancelWarn(by) {
     if (idle.warnLeft > 0 || !els.idle.hidden) log('무응답 경고 취소 by=' + (by || 'unknown'));
     idle.warnLeft = 0;
+    idle.warnLimit = 0;
     els.idle.hidden = true;
     idleSpokenAt = 0;
     var sp = document.getElementById('idleSpoken');
@@ -435,11 +466,15 @@
 
   setInterval(function () {
     if (state.phase !== 'form') { cancelWarn('phase=' + state.phase); return; }
-    var limit = idleLimitSeconds();
-    if (!limit) { cancelWarn('disabled'); return; }
     // 포커스가 프레임 안으로 들어간 순간만 활동 1회. 머무는 동안은 타이머를 멈추지 않는다.
+    // 프레임 밖으로 나간 순간도 활동 1회 — abandon 은 그 순간부터 센다.
+    // 🔴 경고 덮개가 뜨면서 포커스를 가져간 것(상품판은 「계속 작성하기」로 옮긴다)은 이탈이 아니다 —
+    //    덮개가 떠 있는 동안에는 활동으로 치지 않고, 한도도 덮개가 뜬 순간의 값으로 고정한다.
     if (frameFocused()) noteFrameFocus();
-    else idle.inFrame = false;
+    else if (idle.inFrame) { idle.inFrame = false; if (els.idle.hidden) armIdle('frame-leave'); }
+    var limit = (!els.idle.hidden && idle.warnLimit) ? idle.warnLimit : idleLimitSeconds();
+    if (!limit) { cancelWarn('disabled'); return; }
+    if (els.idle.hidden) idle.warnLimit = limit;
     var elapsed = (Date.now() - idle.last) / 1000;
     if (elapsed >= limit) {
       log('무응답 리셋 실행 — 사유=' + (idle.engaged ? 'abandon' : 'idle') +
@@ -528,8 +563,20 @@
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
 
-  function buildOption() {
-    var opt = {
+  function buildOption(mr) {
+    var opt = mr ? {
+      // 누적형: 이미 만들어진 문서의 현재 단계를 외부 수신자로 연다(mode 02 + external_token).
+      company: { id: mr.embed.company.id, country_code: C.countryCode || 'kr' },
+      user: mr.embed.user,
+      mode: mr.embed.mode,
+      layout: {
+        lang_code: C.langCode || 'ko',
+        header: C.showHeader !== false,
+        // 🔴 외부 수신자로 받은 문서(mode 02)에서 hide_request_popup:true 면 「문서 전송」 확인창이
+        //    숨겨진 채 전송이 멈춘다(오류·콜백 없음, 2026-09-28 실측). 누적형은 항상 false.
+        hide_request_popup: false
+      }
+    } : {
       company: { id: C.companyId, country_code: C.countryCode || 'kr' },
       user: { type: '02', external_user_info: { name: C.visitorName || '작성자' } },
       mode: { type: '01', template_id: C.templateId },
@@ -539,7 +586,7 @@
         hide_request_popup: C.hideRequestPopup === true
       }
     };
-    if (C.prefill && C.prefill.length) {
+    if (!mr && C.prefill && C.prefill.length) {
       opt.prefill = {
         fields: C.prefill.map(function (f) {
           var o = { id: f.id, value: resolveValue(f.value) };
@@ -594,10 +641,61 @@
     }, (Number(C.loadWatchSeconds) > 0 ? Number(C.loadWatchSeconds) : LOAD_WATCH_SECONDS) * 1000);
     idle.engaged = false;            // 새 세션 = 아직 아무도 입력을 시작하지 않았다
     idle.inFrame = false;            // 포커스 진입 판정도 초기화한다
+    idle.outside = false;
     armIdle('session-start');
 
-    var opt = buildOption();
-    log('option', opt);
+    if (MULTI) {
+      // 🔴 임시 저장이 없다 — 유휴 리셋·다시 시작도 같은 호출로 "지금 단계"를 처음부터 다시 연다.
+      fetchMultirow(state.lastDoc).then(function (mr) {
+        if (my !== state.session) return;
+        state.mr = mr;
+        state.lastDoc = mr.document_id;
+        log('multirow', { step_no: mr.step_no, step_name: mr.step_name, created: mr.created, rows: mr.rows, trace: mr.trace });
+        openEmbed(my, buildOption(mr));
+      }, function (err) {
+        if (my !== state.session) return;
+        clearTimeout(loadWatchTimer);
+        if (err.closed) { showClosed(err.closed); return; }
+        onError({ code: 'MULTIROW', message: err.message, hint: err.hint });
+      });
+      return;
+    }
+    openEmbed(my, buildOption());
+  }
+
+  // 누적형: 서버가 지금 열 문서·단계를 정해 준다. last = 직전에 쓰던 문서(완료 직후 목록 반영 지연 대비).
+  // 🔴 한 화면에서 /api/multirow 요청은 동시에 1개만 보낸다. 진행 중이면 같은 약속(Promise)을 돌려준다 —
+  //    세션을 연속으로 다시 시작하는 경우(방치 리셋·다시 시작 버튼이 로딩 중에 겹침)에도 문서를 두 번 만들지 않는다.
+  //    다시 시도(실패 뒤)는 이전 요청이 끝나 inflight 가 비워진 뒤에만 새 요청이 나간다.
+  //    제출이 일어난 뒤에는(submits 가 바뀌면) 제출 전에 시작한 요청을 재사용하지 않는다.
+  var mrInflight = null;
+  function fetchMultirow(last) {
+    if (mrInflight && mrInflight.submits === state.submits) return mrInflight.promise;
+    var url = '/api/multirow' + (last ? '?last=' + encodeURIComponent(last) : '');
+    var entry = { submits: state.submits, promise: null };
+    entry.promise = fetchMultirowOnce(url);
+    mrInflight = entry;
+    var clear = function () { if (mrInflight === entry) mrInflight = null; };
+    entry.promise.then(clear, clear);
+    return entry.promise;
+  }
+  function fetchMultirowOnce(url) {
+    return fetch(url, { cache: 'no-store', credentials: 'same-origin' }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (b) {
+        if (r.ok && b && b.ok && b.token_id) return b;
+        var e = new Error((b && b.message) || ('HTTP ' + r.status));
+        if (r.ok && b && b.code === 'CLOSED') { e.closed = b; throw e; }   // 운영 시간 밖 — 오류가 아니다
+        e.hint = r.status === 404 ? '누적형 옵션이 꺼져 있습니다(KIOSK_MULTIROW_ENABLED).'
+          : (b && b.reason === 'missing_env') ? '빠진 설정값: ' + (b.missing || []).join(', ')
+          : (b && b.reason === 'bad_env') ? '모양이 틀린 설정값: ' + (b.invalid || []).join(', ') + ' (시각은 10:00 처럼 적습니다)'
+          : '관리자에게 알려 주세요.';
+        throw e;
+      });
+    });
+  }
+
+  function openEmbed(my, opt) {
+    log('option', MULTI ? { mode: opt.mode && opt.mode.type, user: opt.user && opt.user.type } : opt);
 
     try {
       var efs = new EformSignDocument();
@@ -629,6 +727,7 @@
     state.formReady = false;
     if (res && res.document_id) state.docs.push(res.document_id);
     else if (res && res.message && res.message.document_id) state.docs.push(res.message.document_id);
+    else if (MULTI && state.mr && state.mr.document_id) state.docs.push(state.mr.document_id);
     window.__kioskDocs = state.docs;
     armIdle('submit');
 
@@ -642,7 +741,8 @@
   var submittedForSession = -1;
   function onSubmitted(info) {
     if (submittedForSession === state.session) return;
-    var docId = (info && info.document_id) || (info && info.message && info.message.document_id) || '';
+    var docId = (info && info.document_id) || (info && info.message && info.message.document_id)
+      || (MULTI && state.mr && state.mr.document_id) || '';
     if (!docId) {
       log('문서 번호 없는 제출 신호 — 감사 화면 없이 새 작성 화면으로', info);
       submittedForSession = state.session;
@@ -660,13 +760,47 @@
 
   function onError(res) {
     log('error_callback', res);
-    els.errHint.textContent = '관리자에게 알려 주세요.';
+    els.errHint.textContent = (res && res.hint) || '관리자에게 알려 주세요.';
     els.errBox.textContent = JSON.stringify(res, null, 2);
     show('error');
   }
 
+  // ---------- 운영 시간 밖(누적형 CLOSED) ----------
+  // 🔴 이 화면은 방문자가 본다 — 관리자 안내·오류 상자를 보이지 않는다.
+  //    일정 간격으로 서버에 조용히 물어보고, 열리면 새 작성 화면을 연다(로딩 화면을 번쩍이지 않는다).
+  var closedPollTimer = null;
+  function stopClosedPoll() { clearTimeout(closedPollTimer); closedPollTimer = null; }
+  function showClosed(info) {
+    var o = info && info.openAt, c = info && info.closeAt;
+    els.closedHours.textContent = (o || c)
+      ? '운영 시간 ' + (o || '') + '~' + (c || '')
+      : '운영 시간에 다시 와 주세요.';
+    log('운영 시간 밖', info && info.sheet);
+    if (state.phase !== 'closed') show('closed');
+    stopClosedPoll();
+    var sec = Number(C.closedRetrySeconds) > 0 ? Number(C.closedRetrySeconds) : 60;
+    closedPollTimer = setTimeout(function () {
+      if (state.phase !== 'closed') return;
+      fetchMultirow('').then(function (mr) {
+        // 🔴 이 응답이 새 장을 만들었을 수 있다 — 문서 번호를 넘겨야 startSession 의 요청이 목록 반영 지연 없이 같은 장을 찾는다(두 번째 생성 방지).
+        if (mr && mr.document_id) state.lastDoc = mr.document_id;
+        if (state.phase === 'closed') startSession('opened');
+      }, function (err) {
+        if (state.phase !== 'closed') return;
+        showClosed(err.closed || info);   // 아직 닫힘이거나 잠깐 연결이 끊김 — 같은 화면에서 다시 기다린다
+      });
+    }, sec * 1000);
+  }
+
   // 서식은 불러오는데 작성 화면이 끝내 뜨지 않는 경우 = 서식 설정 문제일 가능성이 가장 높다.
   function showSetupHint() {
+    if (MULTI) {
+      els.errHint.textContent = '담당자 확인 사항: 누적형 서식의 방문자 단계에서 본인확인·인증서 전자서명이 꺼져 있는지, '
+        + '서식을 고친 뒤 다시 발행했는지 확인해 주세요.';
+      els.errBox.textContent = '누적형 ' + ((state.mr && state.mr.step_name) || '');
+      show('error');
+      return;
+    }
     els.errHint.textContent =
       '담당자 확인 사항: 이폼사인에서 이 서식을 열고 「URL로 문서 생성 허용」이 켜져 있는지, '
       + '서식을 고친 뒤 다시 발행했는지 확인해 주세요.';

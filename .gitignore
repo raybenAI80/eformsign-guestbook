@@ -2,8 +2,23 @@ node_modules/
 *.log
 .vercel/
 .env*
-public/
+/public/
 evidence/
+reports/
 .work/
 .gates/
 .sysint/
+.local/
+
+# promo/ (Remotion 홍보 영상) — 세부 규칙은 promo/.gitignore. 대용량 산출물은 루트에서도 한 번 더 막는다
+promo/node_modules/
+promo/.bundle/
+promo/out/
+promo/.gen-work/
+promo/.local/
+promo/public/shots/
+
+# third-party prompt catalog lives in the vault, not in this public repo
+docs/marketing/motion-dictionary/catalog.json
+
+.claude/worktrees/

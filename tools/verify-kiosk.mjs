@@ -3,17 +3,21 @@
  * node verify-kiosk.mjs --port 9240 --mode immediate|thanks --rounds 2 --name 홍길동
  * 좌표는 768x1024 태블릿 뷰포트 기준.
  *
- * 🔴 서식 항목이 바뀌면 좌표가 어긋난다(2026-09-16).
- *    작성 프레임은 다른 도메인의 iframe 이고 그 안의 OZ 뷰어는 입력칸을 DOM 으로 노출하지
- *    않는다 — 즉 **입력칸 위치를 자동으로 찾아낼 방법이 없다**(실측 부정 결과).
- *    그래서 좌표를 코드에서 빼내 옵션으로 만든다. 서식을 고친 고객은 다음 중 하나를 쓴다.
+ * 🔴 서식 항목이 바뀌면 고정 좌표는 어긋난다(2026-09-16).
+ *    2026-09-29 정정: 작성 프레임(외부 도메인 OOPIF)은 별도 CDP 타깃이고, 그 안의 PC 뷰어는 입력칸을
+ *    `<input id="ozinput_N">` 으로 둔다 — 그래서 **성명·소속(첫·둘째 칸)은 DOM 에서 위치를 읽어 누른다**
+ *    (form-coords.mjs locateTextInputs). 좌표 옵션을 주면 그 값이 우선하고, DOM 을 못 읽으면 기본 좌표로 폴백한다.
+ *    동의·전송·팝업 버튼은 여전히 좌표다. 서식을 고친 고객은 다음 중 하나를 쓴다.
  *      · 값 입력을 건너뛴다:            --notype        ← 항목 변경과 무관하게 항상 동작
  *      · 좌표를 직접 준다:              --name-x 480 --name-y 464 --org-x 520 --org-y 518
  *      · 좌표 묶음을 파일로 준다:        --coords <json>   (키: consent, continue, name, org, send, popup1, popup2)
  *    좌표 잡는 법은 README 「서식을 고친 뒤」 절.
  */
 import fs from 'node:fs';
-import { resolveCoords, passConsentGate, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { resolveCoords, passConsentGate, locateTextInputs, sendPopupVisible, DEFAULT_ATTACH_CDP_PORT, warnReservedCdpPort } from './form-coords.mjs';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > -1 ? process.argv[i + 1] : d; };
 // 🔴 이 도구는 **이미 떠 있는** 헤드리스 크롬에 붙는다(직접 띄우지 않는다).
 //    CDP 포트 기본값은 9240 으로 통일한다 — 8099~8599 는 정적 서버·다른 워커 대역이라
@@ -35,7 +39,7 @@ const EXTRA = (() => {
   if (!parts.length && process.env.KIOSK_QUERY) parts.push(process.env.KIOSK_QUERY);
   return parts.length ? '&' + parts.join('&') : '';
 })();
-const EV = arg('ev', 'D:/pjt/eformsign/kiosk-product/evidence');
+const EV = arg('ev', path.join(ROOT, 'evidence'));
 
 /** 클릭 좌표 — 해석 규칙은 form-coords.mjs 한 곳에 둔다(프로브들과 공용). */
 const { coords: COORDS, sources: COORD_SRC, warnings: COORD_WARN } = resolveCoords({ argv: process.argv, env: process.env });
@@ -108,10 +112,16 @@ for (let round = 1; round <= ROUNDS; round++) {
   await shot(`${TAG}-r${round}-2-editable`);
 
   if (!process.argv.includes('--notype')) {
-    await click(COORDS.name[0], COORDS.name[1], 1500);   // 첫 번째 텍스트 입력칸
+    // 좌표를 직접 주지 않았으면 입력칸 위치를 작성 프레임 DOM 에서 읽는다(첫 칸 = 성명, 둘째 칸 = 소속).
+    const explicit = COORD_SRC.some(s => s !== 'default');
+    const inputs = explicit ? [] : await locateTextInputs({ cdpPort: PORT, evalTop: evalJs });
+    const nameAt = inputs[0] ? [inputs[0].x, inputs[0].y] : COORDS.name;
+    const orgAt = inputs[1] ? [inputs[1].x, inputs[1].y] : COORDS.org;
+    console.log('  INPUTS ' + (explicit ? 'coords(' + COORD_SRC.join(',') + ')' : inputs.length ? 'dom ' + JSON.stringify(inputs.slice(0, 2).map(o => [o.x, o.y])) + ' of ' + inputs.length : 'fallback default'));
+    await click(nameAt[0], nameAt[1], 1500);   // 첫 번째 텍스트 입력칸
     await type(visitor);
     await sleep(800);
-    await click(COORDS.org[0], COORDS.org[1], 1200);     // 두 번째 텍스트 입력칸
+    await click(orgAt[0], orgAt[1], 1200);     // 두 번째 텍스트 입력칸
     await type('검증팀');
     await sleep(1200);
   }
@@ -121,9 +131,20 @@ for (let round = 1; round <= ROUNDS; round++) {
   await click(COORDS.send[0], COORDS.send[1], 6000);     // 전송
   await shot(`${TAG}-r${round}-4-send-clicked`);
 
-  // 확인 팝업(문서 전송)의 전송 버튼. reCAPTCHA 유무로 팝업 높이가 달라지므로 두 위치를 모두 누른다.
-  await click(COORDS.popup1[0], COORDS.popup1[1], 3000);
-  if (!(await evalJs(`window.__kioskState.submits > ${before}`))) await click(COORDS.popup2[0], COORDS.popup2[1], 4000);
+  // 확인 팝업(문서 전송)의 전송 버튼 — 창이 보일 때만 누른다(창 없이 바로 제출되는 서식이면 건너뜀).
+  // 창은 전송 클릭 뒤 몇 초 늦게 뜬다(reCAPTCHA 로딩) — 제출 감지 또는 창 표시 중 먼저 오는 것을 최대 15초 기다린다.
+  // 판정 불가(null)면 예전처럼 좌표를 누른다. reCAPTCHA 유무로 팝업 높이가 달라지므로 두 위치를 모두 누른다.
+  const submitted = async () => evalJs(`window.__kioskState.submits > ${before}`);
+  let popup = null;
+  for (const t0 = Date.now(); Date.now() - t0 < 15000; await sleep(500)) {
+    if (await submitted()) { popup = false; break; }
+    if (await sendPopupVisible({ cdpPort: PORT })) { popup = true; break; }
+  }
+  console.log('  SEND_POPUP ' + (popup === null ? 'unknown(좌표 폴백)' : popup ? 'shown' : 'none(바로 제출)'));
+  if (popup !== false) {
+    await click(COORDS.popup1[0], COORDS.popup1[1], 3000);
+    if (!(await submitted())) await click(COORDS.popup2[0], COORDS.popup2[1], 4000);
+  }
 
   await waitFor(`window.__kioskState.submits > ${before}`, 60000, '제출 감지');
   const docs = await evalJs('JSON.stringify(window.__kioskState.docs)');

@@ -1,0 +1,82 @@
+{
+  "$comment": "🔴 손으로 고치지 말고 `node tools/make-occlusion-mask.mjs` 로 다시 만든다. 생성 이미지를 새로 받으면 반드시 재실행.",
+  "measuredAt": "2026-09-21T02:29:48.857Z",
+  "minBlob": 60,
+  "images": {
+    "gen-02.png": {
+      "scene": 2,
+      "width": 1920,
+      "height": 1080,
+      "screenMedianLuma": 159,
+      "lumaMAD": 1,
+      "lumaTolerance": 18,
+      "satTolerance": 12,
+      "quadPixels": 70346,
+      "occluderPixels": 0,
+      "coverage": 0,
+      "biggestBlob": 54,
+      "mask": null,
+      "note": "화면 사각형 안이 단색 = 가릴 물체 없음(티끌만). 그 컷은 마스크 층이 필요 없다"
+    },
+    "gen-03.png": {
+      "scene": 3,
+      "width": 1920,
+      "height": 1080,
+      "screenMedianLuma": 174,
+      "lumaMAD": 1,
+      "lumaTolerance": 18,
+      "satTolerance": 12,
+      "quadPixels": 80005,
+      "occluderPixels": 228,
+      "coverage": 0.00285,
+      "biggestBlob": 320,
+      "mask": "masks/gen-03-occluder.png",
+      "note": "가리는 물체 있음 — 캡처 층 위에 이 마스크를 한 겹 더 얹는다"
+    },
+    "gen-04.png": {
+      "scene": 4,
+      "width": 1920,
+      "height": 1080,
+      "screenMedianLuma": 177,
+      "lumaMAD": 1,
+      "lumaTolerance": 18,
+      "satTolerance": 12,
+      "quadPixels": 80425,
+      "occluderPixels": 237,
+      "coverage": 0.00295,
+      "biggestBlob": 336,
+      "mask": "masks/gen-04-occluder.png",
+      "note": "가리는 물체 있음 — 캡처 층 위에 이 마스크를 한 겹 더 얹는다"
+    },
+    "gen-05.png": {
+      "scene": 5,
+      "width": 1920,
+      "height": 1080,
+      "screenMedianLuma": 172,
+      "lumaMAD": 1,
+      "lumaTolerance": 18,
+      "satTolerance": 12,
+      "quadPixels": 79993,
+      "occluderPixels": 215,
+      "coverage": 0.00269,
+      "biggestBlob": 306,
+      "mask": "masks/gen-05-occluder.png",
+      "note": "가리는 물체 있음 — 캡처 층 위에 이 마스크를 한 겹 더 얹는다"
+    },
+    "gen-06.png": {
+      "scene": 6,
+      "width": 1920,
+      "height": 1080,
+      "screenMedianLuma": 174,
+      "lumaMAD": 1,
+      "lumaTolerance": 18,
+      "satTolerance": 12,
+      "quadPixels": 146199,
+      "occluderPixels": 0,
+      "coverage": 0,
+      "biggestBlob": 15,
+      "mask": null,
+      "note": "화면 사각형 안이 단색 = 가릴 물체 없음(티끌만). 그 컷은 마스크 층이 필요 없다"
+    }
+  }
+}

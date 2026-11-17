@@ -1,0 +1,867 @@
+{
+  "$comment": "🔴 손으로 고치지 말고 `node tools/prescale-shots.mjs` 로 다시 만든다. 캡처를 재촬영하면 measure-scenes → prescale-shots 순서로 돌린다.",
+  "scaledAt": "2026-09-30T04:44:08.537Z",
+  "targetWidth": {
+    "portrait": 840,
+    "landscape": 1500
+  },
+  "method": "remove-guide-arrow.py(원본 해상도) → ffmpeg scale=flags=lanczos (원본 유지, public/shots/_scaled/ 에 사본)",
+  "files": {
+    "A/A01-designer-form.png": {
+      "k": 0.625,
+      "width": 1500,
+      "height": 844,
+      "sourceWidth": 2400,
+      "sourceHeight": 1350,
+      "guideArrows": 0
+    },
+    "B/B02-empty-form.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/B03-filled-form.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/B04-send-dialog.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/B05-complete.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/f-000.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/f-001.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/f-002.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-003.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-004.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-005.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-006.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-007.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-008.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-009.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-010.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-011.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-012.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-013.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-014.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-015.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-016.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-017.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-018.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-019.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-020.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-021.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-022.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-023.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-024.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-025.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-026.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-027.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-028.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 2
+    },
+    "B/fill-seq/f-029.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 2
+    },
+    "B/fill-seq/f-030.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 2
+    },
+    "B/fill-seq/f-031.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-032.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/f-033.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/g-000.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/g-001.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/g-002.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/g-003.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/g-004.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/g-005.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/g-006.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/g-007.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/g-008.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/g-009.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "B/fill-seq/g-010.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/g-011.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/g-012.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/g-013.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "B/fill-seq/g-014.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "C/C01-kiosk-blank.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/C01b-kiosk-blank-active.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/C02-kiosk-filled.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 1
+    },
+    "C/C04-thanks.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-000.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-001.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-002.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-003.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-004.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-005.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-006.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-007.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-008.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-009.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-010.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-011.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-012.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-013.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-014.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-015.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-016.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-017.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-018.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-019.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-020.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-021.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-022.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-023.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-024.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-025.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-026.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/countdown-seq/k-027.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-000.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-001.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-002.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-003.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-004.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-005.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-006.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-007.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-008.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-009.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-010.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-011.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-012.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-013.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-014.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "C/thanks-seq/t-015.png": {
+      "k": 0.4375,
+      "width": 840,
+      "height": 1181,
+      "sourceWidth": 1920,
+      "sourceHeight": 2700,
+      "guideArrows": 0
+    },
+    "D/D01-document-list.png": {
+      "k": 0.625,
+      "width": 1500,
+      "height": 844,
+      "sourceWidth": 2400,
+      "sourceHeight": 1350,
+      "guideArrows": 0
+    },
+    "D/D02-search.png": {
+      "k": 0.625,
+      "width": 1500,
+      "height": 844,
+      "sourceWidth": 2400,
+      "sourceHeight": 1350,
+      "guideArrows": 0
+    },
+    "D/D03-pdf-preview.png": {
+      "k": 0.625,
+      "width": 1500,
+      "height": 844,
+      "sourceWidth": 2400,
+      "sourceHeight": 1350,
+      "guideArrows": 0
+    },
+    "D/D04-ozr-report-preview.png": {
+      "k": 0.625,
+      "width": 1500,
+      "height": 844,
+      "sourceWidth": 2400,
+      "sourceHeight": 1350,
+      "guideArrows": 0
+    },
+    "K/K02-sheet-rows.png": {
+      "k": 0.625,
+      "width": 1500,
+      "height": 844,
+      "sourceWidth": 2400,
+      "sourceHeight": 1350,
+      "guideArrows": 0
+    }
+  }
+}

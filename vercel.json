@@ -3,6 +3,7 @@
   "buildCommand": "node build.mjs",
   "outputDirectory": "public",
   "framework": null,
+  "regions": ["icn1"],
   "headers": [
     {
       "source": "/config.js",
@@ -14,6 +15,13 @@
       "source": "/index.html",
       "headers": [
         { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/report.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
       ]
     },
     {

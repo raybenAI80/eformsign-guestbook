@@ -1,0 +1,16 @@
+{
+  "model": "gemini-3.8-flash-tts",
+  "voice": "Kore",
+  "api": "interactions",
+  "style": "차분하고 신뢰감 있는 제품 안내 나레이션, 또박또박, 보통 속도",
+  "requestedAt": "2026-10-15T05:49:13.854Z",
+  "responseMime": "audio/wav",
+  "requests": 1,
+  "inputChars": 379,
+  "sentences": 14,
+  "r429": 0,
+  "keyIndex": 1,
+  "keysTotal": 1,
+  "wavSec": 61.24,
+  "mp3Sec": 61.24
+}

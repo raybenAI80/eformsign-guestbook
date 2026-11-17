@@ -1,0 +1,78 @@
+{
+  "fps": 30,
+  "voice": "gemini-3.8-flash-tts:Kore",
+  "rate": "n/a(외부 더빙)",
+  "leadSec": 0.3,
+  "tailSec": 0.9,
+  "paddedFrames": 0,
+  "totalFrames": 2145,
+  "totalSec": 71.5,
+  "ok": true,
+  "notes": [],
+  "scenes": {
+    "hook": {
+      "narrationSec": 3.861,
+      "minVisualFrames": 180,
+      "voiceFrames": 152,
+      "startFrame": 0,
+      "frames": 180,
+      "seconds": 6,
+      "driver": "visual"
+    },
+    "promise": {
+      "narrationSec": 11.006,
+      "minVisualFrames": 270,
+      "voiceFrames": 367,
+      "startFrame": 180,
+      "frames": 367,
+      "seconds": 12.233,
+      "driver": "voice"
+    },
+    "bridge": {
+      "narrationSec": 3.289,
+      "minVisualFrames": 210,
+      "voiceFrames": 135,
+      "startFrame": 547,
+      "frames": 210,
+      "seconds": 7,
+      "driver": "visual"
+    },
+    "visitor": {
+      "narrationSec": 10.933,
+      "minVisualFrames": 480,
+      "voiceFrames": 364,
+      "startFrame": 757,
+      "frames": 480,
+      "seconds": 16,
+      "driver": "visual"
+    },
+    "staff": {
+      "narrationSec": 12.28,
+      "minVisualFrames": 480,
+      "voiceFrames": 405,
+      "startFrame": 1237,
+      "frames": 480,
+      "seconds": 16,
+      "driver": "visual"
+    },
+    "expand": {
+      "narrationSec": 7.038,
+      "minVisualFrames": 210,
+      "voiceFrames": 248,
+      "startFrame": 1717,
+      "frames": 248,
+      "seconds": 8.267,
+      "driver": "voice"
+    },
+    "cta": {
+      "narrationSec": 2.091,
+      "minVisualFrames": 180,
+      "voiceFrames": 99,
+      "startFrame": 1965,
+      "frames": 180,
+      "seconds": 6,
+      "driver": "visual"
+    }
+  },
+  "set": "v51"
+}

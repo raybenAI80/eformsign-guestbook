@@ -1,0 +1,40 @@
+{
+  "name": "eformsign-promo-guestbook",
+  "version": "0.1.0",
+  "private": true,
+  "description": "이폼사인 홍보영상 - 방명록 활용 사례 편 (Remotion 4)",
+  "scripts": {
+    "studio": "remotion studio",
+    "dev": "remotion studio",
+    "render:preview9": "remotion render Preview9 out/preview9.mp4",
+    "render:main": "remotion render Main60 out/main60.mp4",
+    "bundle": "remotion bundle --out-dir=.bundle",
+    "tts": "node tools/tts.mjs",
+    "check": "node tools/check-script.mjs",
+    "typecheck": "tsc --noEmit",
+    "check:framing": "node tools/check-shot-framing.mjs && node tools/check-shot-framing.mjs --self-test"
+  },
+  "dependencies": {
+    "@react-three/fiber": "^9.8.1",
+    "@remotion/cli": "4.0.484",
+    "@remotion/fonts": "4.0.484",
+    "@remotion/media": "4.0.484",
+    "@remotion/three": "4.0.484",
+    "@remotion/transitions": "4.0.484",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "4.0.484",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/three": "^0.186.0",
+    "tone": "15.1.22",
+    "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

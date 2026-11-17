@@ -1,0 +1,734 @@
+{
+  "$comment": "이폼사인 홍보 영상용 생성형 실사 이미지. 기획서 docs/marketing/promo-video-plan.md 5절 스토리보드·6절 소재②·10절 1-1 준수.",
+  "generatedAt": "2026-09-18T15:47:13+09:00",
+  "tool": "gpt-image skill (ChatGPT subscription route)",
+  "commonConstraints": [
+    "사진 실사 다큐멘터리 톤 · 자연광 · 저채도 · 한국 사무/행사 배경",
+    "동일 시리즈(같은 장소·조명·색온도). ④⑤ 는 ③ 을 레퍼런스로 생성",
+    "모든 기기 화면은 내용 없는 균일한 밝은 회색 — 실캡처 합성 자리",
+    "글자·숫자·간판·로고·브랜드 요소·UI 생성 금지",
+    "실존 인물 유사 금지 · 얼굴 정면 클로즈업 회피(측면·뒷모습·손 위주)",
+    "이미지 안에 브랜드 파랑(#0E73C3) 계열 없음"
+  ],
+  "screenQuadUsage": "points 는 [[tl],[tr],[br],[bl]] 픽셀 좌표(해당 size 기준). 실캡처 PNG 를 이 4점으로 원근 매핑(CSS matrix3d 또는 Remotion 4점 변환)해 합성한다. ①은 화면 기기가 없으므로 screenQuad 가 없고 bookQuad(종이 지면 4점)를 대신 쓴다.",
+  "pipelineNote": "🔴 gpt_image.mjs batch 를 --concurrency 4 로 돌리면 서로 다른 job 이 동일한 결과 파일을 받는 충돌이 발생했다(s02a=s02b, s02c=s04a=s05a). --concurrency 1 로 재생성해 회피. 재현 시 sha256 중복 검사 필수. 🔴 2026-09-18 3차: --concurrency 1 로도 한 job 이 장면과 무관한 기존 UI 스크린샷을 결과로 받는 오염이 재현됐다(t01b). 해상도(1672x941 이 아닌 값)와 sha256 만으로는 못 거르므로 **생성본은 반드시 눈으로 확인**한다.",
+  "scenes": [
+    {
+      "scene": 1,
+      "storyboardRef": "docs/marketing/promo-video-plan.md §5",
+      "description": "행사장 접수대, 종이 방명록 한 명씩 쓰느라 길게 늘어선 대기 줄 (종이 시절 — 카운터 위 화면 기기 없음)",
+      "output": {
+        "landscape": "public/gen/gen-01.png",
+        "size": "1920x1080",
+        "portrait": "public/gen/gen-01v.png",
+        "portraitSize": "1080x1920"
+      },
+      "tool": "gpt-image 스킬 (ChatGPT 구독 경로, Codex CLI 브리지 codex-cli 0.125.0, 내장 $imagegen). OPENAI_API_KEY·Images API 미사용",
+      "generatedAt": "2026-09-18 4차 재생성",
+      "prompt": "Photorealistic documentary photograph, 16:9 wide landscape, in the identical location, lighting, white balance and muted color grade as the reference image: the pale-wood reception counter of a Korean corporate event hall with tall windows and a white hydrangea and eucalyptus arrangement. The camera stands on the reception staff's side of the counter, raised well above the counter top and tilted down, looking across the counter at a visitor who is writing. She is a woman in a muted grey business-casual knit coat with a black shoulder bag, standing on the far side of the counter. The open paper guestbook lies flat on the counter directly in front of the writing woman's body, squarely between her two hands, so she never reaches sideways. Its long bottom edge is the edge closest to her, lying along the counter just in front of her waist, and the crease runs straight away from her across the counter toward the camera. Her left hand rests on the left-hand page and her right hand with the pen on the right-hand page, one on each side of the crease. From this camera the ruled lines run across the picture from left to right and the crease runs from the near part of the frame up toward her. The spread is large, flat, open, sharp and unobstructed and fills about a third of the frame width. Her head is bowed deeply over the page and her long dark hair falls forward, so her face is hidden and never seen clearly; no frontal face close-up of anybody. A paper guestbook is slow, so behind her one single file of eight to ten waiting visitors stretches away from the counter, the line running at a right angle to the counter and receding into the lobby behind her; except for the woman who is writing, every person faces forward along the line, toward the back of the person ahead and toward the guestbook beyond. Two or three of them are bored and look down at a smartphone held in one hand; the rest wait facing forward, some with folded arms, one glancing at a wristwatch. Their expressions are bored and patient. Nobody turns toward the camera and nobody looks sideways or out of a window; faces are seen only in three-quarter or lowered view and there is no frontal face close-up. Every smartphone screen is a plain uniform blank rectangle with nothing on it. Absolutely no text, no letters, no numbers, no handwriting marks, no signage, no posters, no logos, no brand marks, no printed labels and no user interface anywhere in the frame; the guestbook pages are completely blank white paper with at most faint blank ruled lines and nothing written on them. There is no tablet, no kiosk, no monitor and no computer anywhere in the frame and nothing electronic rests on the reception counter - this is the era of paper, only the guestbook and a pen lie on the counter. People must not resemble any real person. Soft diffused daylight from the tall windows, cool-neutral white balance, low saturation muted color grade, warm beige, gray and pale-wood palette, 35mm lens, shallow depth of field, fine natural film grain. Avoid any saturated blue object or blue lighting.",
+      "references": [
+        "public/gen/gen-03.png (③ 레퍼런스 — 접수대·창·꽃·색온도 동일화)"
+      ],
+      "selection": {
+        "picked": "w01a (가로) · w01va (세로)",
+        "reason": "카메라를 카운터 건너편(접수 직원 쪽)으로 옮기고 부감으로 내려다보니 책이 쓰는 사람 몸 바로 앞에 놓였다. 괘선이 쓰는 사람의 좌→우로 흐르고 책등이 카운터 앞모서리에 수직이며, 기계 게이트 |Δ-90°| 가 가로 3.9°·세로 3.4° 로 통과했다. 고개를 깊이 숙여 얼굴이 머리카락에 가리므로 정면 클로즈업이 없다. 줄은 등 뒤로 한 줄(10명 안팎), 전원이 줄 앞을 향하고 2~3명이 폰(화면 빈 회색)·1명이 손목시계를 본다. 지면 폭 가로 40.4%·세로 68.5%. 접수대·꽃·나무트레이·창·색온도가 ③(gen-03)과 동일하다.",
+        "rejected": [
+          {
+            "candidate": "x01a·x01b·x01c (4차 1R)",
+            "reason": "「책을 몸 앞에 정면으로」 서술만 추가 — 각도차 |Δ-90°| 64.8°/75.8°/81.1° 로 전부 실패"
+          },
+          {
+            "candidate": "y01a·y01b·y01c (4차 2R)",
+            "reason": "「양 팔뚝을 좌·우 페이지에 하나씩」 위치 앵커와 edit 모드 추가 — 69.2°/79.1°/72.5° 실패"
+          },
+          {
+            "candidate": "z01a·z01b·z01c (4차 3R)",
+            "reason": "「책을 사람 앞으로 밀어라」 edit 지시 — 책이 오른쪽으로 조금 옮겨질 뿐 관계는 유지. 77.0°/67.0°/61.8° 실패"
+          },
+          {
+            "candidate": "w01b (4차 4R)",
+            "reason": "「바로 뒤 부감」 가설 — 카메라가 다시 오른쪽 뒤로 돌아가 78.1° 실패"
+          },
+          {
+            "candidate": "w01c (4차 4R)",
+            "reason": "각도차 5.9° 로 통과하나 쓰는 사람의 턱·코가 드러나고 대기 줄 첫 사람이 뒤가 아니라 옆에 섬"
+          },
+          {
+            "candidate": "w01va (세로)",
+            "reason": "각도차 8.9° 통과하나 펜이 쓰는 사람 기준 **왼쪽** 페이지에 놓임(왼손잡이처럼 보임)"
+          },
+          {
+            "candidate": "w01vb (세로)",
+            "reason": "펜·각도는 통과하나 책 아래쪽이 프레임에 잘리고 인물이 화면을 과점"
+          },
+          {
+            "candidate": "x01a·x01b·x01c (4차 1R, stage15)",
+            "reason": "|Δ-90°| = 64.8°/75.8°/81.1° — 「책은 사람 배 정면」 문구를 넣어도 카메라가 뒤에 있는 한 책이 사람 왼쪽 옆으로 간다"
+          },
+          {
+            "candidate": "y01a·y01b·y01c (4차 2R, stage16)",
+            "reason": "|Δ-90°| = 69.2°/79.1°/72.5° — 「양 팔뚝이 좌·우 페이지에 하나씩」 위치 앵커·edit 모드 모두 무효"
+          },
+          {
+            "candidate": "z01a·z01b·z01c (4차 3R, stage17)",
+            "reason": "|Δ-90°| = 77.0°/67.0°/61.8° — 「책을 사람 앞으로 밀어라」 edit 지시는 책을 옆으로 옮기기만 하고 관계는 유지"
+          },
+          {
+            "candidate": "w01b (4차 4R, 카메라 가설②)",
+            "reason": "|Δ-90°| = 74.9° — over-the-shoulder 부감으로는 같은 실패가 재현된다. 카메라를 카운터 건너편으로 옮겨야 깨진다"
+          },
+          {
+            "candidate": "w01c (4차 4R, 카메라 가설① 변형)",
+            "reason": "각도는 통과(6.8°)하나 첫 대기자가 줄에서 벗어나 쓰는 사람 옆에 옆모습으로 서고, ③에 있는 나무 트레이가 없어 시리즈 소품 정합이 w01a 보다 약하다 — 차점"
+          },
+          {
+            "candidate": "w01vb·w01vc (4차 세로)",
+            "reason": "w01va 가 지면 68.5% 로 가장 넓고 가로 채택본과 구도가 일치해 불필요"
+          }
+        ],
+        "gate": "조건표 11항 — ①책 방향 기계 채점 |angle(책→사람, 괘선) - 90°| ≤ 20° ②줄이 쓰는 사람 등 뒤로 한 줄 ③쓰는 사람 외 전원이 줄 앞쪽을 향함 ④폰 보는 사람 2~3명 ⑤줄 8명 이상 ⑥카운터 위 화면 기기 0 ⑦펜은 쓰는 사람 기준 오른쪽 페이지 ⑧지면 폭 ≥25% ⑨글자·로고 0 ⑩정면 얼굴 클로즈업 0 ⑪③④⑤와 같은 접수대·창·색온도"
+      },
+      "portraitPrompt": "Photorealistic documentary photograph in a tall vertical 9:16 portrait format, recomposing the reference scene for a vertical frame while keeping the identical location, counter, woman, wardrobe, waiting line, lighting, white balance and muted color grade: the pale-wood reception counter of a Korean corporate event hall with tall windows and a white hydrangea and eucalyptus arrangement. The camera stands on the reception staff's side of the counter, raised above the counter top and tilted down, looking across the counter at the visitor who is writing, so the open guestbook lies across the lower part of the vertical frame and she stands beyond it. The open paper guestbook lies flat on the counter directly in front of the writing woman's body, squarely between her two hands, so she never reaches sideways. Its long bottom edge is the edge closest to her, lying along the counter just in front of her waist, and the crease runs straight away from her across the counter toward the camera. Her left hand rests on the left-hand page and her right hand with the pen on the right-hand page, one on each side of the crease. From this camera the ruled lines run across the picture from left to right and the crease runs from the near part of the frame up toward her. The spread is large, flat, open, sharp and unobstructed and fills much of the lower part of the vertical frame. Her head is bowed deeply over the page and her long dark hair falls forward, so her face is hidden and never seen clearly; no frontal face close-up of anybody. A paper guestbook is slow, so behind her one single file of eight to ten waiting visitors rises upward through the vertical frame, leaving the counter and receding into the lobby; except for the woman who is writing, every person faces forward along the line, toward the back of the person ahead and toward the guestbook beyond. Two or three of them are bored and look down at a smartphone held in one hand; the rest wait facing forward, some with folded arms, one glancing at a wristwatch. Their expressions are bored and patient. Nobody turns toward the camera and nobody looks sideways or out of a window; faces are seen only in three-quarter or lowered view and there is no frontal face close-up. Every smartphone screen is a plain uniform blank rectangle with nothing on it. Absolutely no text, no letters, no numbers, no handwriting marks, no signage, no posters, no logos, no brand marks, no printed labels and no user interface anywhere in the frame; the guestbook pages are completely blank white paper with at most faint blank ruled lines and nothing written on them. There is no tablet, no kiosk, no monitor and no computer anywhere in the frame and nothing electronic rests on the reception counter - this is the era of paper, only the guestbook and a pen lie on the counter. People must not resemble any real person. Soft diffused daylight from the tall windows, cool-neutral white balance, low saturation muted color grade, warm beige, gray and pale-wood palette, 35mm lens, shallow depth of field, fine natural film grain. Avoid any saturated blue object or blue lighting.",
+      "portraitReferences": [
+        ".gen-work/cand/w01a.png (4차 채택 가로본 — 구도·인물 유지용)"
+      ],
+      "note": "🔴 종이 시절 장면 — 카운터 위에 화면 기기가 없다(대기 줄의 개인 스마트폰만 예외, 화면은 빈 상태). 합성 대상은 화면이 아니라 **종이 지면**이므로 screenQuad 대신 bookQuad 를 쓴다.",
+      "regeneratedAt": "2026-09-18 4차 재생성(카메라 위치 교체)",
+      "userFeedback": [
+        "주변 사람들도 정면을 보는 게 아니라 방명록 쓰려고 줄을 서고 있는 거니까 다 방명록 방향을 보고 서 있어야지.",
+        "반대방향이잖아. (1·2차 결과의 대기 줄이 카운터와 나란히 서서 각자 카운터를 향해 있었다 — 바에 선 사람들처럼 읽혔다)",
+        "방명록을 쓰고 있는 여자를 제외하면 모두 앞을 보고 있어야지. 기다리기 지루해서 폰을 보고 있거나 앞을 보고 있거나. 종이로 작성하는 불편함 때문에 줄이 길고 대기하고 있는 장면",
+        "(오케스트레이터) 이 장면은 「종이 시절」이므로 카운터 위에 태블릿·키오스크·모니터가 없어야 한다. 종이 방명록 한 권과 펜만.",
+        "(오케스트레이터) 책등은 쓰는 사람 기준 세로(카운터 앞모서리에 수직), 지면이 화면 폭의 25% 이상. 지면에 글자는 생성하지 않는다.",
+        "이번엔 종이가 돌아갔잖아. 왼쪽으로 90도 돌아가야 정상 아냐? (3차 결과 — 쓰는 사람이 책의 오른쪽 옆에 서서 왼쪽으로 팔을 뻗고, 책은 아래 가장자리를 카메라 쪽에 둔 채 놓여 있었다)",
+        "이번엔 종이가 돌아갔잖아. 왼쪽으로 90도 돌아가야 정상 아냐?"
+      ],
+      "bookQuad": {
+        "size": [
+          1920,
+          1080
+        ],
+        "order": [
+          "farLeft",
+          "farRight",
+          "nearRight",
+          "nearLeft"
+        ],
+        "orderNote": "지면(펼침면) 로컬 기준. far=카운터 안쪽(카메라에서 먼) 긴 변, near=카메라 쪽 긴 변. 🔴 4차도 3차와 같이 책등(crease)은 두 변에 **수직**으로 펼침면 한가운데를 가로지른다(쓰는 사람 기준 세로). 다만 카메라가 카운터 건너편으로 옮겨져 화면 위쪽이 쓰는 사람 쪽이다.",
+        "screenCorner": {
+          "farLeft": "화면 좌상(쓰는 사람 왼손 쪽)",
+          "farRight": "화면 우상",
+          "nearRight": "화면 우하",
+          "nearLeft": "화면 좌하"
+        },
+        "points": [
+          [
+            529,
+            783
+          ],
+          [
+            1248,
+            795
+          ],
+          [
+            1259,
+            960
+          ],
+          [
+            484,
+            913
+          ]
+        ],
+        "widthRatio": 0.404,
+        "measure": "화소 스캔 — node tools/measure-book.mjs --seed \"540,804 1257,792 1280,976 500,919\" --search 18 --write (2026-09-18 4차)"
+      },
+      "bookQuadPortrait": {
+        "size": [
+          1080,
+          1920
+        ],
+        "order": [
+          "farLeft",
+          "farRight",
+          "nearRight",
+          "nearLeft"
+        ],
+        "screenCorner": {
+          "farLeft": "화면 좌상",
+          "farRight": "화면 우상",
+          "nearRight": "화면 우하",
+          "nearLeft": "화면 좌하"
+        },
+        "points": [
+          [
+            300,
+            1395
+          ],
+          [
+            922,
+            1484
+          ],
+          [
+            955,
+            1668
+          ],
+          [
+            215,
+            1636
+          ]
+        ],
+        "widthRatio": 0.685,
+        "measure": "화소 스캔 — python tools/book-quad.py public/gen/gen-01v.png --roi 170,1340,1050,1730 --minval 215 --maxsat 10 --components 2"
+      },
+      "geometry": {
+        "$comment": "방명록 지면 원근 매핑용. pages.left / pages.right 는 **화면 기준** 꼭짓점이다(left = 화면 왼쪽 쪽, tl = 화면 좌상). 글씨를 얹는 **페이지 로컬** 좌표는 `pageLocalFromScreen`(rot0 | rot180) 이 지시하는 라벨 변환으로 얻는다 — src/geometry.ts 의 배정표가 그것을 구현한다. writerSide 는 **펜이 놓인 화면 쪽**이고 bookQuad 는 그 쪽의 별칭이다. 🔴 이미지를 다시 생성하면 `node tools/measure-book.mjs --seed \"...\" --writer <l|r> --page-local <rot0|rot180> --write` 로 재측정하고, 축 판정도 그 이미지의 책등·펜에서 **다시** 도출한다(인자를 빼면 이전 판정으로 되돌아간다).",
+        "image": "public/gen/gen-01.png",
+        "size": "1920x1080",
+        "measuredAt": "2026-09-18T07:54:38.010Z",
+        "method": "화소 마스크(밝기·채도) + 네 변 최소제곱 보정 + 교차. tools/measure-book.mjs",
+        "threshold": {
+          "lumMin": 186,
+          "satMax": 0.12
+        },
+        "writerSide": "left",
+        "gutterFrac": {
+          "far": 0.45,
+          "near": 0.45
+        },
+        "search": 18,
+        "inset": 10,
+        "pageLocalFromScreen": "rot180",
+        "paperQuad": {
+          "tl": [
+            539,
+            786
+          ],
+          "tr": [
+            1238,
+            798
+          ],
+          "br": [
+            1250,
+            958
+          ],
+          "bl": [
+            494,
+            912
+          ]
+        },
+        "pages": {
+          "left": {
+            "tl": [
+              539,
+              786
+            ],
+            "tr": [
+              853,
+              791
+            ],
+            "br": [
+              834,
+              933
+            ],
+            "bl": [
+              494,
+              912
+            ]
+          },
+          "right": {
+            "tl": [
+              853,
+              791
+            ],
+            "tr": [
+              1238,
+              798
+            ],
+            "br": [
+              1250,
+              958
+            ],
+            "bl": [
+              834,
+              933
+            ]
+          }
+        },
+        "bookQuad": {
+          "tl": [
+            539,
+            786
+          ],
+          "tr": [
+            853,
+            791
+          ],
+          "br": [
+            834,
+            933
+          ],
+          "bl": [
+            494,
+            912
+          ]
+        },
+        "localAxes": {
+          "+x": "글줄 진행 = 쓰는 사람의 왼→오른 = **화면 오른→왼**",
+          "+y": "줄 쌓임 = 페이지 위→아래 = **화면 아래→위**(쓰는 사람 쪽으로 쌓인다)",
+          "spine": "책등은 화면 세로로 펼침면 한가운데를 지난다 — 괘선은 그 직각인 화면 가로",
+          "mapping": "local tl=screen br · tr=screen bl · br=screen tl · bl=screen tr (라벨 180° 회전)"
+        },
+        "ruling": {
+          "$comment": "괘선 간격(페이지 로컬 px, pageWidth×pageHeight 기준). 글자 높이는 이 pitch 의 0.7~0.8 이고 한 칸(=한 사람)은 괘선 **한 줄**만 쓴다(이름·연락처는 같은 줄에 나란히). 재측정 = node tools/measure-book.mjs --rule-pitch [--pen \"x,y\"] --write",
+          "pageWidth": 620,
+          "pageHeight": 880,
+          "method": "화면 세로 열 스캔(폭 5px, 13열) → 국소 디트렌드 → 괘선 골 검출 → 역 homography 로 페이지 로컬 간격 → 배수 접기 후 중앙값",
+          "measuredAt": "2026-09-21T00:22:04.112Z",
+          "left": {
+            "pitch": 53.67,
+            "rules": 16.4,
+            "firstRuleAt": 31.59,
+            "samples": 37,
+            "inliers": 27,
+            "phaseCoherence": 0.126,
+            "screenPitchPx": 8.4
+          },
+          "right": {
+            "pitch": 55.83,
+            "rules": 15.76,
+            "firstRuleAt": 38.12,
+            "samples": 95,
+            "inliers": 85,
+            "phaseCoherence": 0.122,
+            "screenPitchPx": 9.55
+          },
+          "penTip": {
+            "screen": [
+              733,
+              817
+            ],
+            "page": "left",
+            "local": [
+              210.2,
+              686.7
+            ],
+            "slot": 12
+          }
+        },
+        "ink": {
+          "$comment": "손글씨 표현값 — **측정치(ruling)에서 파생된 연출 결정**이다(측정이 아니다). 글자 높이 = ruling.pitch × glyphOfPitch, 한 칸 = 괘선 한 줄, 세로 위치 = 괘선 + baselineDropOfPitch×pitch. 🔴 px 를 직접 적지 않는다 — 이미지가 바뀌어 pitch 가 달라지면 글씨 크기가 저절로 따라가야 한다.",
+          "glyphOfPitch": 1,
+          "rulesPerEntry": 1,
+          "baselineDropOfPitch": 0.86,
+          "nameAtX": 0.1,
+          "phoneAtX": 0.46,
+          "phoneOfName": 0.66,
+          "color": "#1B2A49",
+          "opacity": 0.85,
+          "jitter": {
+            "tiltDeg": 1.5,
+            "baselineOfPitch": 0.06,
+            "seed": 20260921
+          },
+          "filledStartSlot": 7,
+          "filledRows": 6,
+          "activeLeadRows": 3,
+          "$slots": "🔴 slot 은 **페이지 로컬**이라 화면에서는 위아래가 뒤집혀 보인다(rot180): slot 0 = 페이지 맨 윗줄 = **화면 아래**. 자막이 화면 아래에 있으므로 낮은 slot 을 비워 둔다 — 2026-09-21 렌더에서 slot 4~6 이 자막 「종이 서식,」 와 겹쳐 filledStartSlot 을 7 로 올렸다(글씨 행 수를 9→6 으로 줄이는 쪽으로 해결했고 공통 자막 컴포넌트는 건드리지 않았다). 펜 칸 = ruling.penTip.slot.",
+          "$glyph": "glyphOfPitch 는 **em 상자** 기준이다. 나눔손글씨 펜의 실제 먹이 닿는 높이는 em 의 약 0.66 이라, em = pitch × 1.0 이면 눈에 보이는 글자 높이가 괘선 간격의 0.7 안팎이 된다(2026-09-21 렌더 실측: em 0.76·pitch → 보이는 높이 0.5·pitch 로 너무 작았다). 글꼴을 바꾸면 이 비율을 다시 재라."
+        },
+        "camera": {
+          "$comment": "Paper 앞컷의 **푸시인(Ken Burns)**. 🔴 배율을 코드에 박지 않는다 — 읽혀야 하는 것은 손글씨이므로 **목표 글자 높이(px)에서 배율을 역산**한다. zoomTo = inkTargetPx / (ruling.<채워진 쪽>.screenPitchPx × glyphScreenOfPitch), 상한 zoomMax. 계산·클램프는 src/geometry.ts 의 bookCamera() 가 한다.",
+          "zoomFrom": 1.42,
+          "inkTargetPx": 22,
+          "glyphScreenOfPitch": 0.63,
+          "zoomMax": 3.8,
+          "endTarget": [
+            980,
+            470
+          ],
+          "$calibration": "glyphScreenOfPitch 는 **실측 보정계수**다(연출값이 아니다). 2026-09-21 v1 스틸(Preview9 f205, 배율 1.58)에서 채워진 쪽 이름 글자의 화면 높이 중앙값이 9.5px 였고 그 쪽 screenPitchPx 가 9.55 이므로 9.5 / (1.58 × 9.55) = 0.630. 글꼴·ink.glyphOfPitch·이미지가 바뀌면 `python tools/measure-ink-height.py` 로 다시 재서 갱신한다.",
+          "$framing": "endTarget 은 끝 배율에서 **채워진 쪽 지면 중심**이 와야 할 화면 좌표다. y 를 높게 잡는 이유는 화면 아래 자막(2줄·84px·paddingBottom 120) 위로 글줄을 올리기 위해서다. 원점은 originFor() 가 역산하며 프레임 밖이면 잘라 맞춘다.",
+          "$zoomMax": "원본 gen-01.png 이 1920x1080 이라 배율 3.8 이면 약 505x284 영역을 확대한다 — 사진은 부드러워지지만 손글씨 layer 는 벡터라 선명함이 유지된다. 이 상한을 더 올리려면 생성 이미지를 더 큰 해상도로 다시 만들어야 한다."
+        }
+      },
+      "cameraHypothesis": {
+        "why": "🔴 4차의 결정 변수는 프롬프트 문구가 아니라 **카메라 위치**였다. 3차까지 카메라가 쓰는 사람의 오른쪽 뒤(over-the-shoulder)에 있었는데, 그 시점에서는 몸 앞의 책이 팔·몸통에 가려 작게 보이므로 모델이 늘 책을 사람 왼쪽 옆으로 옮겨 큰 지면을 확보했다. 문구로 9장(1R~3R) 을 밀었으나 전부 실패했다.",
+        "tried": [
+          {
+            "id": "①",
+            "desc": "카운터 건너편(접수 직원 쪽) 높은 각도에서 내려다보고 쓰는 사람은 고개를 깊이 숙여 얼굴이 보이지 않게",
+            "result": "성공 — w01a |Δ-90°|=3.9°, w01c |Δ-90°|=6.8°"
+          },
+          {
+            "id": "②",
+            "desc": "쓰는 사람 바로 뒤 부감(over-the-shoulder)",
+            "result": "실패 — w01b |Δ-90°|=74.9°. 1R~3R 과 동일 양상 재현"
+          },
+          {
+            "id": "③",
+            "desc": "카운터 축 방향 측면 프로필",
+            "result": "미생성 — ①이 1차 관문을 통과해 불필요"
+          }
+        ],
+        "gate": "tools/book-axis.py — 괘선 방향과 「책→쓰는 사람」 벡터의 각도차 |Δ-90°| ≤ 20°"
+      }
+    },
+    {
+      "scene": 2,
+      "storyboardRef": "docs/marketing/promo-video-plan.md §5",
+      "description": "밤 사무실, 담당자가 종이를 보며 노트북에 옮겨 적는 모습",
+      "output": {
+        "landscape": "public/gen/gen-02.png",
+        "size": "1920x1080"
+      },
+      "tool": "gpt-image 스킬 (ChatGPT 구독 경로, Codex CLI 브리지 codex-cli 0.125.0, 내장 $imagegen). OPENAI_API_KEY·Images API 미사용",
+      "generatedAt": "2026-09-18T14:30:34+09:00",
+      "prompt": "Photorealistic documentary photograph, 16:9 wide landscape. The same office worker as in the reference image, with the same short dark hair, the same build and the same pale light-gray collared shirt, but now in the same Korean open-plan office late at night, lit only by one warm desk lamp while the rest of the floor is dark and the windows show a plain dark neutral sky with no city lights. He sits in strict side profile at a pale-wood desk: his left hand holds up a single blank sheet lifted from a tall stack of paper forms and his eyes are on that sheet, while his right hand rests on the keyboard of an open laptop. Camera at desk height from the side so he is a clean profile rimmed by warm lamp light, face mostly in shadow and not a close-up. Warm low-key tungsten light, low saturation muted color grade, beige, warm gray and wood palette, 35mm lens, shallow depth of field, fine natural film grain. The laptop screen must be completely blank flat light gray, evenly lit edge to edge, with no content, no icons, no glow and no reflections. Absolutely no text, no letters, no numbers, no handwriting, no signage, no logos, no brand marks, no printed labels and no user interface anywhere in the frame; every paper sheet is blank. The person must not resemble any real person. Avoid any saturated blue object, blue window light or blue lighting anywhere.",
+      "references": [
+        "public/gen/gen-06.png"
+      ],
+      "selection": {
+        "picked": "s02d",
+        "reason": "⑥ 의 담당자를 레퍼런스로 넣어 인물(짧은 검은 머리·연회색 셔츠)과 책상 소품(머그·펜꽂이·화분)이 ⑥ 과 이어진다 — ②(밤·종이)→⑥(낮·정리 끝) 의 전후 대비가 같은 사람으로 읽힌다. 측면 프로파일이라 「종이를 보며 옮겨 적는」 동작이 한눈에 읽히고 노트북 화면이 정면에 가깝다.",
+        "rejected": [
+          {
+            "candidate": "s02c",
+            "reason": "단독으로는 좋으나 인물(긴 머리·카키 셔츠)이 ⑥ 담당자와 달라 같은 사람으로 안 읽힘"
+          },
+          {
+            "candidate": "s02a",
+            "reason": "뒷모습이라 옮겨 적는 동작이 안 읽히고 배경 창에 파란 도시 야경 조명이 들어감(브랜드 파랑 금지 조건에 저촉 소지)"
+          },
+          {
+            "candidate": "s02b",
+            "reason": "s02a 와 바이트 동일 — batch 동시성 충돌로 생성된 중복본. 폐기"
+          }
+        ]
+      },
+      "screenQuad": {
+        "size": [
+          1920,
+          1080
+        ],
+        "points": [
+          [
+            1226,
+            537
+          ],
+          [
+            1506,
+            555
+          ],
+          [
+            1438,
+            819
+          ],
+          [
+            1158,
+            770
+          ]
+        ],
+        "order": "tl,tr,br,bl",
+        "measure": "auto(low-saturation flat-region detection)+육안 오버레이 확인"
+      }
+    },
+    {
+      "scene": 3,
+      "storyboardRef": "docs/marketing/promo-video-plan.md §5",
+      "description": "같은 접수대에 태블릿 스탠드, 방문자가 손을 뻗음",
+      "output": {
+        "landscape": "public/gen/gen-03.png",
+        "size": "1920x1080",
+        "portrait": "public/gen/gen-03v.png",
+        "portraitSize": "1080x1920"
+      },
+      "tool": "gpt-image 스킬 (ChatGPT 구독 경로, Codex CLI 브리지 codex-cli 0.125.0, 내장 $imagegen). OPENAI_API_KEY·Images API 미사용",
+      "generatedAt": "2026-09-18T14:30:34+09:00",
+      "prompt": "Photorealistic documentary photograph, 16:9 wide landscape. A Korean corporate event hall reception desk photographed from a slightly elevated side angle: a tablet stands upright on a slim metal stand on the pale-wood desk, angled so the full rectangular screen faces the camera flat and unobstructed, and a visitor in muted business-casual clothing steps up from the right with an extended hand about to touch it. Other visitors blur softly in the far background. The tablet screen must be completely blank flat light gray, evenly lit edge to edge, with no content, no icons, no glow, no reflections and no bezel graphics. Soft diffused daylight from tall windows on the left, cool-neutral white balance, low saturation muted color grade, warm beige, gray and pale wood palette, 35mm lens, shallow depth of field, fine natural film grain. Absolutely no text, no letters, no numbers, no signage, no posters, no banners, no logos, no brand marks, no printed labels and no user interface anywhere in the frame. The person must not resemble any real person; the face is turned away or cropped, the reaching hand is the focal point. Avoid any saturated blue object or blue lighting.",
+      "references": [],
+      "selection": {
+        "picked": "s03b",
+        "reason": "태블릿이 카메라에 거의 정면으로 서 있어 화면 4점 합성 왜곡이 가장 작고, 화면이 프레임의 1/6 이상을 차지해 실캡처 가독성이 확보된다. 방문자는 뒷모습.",
+        "rejected": [
+          {
+            "candidate": "s03a",
+            "reason": "태블릿이 작고 45° 이상 기울어 합성 시 실화면 글자가 뭉갬. 접수 직원 얼굴에 생성 아티팩트(식물이 얼굴 위로 겹침)"
+          }
+        ]
+      },
+      "screenQuad": {
+        "size": [
+          1920,
+          1080
+        ],
+        "points": [
+          [
+            535,
+            305
+          ],
+          [
+            747,
+            300
+          ],
+          [
+            839,
+            666
+          ],
+          [
+            624,
+            690
+          ]
+        ],
+        "order": "tl,tr,br,bl",
+        "measure": "auto(low-saturation flat-region detection)+육안 오버레이 확인"
+      },
+      "portraitPrompt": "Photorealistic documentary photograph in a tall vertical 9:16 portrait format, recomposing the reference scene for a vertical frame while keeping the identical location, person, wardrobe, lighting, white balance and low saturation color grade. A Korean corporate event hall reception desk with a tablet standing upright on a slim metal stand on the pale-wood counter, angled flat toward the camera so its whole rectangular screen is unobstructed and centred in the upper half of the vertical frame, and a visitor in a gray wool coat reaching in from the right edge with an extended finger. The tablet screen must be completely blank flat light gray, evenly lit edge to edge, with no content, no icons, no glow, no reflections and no bezel graphics. Soft diffused daylight from tall windows, cool-neutral white balance, warm beige, gray and pale wood palette, 35mm lens, shallow depth of field, fine natural film grain. Absolutely no text, no letters, no numbers, no signage, no posters, no logos, no brand marks, no printed labels and no user interface anywhere in the frame. The person must not resemble any real person; the face is turned away or cropped. Avoid any saturated blue object or blue lighting.",
+      "portraitReferences": [
+        "public/gen/gen-03.png"
+      ],
+      "screenQuadPortrait": {
+        "size": [
+          1080,
+          1920
+        ],
+        "points": [
+          [
+            285,
+            698
+          ],
+          [
+            519,
+            691
+          ],
+          [
+            578,
+            1084
+          ],
+          [
+            338,
+            1103
+          ]
+        ],
+        "order": "tl,tr,br,bl",
+        "measure": "auto(low-saturation flat-region detection)+육안 오버레이 확인"
+      },
+      "note": "④·⑤ 의 배경·조명 기준 레퍼런스로 사용.",
+      "handLayer": {
+        "$comment": "레인 V(2026-09-30). Fill·Repeat 공용 바탕과 손 층의 정본. 🔴 손으로 고치지 말고 python tools/make-hand-layer.py --coarse public/gen/cand/gen-03-hand-canva-alpha.png 출력으로 갱신한다. 좌표 = 1920x1080 사진 좌표",
+        "plate": "gen-03-plate.png",
+        "plateMethod": "gen-03 에서 손·소매 영역만 gpt-image 손 없음 변형(cand/gen-03-nohand-a.png, 위상상관 0.4px 정렬)으로 교체 — 마스크 밖 95% 화소 바이트 동일, screenQuad 재측정 불필요",
+        "nohandPrompt": "gen-03 을 레퍼런스로 첨부, 같은 구도·조명·태블릿·카운터, 손과 팔만 없는 장면(이전 워커 생성, 원문 미기록)",
+        "file": "hand-03.png",
+        "origin": [
+          783,
+          500
+        ],
+        "size": [
+          882,
+          343
+        ],
+        "tip": [
+          790,
+          510
+        ],
+        "pivot": [
+          1500,
+          810
+        ],
+        "pivotNote": "팔꿈치 추정점(화면 밖 오른쪽 아래). 손끝 이동의 일부를 이 점 기준 회전으로 흡수해 팔 방향이 자연스럽게 따라온다",
+        "cutoutMethod": "차분 키잉 씨앗 + Canva remove-background 저해상 알파(200x140)를 GrabCut 사전으로, 베젤(L<95·d<12) 제외, x≥1245 절단 후 소매 420px 가로 늘임 연장"
+      }
+    },
+    {
+      "scene": 4,
+      "storyboardRef": "docs/marketing/promo-video-plan.md §5",
+      "description": "다른 방문자(짙은 회색 정장·메신저백 남성)가 태블릿 앞에 섬",
+      "output": {
+        "landscape": "public/gen/gen-04.png",
+        "size": "1920x1080"
+      },
+      "tool": "gpt-image 스킬 (ChatGPT 구독 경로, Codex CLI 브리지 codex-cli 0.125.0, 내장 $imagegen). OPENAI_API_KEY·Images API 미사용",
+      "generatedAt": "2026-09-18T14:30:34+09:00",
+      "prompt": "Photorealistic documentary photograph, 16:9 wide landscape, matching the reference image exactly in location, camera angle, lighting, white balance and color grade: the same Korean corporate event hall reception desk, the same pale-wood counter, the same tablet upright on the same slim metal stand angled flat toward the camera, the same tall windows and the same blurred crowd behind. Only the visitor is different: now a man in his thirties in a dark charcoal suit jacket with a leather messenger bag strap across his shoulder steps in from the right and lifts one hand toward the tablet, seen from behind so his face is turned away. The tablet screen must be completely blank flat light gray, evenly lit edge to edge, with no content, no icons, no glow, no reflections and no bezel graphics. Low saturation muted color grade, warm beige, gray and pale wood palette, 35mm lens, shallow depth of field, fine natural film grain. Absolutely no text, no letters, no numbers, no signage, no posters, no logos, no brand marks, no printed labels and no user interface anywhere in the frame. The person must not resemble any real person; avoid frontal face close-ups. Avoid any saturated blue object or blue lighting.",
+      "references": [
+        "public/gen/cand/s03b.png"
+      ],
+      "selection": {
+        "picked": "s04c",
+        "reason": "③ 을 레퍼런스로 넣어 접수대·창·조명·색온도가 동일하고 태블릿 위치·각도가 ③ 과 거의 일치(빠른 컷·크로스페이드에 적합). 인물·의상만 바뀜.",
+        "rejected": [
+          {
+            "candidate": "s04a",
+            "reason": "s02c·s05a 와 바이트 동일 — batch 동시성 충돌 중복본. 폐기"
+          },
+          {
+            "candidate": "s04b",
+            "reason": "베이지 트렌치코트 노년 남성. 조건 위반은 없으나 손끝이 화면을 가려 합성 영역 일부가 잘림"
+          }
+        ]
+      },
+      "screenQuad": {
+        "size": [
+          1920,
+          1080
+        ],
+        "points": [
+          [
+            534,
+            304
+          ],
+          [
+            747,
+            299
+          ],
+          [
+            840,
+            666
+          ],
+          [
+            625,
+            690
+          ]
+        ],
+        "order": "tl,tr,br,bl",
+        "measure": "auto(low-saturation flat-region detection)+육안 오버레이 확인"
+      }
+    },
+    {
+      "scene": 5,
+      "storyboardRef": "docs/marketing/promo-video-plan.md §5",
+      "description": "또 다른 방문자(크림색 재킷·낮은 포니테일 여성)가 태블릿 앞에 섬",
+      "output": {
+        "landscape": "public/gen/gen-05.png",
+        "size": "1920x1080"
+      },
+      "tool": "gpt-image 스킬 (ChatGPT 구독 경로, Codex CLI 브리지 codex-cli 0.125.0, 내장 $imagegen). OPENAI_API_KEY·Images API 미사용",
+      "generatedAt": "2026-09-18T14:30:34+09:00",
+      "prompt": "Photorealistic documentary photograph, 16:9 wide landscape, matching the reference image exactly in location, camera angle, lighting, white balance and color grade: the same Korean corporate event hall reception desk, the same pale-wood counter, the same tablet upright on the same slim metal stand angled flat toward the camera, the same tall windows and the same blurred crowd behind. Only the visitor is different: now a young woman in a cream blazer with her hair tied in a low ponytail leans in from the right, seen from behind over her shoulder, one hand hovering just above the tablet. The tablet screen must be completely blank flat light gray, evenly lit edge to edge, with no content, no icons, no glow, no reflections and no bezel graphics. Low saturation muted color grade, warm beige, gray and pale wood palette, 35mm lens, shallow depth of field, fine natural film grain. Absolutely no text, no letters, no numbers, no signage, no posters, no logos, no brand marks, no printed labels and no user interface anywhere in the frame. The person must not resemble any real person; the face is turned away. Avoid any saturated blue object or blue lighting.",
+      "references": [
+        "public/gen/cand/s03b.png"
+      ],
+      "selection": {
+        "picked": "s05c",
+        "reason": "③·④ 와 배경·조명 동일, 의상 명도가 ④(짙은 회색)와 반대라 연속 컷에서 인물 교체가 분명히 읽힌다. 뒷모습이라 얼굴 노출 없음.",
+        "rejected": [
+          {
+            "candidate": "s05a",
+            "reason": "s02c·s04a 와 바이트 동일 — batch 동시성 충돌 중복본. 폐기"
+          },
+          {
+            "candidate": "s05b",
+            "reason": "회색 스웨터·백팩 남성. 조건 위반은 없으나 ④ 와 실루엣·명도가 비슷해 「다른 사람」으로 안 읽힘"
+          }
+        ]
+      },
+      "screenQuad": {
+        "size": [
+          1920,
+          1080
+        ],
+        "points": [
+          [
+            534,
+            305
+          ],
+          [
+            745,
+            299
+          ],
+          [
+            839,
+            666
+          ],
+          [
+            624,
+            690
+          ]
+        ],
+        "order": "tl,tr,br,bl",
+        "measure": "auto(low-saturation flat-region detection)+육안 오버레이 확인"
+      }
+    },
+    {
+      "scene": 6,
+      "storyboardRef": "docs/marketing/promo-video-plan.md §5",
+      "description": "밝은 사무실, 담당자가 노트북 앞에 앉음",
+      "output": {
+        "landscape": "public/gen/gen-06.png",
+        "size": "1920x1080",
+        "portrait": "public/gen/gen-06v.png",
+        "portraitSize": "1080x1920"
+      },
+      "tool": "gpt-image 스킬 (ChatGPT 구독 경로, Codex CLI 브리지 codex-cli 0.125.0, 내장 $imagegen). OPENAI_API_KEY·Images API 미사용",
+      "generatedAt": "2026-09-18T14:30:34+09:00",
+      "prompt": "Photorealistic documentary photograph, 16:9 wide landscape. A bright airy Korean open-plan office seen from behind and slightly above one seated office worker: back and shoulder in a plain shirt on the left of frame, an open laptop on a clean pale-wood desk in the centre with its full rectangular screen facing the camera, and sunlit empty desks and a tall window receding into the background. The laptop screen must be completely blank flat light gray, evenly lit edge to edge, with no content, no icons, no glow and no reflections. Abundant soft diffused daylight, airy bright exposure, cool-neutral white balance, low saturation muted color grade, warm beige, gray and pale wood palette, 35mm lens, shallow depth of field, fine natural film grain. Absolutely no text, no letters, no numbers, no signage, no posters, no logos, no brand marks, no printed labels and no user interface anywhere in the frame. The person must not resemble any real person and the face is not visible. Avoid any saturated blue object or blue lighting.",
+      "references": [],
+      "selection": {
+        "picked": "s06b",
+        "reason": "노트북 화면이 거의 정면이고 프레임에서 가장 커서(약 46만 px) 문서함·검색·PDF 실캡처를 합성해도 가독성이 남는다. 뒷모습이라 얼굴 노출 없음.",
+        "rejected": [
+          {
+            "candidate": "s06a",
+            "reason": "구도는 좋으나 화면이 더 기울고 작아 실캡처 합성 시 글자가 뭉갬"
+          }
+        ]
+      },
+      "screenQuad": {
+        "size": [
+          1920,
+          1080
+        ],
+        "points": [
+          [
+            845,
+            442
+          ],
+          [
+            1321,
+            454
+          ],
+          [
+            1294,
+            770
+          ],
+          [
+            803,
+            736
+          ]
+        ],
+        "order": "tl,tr,br,bl",
+        "measure": "auto(low-saturation flat-region detection)+육안 오버레이 확인"
+      },
+      "portraitPrompt": "Photorealistic documentary photograph in a tall vertical 9:16 portrait format, recomposing the reference scene for a vertical frame while keeping the identical location, person, wardrobe, lighting, white balance and low saturation color grade. A bright airy Korean open-plan office seen from behind one seated office worker in a light gray shirt: his back and shoulder fill the lower part of the vertical frame and an open laptop sits on the clean pale-wood desk with its full rectangular screen facing the camera in the middle of the frame, sunlit desks and a tall window above. The laptop screen must be completely blank flat light gray, evenly lit edge to edge, with no content, no icons, no glow and no reflections. Abundant soft diffused daylight, airy bright exposure, cool-neutral white balance, warm beige, gray and pale wood palette, 35mm lens, shallow depth of field, fine natural film grain. Absolutely no text, no letters, no numbers, no signage, no posters, no logos, no brand marks, no printed labels and no user interface anywhere in the frame. The person must not resemble any real person and the face is not visible. Avoid any saturated blue object or blue lighting.",
+      "portraitReferences": [
+        "public/gen/gen-06.png"
+      ],
+      "screenQuadPortrait": {
+        "size": [
+          1080,
+          1920
+        ],
+        "points": [
+          [
+            381,
+            942
+          ],
+          [
+            791,
+            951
+          ],
+          [
+            778,
+            1211
+          ],
+          [
+            355,
+            1191
+          ]
+        ],
+        "order": "tl,tr,br,bl",
+        "measure": "auto(low-saturation flat-region detection)+육안 오버레이 확인"
+      }
+    }
+  ]
+}

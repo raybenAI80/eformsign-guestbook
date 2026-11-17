@@ -1,0 +1,139 @@
+{
+  "$comment": "🔴 손으로 고치지 말고 `python tools/measure-hand-path.py` 로 다시 만든다(캡처 화소 차분·버튼 색 성분). 좌표 = 원본 캡처 화소.",
+  "fill": {
+    "frames": 49,
+    "events": [
+      {
+        "at": 2,
+        "until": 4,
+        "kind": "tap",
+        "point": [
+          856,
+          626
+        ]
+      },
+      {
+        "at": 6,
+        "until": 9,
+        "kind": "tap",
+        "point": [
+          978,
+          689
+        ]
+      },
+      {
+        "at": 11,
+        "until": 23,
+        "kind": "tap",
+        "point": [
+          855,
+          782
+        ]
+      },
+      {
+        "at": 24,
+        "until": 24,
+        "kind": "tap",
+        "point": [
+          984,
+          870
+        ]
+      },
+      {
+        "at": 25,
+        "until": 30,
+        "kind": "tap",
+        "point": [
+          866,
+          993
+        ]
+      },
+      {
+        "at": 32,
+        "until": 33,
+        "kind": "tap",
+        "point": [
+          508,
+          1302
+        ]
+      },
+      {
+        "at": 34,
+        "kind": "tap",
+        "point": [
+          927,
+          1494
+        ],
+        "why": "modal-open"
+      },
+      {
+        "at": 36,
+        "until": 38,
+        "kind": "tap",
+        "point": [
+          798,
+          984
+        ]
+      },
+      {
+        "at": 42,
+        "until": 42,
+        "kind": "sign",
+        "point": [
+          614,
+          1162
+        ]
+      },
+      {
+        "at": 44,
+        "kind": "tap",
+        "point": [
+          1293,
+          1854
+        ],
+        "why": "modal-confirm"
+      }
+    ]
+  },
+  "sendConfirm": {
+    "point": [
+      1293,
+      1489
+    ],
+    "box": [
+      1251,
+      1464,
+      85,
+      51
+    ]
+  },
+  "thanks": {
+    "button": {
+      "point": [
+        960,
+        1576
+      ],
+      "box": [
+        810,
+        1538,
+        300,
+        76
+      ]
+    },
+    "transitionAt": "C/thanks-seq/t-012.png"
+  },
+  "countdown": {
+    "button": {
+      "point": [
+        960,
+        1587
+      ],
+      "box": [
+        842,
+        1551,
+        236,
+        73
+      ]
+    }
+  }
+}

@@ -11,7 +11,7 @@
  * 의존성 0 — Node 내장 모듈(node:crypto)과 전역 fetch 만 씁니다.
  */
 import { Buffer } from 'node:buffer';
-import { createPrivateKey, createSign } from 'node:crypto';
+import { createHash, createPrivateKey, createSign } from 'node:crypto';
 
 const DEFAULT_TOKEN_URL = 'https://api.eformsign.com/v2.0/api_auth/access_token';
 
@@ -38,10 +38,43 @@ export function createSignature(privateKeyHex) {
   return { executionTime, signature: signer.sign(privateKey).toString('hex') };
 }
 
-/** 액세스 토큰 발급. memberId 를 주면 멤버 토큰, 없으면 회사 토큰. */
-export async function issueToken({ apiKey, privateKey, memberId, tokenUrl = DEFAULT_TOKEN_URL }) {
+/**
+ * 액세스 토큰 재사용(2026-11-16, 누적형 열림 지연 측정에서 토큰 발급이 요청마다 약 0.8초였다).
+ * - 함수 인스턴스 메모리에만 둔다(디스크·로그에 쓰지 않는다). 인스턴스가 새로 뜨면 다시 발급한다.
+ * - 키 = 키 지문(API 키·개인키·멤버·토큰 주소를 해시). 다른 멤버·다른 키는 서로 다른 토큰이다.
+ * - 만료 = 응답의 expires_in(초) − 60초. 응답에 없으면 120초만 쓴다(이폼사인 SDK 와 같은 60초 여유).
+ * - 동시 요청은 같은 발급 Promise 를 나눠 쓴다. 발급이 실패하면 캐시하지 않는다.
+ */
+const TOKEN_MARGIN_MS = 60_000;
+const TOKEN_FALLBACK_TTL_MS = 120_000;
+const tokenCache = new Map();   // 키 지문 -> { promise, expiresAt }
+
+function tokenKey({ apiKey, privateKey, memberId, tokenUrl = DEFAULT_TOKEN_URL }) {
+  return createHash('sha256').update(JSON.stringify([apiKey, privateKey, memberId || '', tokenUrl])).digest('hex');
+}
+/** 캐시된 토큰을 버린다(서버가 401 로 거절했을 때). */
+export function invalidateToken(opts) { tokenCache.delete(tokenKey(opts)); }
+/** 검사용: 캐시 전체 비우기. */
+export function clearTokenCache() { tokenCache.clear(); }
+
+/** 액세스 토큰 발급(재사용). memberId 를 주면 멤버 토큰, 없으면 회사 토큰. 반환 객체는 읽기 전용으로 쓴다. */
+export async function issueToken(opts) {
+  const { apiKey, privateKey } = opts;
   if (!apiKey) throw new Error('EFORMSIGN_API_KEY 가 없습니다.');
   if (!privateKey) throw new Error('EFORMSIGN_PRIVATE_KEY 가 없습니다.');
+  const key = tokenKey(opts);
+  const hit = tokenCache.get(key);
+  if (hit && Date.now() < hit.expiresAt) return hit.promise;
+  const entry = { promise: null, expiresAt: Infinity };   // 발급 중에는 만료 없음 = 동시 요청이 이 Promise 를 쓴다
+  entry.promise = requestToken(opts).then((t) => {
+    entry.expiresAt = Date.now() + (t.expiresIn > 0 ? Math.max(0, t.expiresIn * 1000 - TOKEN_MARGIN_MS) : TOKEN_FALLBACK_TTL_MS);
+    return t;
+  }, (e) => { if (tokenCache.get(key) === entry) tokenCache.delete(key); throw e; });
+  tokenCache.set(key, entry);
+  return entry.promise;
+}
+
+async function requestToken({ apiKey, privateKey, memberId, tokenUrl = DEFAULT_TOKEN_URL }) {
   const { executionTime, signature } = createSignature(privateKey);
   const body = { execution_time: executionTime };
   if (memberId) body.member_id = memberId;
@@ -63,7 +96,8 @@ export async function issueToken({ apiKey, privateKey, memberId, tokenUrl = DEFA
   //    토큰 발급 단계에서 항상 예외로 죽었다. 두 이름을 모두 받는다.
   const apiUrl = parsed?.api_key?.company?.api_url || parsed?.api_key?.company?.apiUrl;
   if (!accessToken || !apiUrl) throw new Error('토큰 응답에 access_token 또는 company.apiUrl 이 없습니다.');
-  return { accessToken, apiUrl, company: parsed.api_key.company };
+  const expiresIn = Number(parsed?.oauth_token?.expires_in);
+  return { accessToken, apiUrl, company: parsed.api_key.company, expiresIn: Number.isFinite(expiresIn) ? expiresIn : null };
 }
 
 /**

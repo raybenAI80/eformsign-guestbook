@@ -1,0 +1,418 @@
+{
+  "_comment": "상품용 누적형 방명록 디자인 파라미터. common + variants.<id> 를 얕게 병합(variants 값 우선). build.mjs/deploy.mjs --layout tools/multirow/layout-product.json --variant A|B|P. 좌표 단위 pt(A4 595x842). 색은 #RRGGBB.",
+  "common": {
+    "design": true,
+    "pageW": 595, "pageH": 842,
+    "title": "방명록",
+    "subtitle": "방문해 주셔서 감사합니다. 차례대로 한 줄씩 적어 주세요.",
+    "privacyNote": "적어 주신 성명·연락처는 방문 확인에만 쓰며, 보관 기간이 지나면 파기합니다.",
+    "font": "C:/Windows/Fonts/malgun.ttf",
+    "fontBold": "C:/Windows/Fonts/malgunbd.ttf",
+    "ozFont": "맑은 고딕",
+    "colors": {
+      "title": "#1F2A44", "subtitle": "#5B6678", "accent": "#2F6FDE",
+      "headerBg": "#EEF2F7", "headerText": "#334155",
+      "grid": "#C9D1DC", "outer": "#8A97A8",
+      "zebra": "#F8FAFC", "number": "#64748B", "note": "#8A94A3",
+      "ownBorder": "#2F6FDE", "ownFill": "#EAF2FF",
+      "coverBg": "#EEF0F3", "coverText": "#8A94A3"
+    },
+    "marginX": 36,
+    "titleY": 60, "titleSize": 22, "subtitleY": 80, "subtitleSize": 10, "accentY": 90,
+    "headerTop": 98, "headerH": 24, "headerSize": 10,
+    "noteY": 818, "noteSize": 8,
+    "cols": [
+      {"key": "no", "label": "번호", "w": 34},
+      {"key": "성명", "label": "성명", "w": 110, "type": "text"},
+      {"key": "연락처", "label": "연락처", "w": 125, "type": "text"},
+      {"key": "방문목적", "label": "방문 목적", "w": 140, "type": "text"},
+      {"key": "서명", "label": "서명", "w": 114, "type": "signature"}
+    ],
+    "textInsetX": 6, "textInsetY": 2, "signInset": 3,
+    "signIconSize": 0,
+    "hideMethodByRow": {},
+    "coverLabel": true,
+    "highlightOwnRow": true,
+    "stepDebug": false,
+    "requiredCols": ["성명", "연락처", "서명"],
+    "ozrRequired": "static",
+    "stepNamePrefix": "방문자 "
+  },
+  "variants": {
+    "A": {
+      "_comment": "20행 1페이지(A4 세로)",
+      "rows": 20, "rowsPerPage": 20, "rowH": 34, "inputSize": 11, "numberSize": 10, "coverSize": 11
+    },
+    "B": {
+      "_comment": "10행 x 2페이지",
+      "rows": 20, "rowsPerPage": 10, "rowH": 66, "headerH": 26, "inputSize": 13, "numberSize": 12, "coverSize": 13
+    },
+    "C": {
+      "_comment": "10행 1페이지(사용자 결정 2026-09-28). B 디자인 그대로, 행 66→68pt 로 남는 세로 여백 흡수, 하단 안내는 표 바로 아래(표 끝 804pt + 18)",
+      "rows": 10, "rowsPerPage": 10, "rowH": 68, "headerH": 26, "inputSize": 13, "numberSize": 12, "coverSize": 13, "noteY": 822
+    },
+    "C2": {
+      "_comment": "C + 로고 2개(사용자 지시 2026-09-28 \"이폼사인 로고를 넣어\" \"포시에스 로고랑\"). 기관(FORCS) 로고 = 제목 위 왼쪽 높이 34pt(12mm), 이폼사인 로고 = 하단 안내 오른쪽 끝 높이 17pt(6mm). 로고 자리만큼 제목·헤더를 내리고 행은 66pt(B 와 같음). logos[].file 은 이 json 기준 상대경로, right=true 면 표 오른쪽 끝 정렬, yCenter 로 세로 중심 지정 가능",
+      "rows": 10, "rowsPerPage": 10, "rowH": 66, "headerH": 26, "inputSize": 13, "numberSize": 12, "coverSize": 13,
+      "titleY": 92, "subtitleY": 110, "accentY": 119, "headerTop": 126, "noteY": 829,
+      "logos": [
+        {"file": "../../assets/brand/forcs-ci-en-original.png", "x": 36, "y": 20, "h": 34},
+        {"file": "../../assets/brand/eformsign-logo-blue.png", "right": true, "yCenter": 826, "h": 17}
+      ]
+    },
+    "D": {
+      "_comment": "D안(사용자 결정 2026-09-28 \"추천안으로 알아서해\"): 디자인 방향 1(기업 리셉션 — 네이비 헤더 밴드, 얇은 괘선) + 방향 2 의 방문 목적 체크칸. 10행 1쪽, 행 66pt. style=reception 은 make-pdf-product.py 의 별도 배경 분기. 기관 로고는 오른쪽 상단(모바일 뷰어의 떠 있는 버튼 5개가 좌상단을 가림 — C2 실측). headerFields = 읽기 전용 값칸(문서 생성 API document.fields 로 주입 — 2026-09-28 실측 PASS. 주입이 없으면(공개 URL 등 API 없는 경로) 1단계 OnBind 가 비어 있을 때만 채움: todayFallback=오늘 날짜, fallback=고정 문구. 장번호는 주입 전용). cols[].type: time=읽기 전용·자기 행 OnBind 에서 비어 있을 때만 HH:MM, purpose=체크박스 3개(윗줄)+기타 체크박스+기타 텍스트(아랫줄)",
+      "style": "reception",
+      "ozrRequired": "own-row",
+      "rows": 10,
+      "rowsPerPage": 10,
+      "rowH": 66,
+      "inputSize": 13,
+      "numberSize": 11,
+      "coverSize": 13,
+      "coverText": "✓ 작성 완료",
+      "signHint": {"_comment": "v8(2026-09-29 태블릿 시험 「서명 후 다음 행동을 몰랐다」): 자기 행에만 보이는 안내 띠(NOPRINT, OnBind hiJs — 완료 PDF·편집기 미표시). fromKey 칸부터 마지막 칸까지 행 아래쪽 h pt 띠, 그 칸들의 입력칸(담당자 글칸·서명칸)은 띠 위에서 끝나게 줄인다(겹침·터치 가로채기 없음). 서명칸 한 칸(75pt)엔 8pt 전문이 안 들어가 담당자 칸부터 편다. 서명 이벤트(OnValueChanged 등)로 「서명 후 표시」는 실증이 없어 쓰지 않음 — 항상 표시", "text": "서명 후 오른쪽 아래 [전송]", "fromKey": "담당자", "h": 13, "size": 8, "padR": 3.5},
+      "ownNoInverse": true,
+      "purposeGeo": {"_comment": "방문 목적 칸 안 좌표(칸 왼쪽 x0·행 top 기준 pt). v5(inline=true): 선택지 3개+기타 = 윗줄 한 줄 4칸 — 상자 중심 x = x0+itemX0+k*itemDX+boxDX, y = top+topCY. 아랫줄 = 기타 내용 텍스트칸 otherText=[x0+,top+,x0+,top+] + 앞 안내 otherHint. box=상자 한 변. printBox=false = 배경 PDF 에 상자를 그리지 않음(OZ 체크박스가 자기 상자를 그리므로 완료 PDF 이중 테두리 제거). touch=체크박스 컴포넌트(터치 영역) 한 변 — 38pt ≈ 45.8px(모바일 뷰어 1.205px/pt, 44px 기준). 이웃 컴포넌트 간격 itemDX-touch=2pt, 라벨(상자 오른쪽 labelGap, labelSize)은 자기 컴포넌트 안에 끝남. v4(2줄·touch 30) 값은 커밋 3e3343c", "inline": true, "itemX0": 4, "itemDX": 56, "boxDX": 15, "topCY": 20, "otherText": [42,41,160,63], "otherHint": "기타 내용", "otherHintSize": 7, "box": 10, "printBox": false, "touch": 38, "labelGap": 4, "labelSize": 8},
+      "title": "방문자 명부",
+      "titleEn": "VISITOR LOG",
+      "cols": [
+        {
+          "key": "no",
+          "label": "번호",
+          "w": 24
+        },
+        {
+          "key": "시각",
+          "label": "시각",
+          "w": 42,
+          "type": "time"
+        },
+        {
+          "key": "성명",
+          "label": "성명",
+          "w": 78,
+          "type": "text"
+        },
+        {
+          "key": "연락처",
+          "label": "연락처",
+          "w": 86,
+          "type": "text",
+          "keyboard": "phone"
+        },
+        {
+          "key": "목적",
+          "label": "방문 목적",
+          "w": 164,
+          "type": "purpose",
+          "options": ["단순 문의", "도입 상담"],
+          "otherLabel": "기타"
+        },
+        {
+          "key": "담당자",
+          "label": "담당자",
+          "w": 54,
+          "type": "text"
+        },
+        {
+          "key": "서명",
+          "label": "서명",
+          "w": 75,
+          "type": "signature"
+        }
+      ],
+      "band": {
+        "top": 62,
+        "h": 48,
+        "titleBaseline": 86,
+        "titleSize": 19,
+        "enBaseline": 101,
+        "enSize": 7
+      },
+      "headerTop": 120,
+      "headerH": 24,
+      "headerSize": 9,
+      "noteY": 822,
+      "noteSize": 8,
+      "headerFields": [
+        {
+          "id": "기관명",
+          "fallback": "포시에스",
+          "box": [
+            250,
+            20,
+            452,
+            38
+          ],
+          "size": 12,
+          "bold": true,
+          "color": "#15223F",
+          "align": "right",
+          "sample": "포시에스 본사"
+        },
+        {
+          "id": "부서",
+          "fallback": "3층 안내데스크",
+          "box": [
+            250,
+            38,
+            452,
+            52
+          ],
+          "size": 9,
+          "color": "#64748B",
+          "align": "right",
+          "sample": "1층 안내데스크"
+        },
+        {
+          "id": "방문일",
+          "box": [
+            340,
+            80,
+            480,
+            102
+          ],
+          "size": 13,
+          "bold": true,
+          "color": "#FFFFFF",
+          "align": "right",
+          "label": "방문일",
+          "todayFallback": true,
+          "sample": "2026. 9. 28. (월)"
+        },
+        {
+          "id": "장번호",
+          "box": [
+            496,
+            80,
+            545,
+            102
+          ],
+          "size": 13,
+          "bold": true,
+          "color": "#FFFFFF",
+          "align": "right",
+          "label": "장 번호",
+          "sample": "3장"
+        }
+      ],
+      "logoSlot": {
+        "_comment": "고객 로고 자리(A안 2026-09-28: 고객이 로고 파일 1장을 보내면 우리가 빌드해 OZR 을 전달). build.mjs --logo <png|jpg|svg> 로 지정 — 없으면 로고 없이 기관명 텍스트만(fields 의 오른쪽 끝이 표 오른쪽 끝까지). 있으면 표 오른쪽 끝 정렬, 높이 h 고정·너비 maxW 상한(넘으면 높이를 줄이고 세로 가운데), 기관명·부서 값칸 오른쪽 끝 = 로고 왼쪽 - gap. 이 자리는 밴드(top 62) 위 흰 영역 20~52pt 안이라 행·페이지 수에 영향 없음. 포시에스 CI(3.09:1) 는 --logo ../../assets/brand/forcs-ci-en-original.png 로 v5 와 같은 위치(460~559, 20~52)에 들어간다",
+        "y": 20,
+        "h": 32,
+        "maxW": 140,
+        "gap": 8,
+        "fields": ["기관명", "부서"]
+      },
+      "logos": [
+        {
+          "file": "../../assets/brand/eformsign-logo-blue.png",
+          "right": true,
+          "yCenter": 819,
+          "h": 15
+        }
+      ],
+      "colors": {
+        "title": "#FFFFFF",
+        "band": "#15223F",
+        "bandSub": "#9FB0CC",
+        "bandRule": "#3A4A6B",
+        "headerText": "#1F2A44",
+        "outer": "#15223F",
+        "grid": "#E2E8F0",
+        "vgrid": "#EDF1F5",
+        "number": "#B0B9C6",
+        "optLabel": "#64748B",
+        "optBox": "#94A3B8",
+        "note": "#8A94A3",
+        "ownBorder": "#15223F",
+        "ownFill": "#EEF3FA",
+        "coverBg": "#EEF0F3",
+        "coverText": "#8A94A3",
+        "time": "#64748B"
+      }
+    },
+    "DH": {
+      "_comment0": "DH(2026-11-16): D v8 와 같고 서명 열만 이폼사인 정식 「손글씨」 입력 항목(OZICHANDWRITING 285278480)으로 방출한다(signKind). 시험 사본용 — 상품 기본값은 D 그대로.",
+      "signKind": "handwriting",
+      "_comment": "D안(사용자 결정 2026-09-28 \"추천안으로 알아서해\"): 디자인 방향 1(기업 리셉션 — 네이비 헤더 밴드, 얇은 괘선) + 방향 2 의 방문 목적 체크칸. 10행 1쪽, 행 66pt. style=reception 은 make-pdf-product.py 의 별도 배경 분기. 기관 로고는 오른쪽 상단(모바일 뷰어의 떠 있는 버튼 5개가 좌상단을 가림 — C2 실측). headerFields = 읽기 전용 값칸(문서 생성 API document.fields 로 주입 — 2026-09-28 실측 PASS. 주입이 없으면(공개 URL 등 API 없는 경로) 1단계 OnBind 가 비어 있을 때만 채움: todayFallback=오늘 날짜, fallback=고정 문구. 장번호는 주입 전용). cols[].type: time=읽기 전용·자기 행 OnBind 에서 비어 있을 때만 HH:MM, purpose=체크박스 3개(윗줄)+기타 체크박스+기타 텍스트(아랫줄)",
+      "style": "reception",
+      "ozrRequired": "own-row",
+      "rows": 10,
+      "rowsPerPage": 10,
+      "rowH": 66,
+      "inputSize": 13,
+      "numberSize": 11,
+      "coverSize": 13,
+      "coverText": "✓ 작성 완료",
+      "signHint": {"_comment": "v8(2026-09-29 태블릿 시험 「서명 후 다음 행동을 몰랐다」): 자기 행에만 보이는 안내 띠(NOPRINT, OnBind hiJs — 완료 PDF·편집기 미표시). fromKey 칸부터 마지막 칸까지 행 아래쪽 h pt 띠, 그 칸들의 입력칸(담당자 글칸·서명칸)은 띠 위에서 끝나게 줄인다(겹침·터치 가로채기 없음). 서명칸 한 칸(75pt)엔 8pt 전문이 안 들어가 담당자 칸부터 편다. 서명 이벤트(OnValueChanged 등)로 「서명 후 표시」는 실증이 없어 쓰지 않음 — 항상 표시", "text": "서명 후 오른쪽 아래 [전송]", "fromKey": "담당자", "h": 13, "size": 8, "padR": 3.5},
+      "ownNoInverse": true,
+      "purposeGeo": {"_comment": "방문 목적 칸 안 좌표(칸 왼쪽 x0·행 top 기준 pt). v5(inline=true): 선택지 3개+기타 = 윗줄 한 줄 4칸 — 상자 중심 x = x0+itemX0+k*itemDX+boxDX, y = top+topCY. 아랫줄 = 기타 내용 텍스트칸 otherText=[x0+,top+,x0+,top+] + 앞 안내 otherHint. box=상자 한 변. printBox=false = 배경 PDF 에 상자를 그리지 않음(OZ 체크박스가 자기 상자를 그리므로 완료 PDF 이중 테두리 제거). touch=체크박스 컴포넌트(터치 영역) 한 변 — 38pt ≈ 45.8px(모바일 뷰어 1.205px/pt, 44px 기준). 이웃 컴포넌트 간격 itemDX-touch=2pt, 라벨(상자 오른쪽 labelGap, labelSize)은 자기 컴포넌트 안에 끝남. v4(2줄·touch 30) 값은 커밋 3e3343c", "inline": true, "itemX0": 4, "itemDX": 56, "boxDX": 15, "topCY": 20, "otherText": [42,41,160,63], "otherHint": "기타 내용", "otherHintSize": 7, "box": 10, "printBox": false, "touch": 38, "labelGap": 4, "labelSize": 8},
+      "title": "방문자 명부",
+      "titleEn": "VISITOR LOG",
+      "cols": [
+        {
+          "key": "no",
+          "label": "번호",
+          "w": 24
+        },
+        {
+          "key": "시각",
+          "label": "시각",
+          "w": 42,
+          "type": "time"
+        },
+        {
+          "key": "성명",
+          "label": "성명",
+          "w": 78,
+          "type": "text"
+        },
+        {
+          "key": "연락처",
+          "label": "연락처",
+          "w": 86,
+          "type": "text",
+          "keyboard": "phone"
+        },
+        {
+          "key": "목적",
+          "label": "방문 목적",
+          "w": 164,
+          "type": "purpose",
+          "options": ["단순 문의", "도입 상담"],
+          "otherLabel": "기타"
+        },
+        {
+          "key": "담당자",
+          "label": "담당자",
+          "w": 54,
+          "type": "text"
+        },
+        {
+          "key": "서명",
+          "label": "서명",
+          "w": 75,
+          "type": "signature"
+        }
+      ],
+      "band": {
+        "top": 62,
+        "h": 48,
+        "titleBaseline": 86,
+        "titleSize": 19,
+        "enBaseline": 101,
+        "enSize": 7
+      },
+      "headerTop": 120,
+      "headerH": 24,
+      "headerSize": 9,
+      "noteY": 822,
+      "noteSize": 8,
+      "headerFields": [
+        {
+          "id": "기관명",
+          "fallback": "포시에스",
+          "box": [
+            250,
+            20,
+            452,
+            38
+          ],
+          "size": 12,
+          "bold": true,
+          "color": "#15223F",
+          "align": "right",
+          "sample": "포시에스 본사"
+        },
+        {
+          "id": "부서",
+          "fallback": "3층 안내데스크",
+          "box": [
+            250,
+            38,
+            452,
+            52
+          ],
+          "size": 9,
+          "color": "#64748B",
+          "align": "right",
+          "sample": "1층 안내데스크"
+        },
+        {
+          "id": "방문일",
+          "box": [
+            340,
+            80,
+            480,
+            102
+          ],
+          "size": 13,
+          "bold": true,
+          "color": "#FFFFFF",
+          "align": "right",
+          "label": "방문일",
+          "todayFallback": true,
+          "sample": "2026. 9. 28. (월)"
+        },
+        {
+          "id": "장번호",
+          "box": [
+            496,
+            80,
+            545,
+            102
+          ],
+          "size": 13,
+          "bold": true,
+          "color": "#FFFFFF",
+          "align": "right",
+          "label": "장 번호",
+          "sample": "3장"
+        }
+      ],
+      "logoSlot": {
+        "_comment": "고객 로고 자리(A안 2026-09-28: 고객이 로고 파일 1장을 보내면 우리가 빌드해 OZR 을 전달). build.mjs --logo <png|jpg|svg> 로 지정 — 없으면 로고 없이 기관명 텍스트만(fields 의 오른쪽 끝이 표 오른쪽 끝까지). 있으면 표 오른쪽 끝 정렬, 높이 h 고정·너비 maxW 상한(넘으면 높이를 줄이고 세로 가운데), 기관명·부서 값칸 오른쪽 끝 = 로고 왼쪽 - gap. 이 자리는 밴드(top 62) 위 흰 영역 20~52pt 안이라 행·페이지 수에 영향 없음. 포시에스 CI(3.09:1) 는 --logo ../../assets/brand/forcs-ci-en-original.png 로 v5 와 같은 위치(460~559, 20~52)에 들어간다",
+        "y": 20,
+        "h": 32,
+        "maxW": 140,
+        "gap": 8,
+        "fields": ["기관명", "부서"]
+      },
+      "logos": [
+        {
+          "file": "../../assets/brand/eformsign-logo-blue.png",
+          "right": true,
+          "yCenter": 819,
+          "h": 15
+        }
+      ],
+      "colors": {
+        "title": "#FFFFFF",
+        "band": "#15223F",
+        "bandSub": "#9FB0CC",
+        "bandRule": "#3A4A6B",
+        "headerText": "#1F2A44",
+        "outer": "#15223F",
+        "grid": "#E2E8F0",
+        "vgrid": "#EDF1F5",
+        "number": "#B0B9C6",
+        "optLabel": "#64748B",
+        "optBox": "#94A3B8",
+        "note": "#8A94A3",
+        "ownBorder": "#15223F",
+        "ownFill": "#EEF3FA",
+        "coverBg": "#EEF0F3",
+        "coverText": "#8A94A3",
+        "time": "#64748B"
+      }
+    },
+    "P": {
+      "_comment": "서명칸 빈 자리표시(펜) 아이콘 실측 프로브. 1행=서명(대조), 2행 ICONSIZE=0, 3행 ICONSIZE=1, 4행 기본 12",
+      "title": "방명록 (서명칸 아이콘 실측)",
+      "rows": 4, "rowsPerPage": 4, "rowH": 66, "inputSize": 13, "numberSize": 12, "coverSize": 13,
+      "signIconSizeByRow": {"1": 12, "2": 0, "3": 1, "4": 12}
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "_note": "Main60 v4.1 실측. 전환 근거 = src/compositions/Main60.tsx XFADE_SEAMS(hook→paper, fill→repeat, 9프레임=0.3s), 나머지 hard. repeat 은 4분할이라 cuts [0] 이지만 textBlocks 2. fill 두 번째 컷 5.0s 는 추정, manage 컷 5개는 사실.",
+  "scenes": [
+    { "id": "hook",     "cuts": [0],             "transitionIn": "hard",      "transitionSec": 0,   "textBlocks": 1, "captionLines": 2 },
+    { "id": "paper",    "cuts": [0, 3.3],        "transitionIn": "crossfade", "transitionSec": 0.3, "textBlocks": 1, "captionLines": 2 },
+    { "id": "designer", "cuts": [0],             "transitionIn": "hard",      "transitionSec": 0,   "textBlocks": 1, "captionLines": 2 },
+    { "id": "fill",     "cuts": [0, 5.0],        "transitionIn": "hard",      "transitionSec": 0,   "textBlocks": 1, "captionLines": 2 },
+    { "id": "repeat",   "cuts": [0],             "transitionIn": "crossfade", "transitionSec": 0.3, "textBlocks": 2, "captionLines": 2 },
+    { "id": "manage",   "cuts": [0, 2, 4, 6, 8], "transitionIn": "hard",      "transitionSec": 0,   "textBlocks": 1, "captionLines": 2 },
+    { "id": "branch",   "cuts": [0],             "transitionIn": "hard",      "transitionSec": 0,   "textBlocks": 1, "captionLines": 2 },
+    { "id": "cta",      "cuts": [0],             "transitionIn": "hard",      "transitionSec": 0,   "textBlocks": 1, "captionLines": 2 }
+  ]
+}

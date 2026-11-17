@@ -1,0 +1,137 @@
+{
+  "out": "docs/storyboard-v5.png",
+  "cols": 3,
+  "textH": 330,
+  "headH": 140,
+  "title": "홍보 영상 v5 스토리보드 — 1장 N명 방명록",
+  "metaHtml": "9장면 · 장면 합계 <span class=\"nb\">70초</span> + 숨 <span class=\"nb\">0.5초 × 8</span> ≈ <span class=\"nb\">74초</span><br>카피 초안 · 애니매틱 시사에서 확정 · <span class=\"nb\">2026-10-12</span>",
+  "scenes": [
+    {
+      "n": 1,
+      "id": "hook",
+      "name": "훅",
+      "sec": 6,
+      "frame": {
+        "kind": "cover",
+        "src": "gen/gen-01.png"
+      },
+      "screen": "종이 방명록 생성 이미지, 느린 줌",
+      "narr": "방명록, 아직도 수기로 작성하고 직접 관리하시나요?",
+      "cap": "방명록, / 아직도 수기로 작성하고 직접 관리하시나요?"
+    },
+    {
+      "n": 2,
+      "id": "paper",
+      "name": "문제",
+      "sec": 8,
+      "frame": {
+        "kind": "cover",
+        "src": "gen/gen-02.png"
+      },
+      "screen": "종이 푸시인 → 밤 옮겨 적기",
+      "narr": "앞사람 이름과 연락처는 그대로 노출되고, 그 기록은 결국 누군가 한 줄씩 옮겨 적어야 합니다.",
+      "cap": "연락처는 그대로 노출, / 정리는 전부 손으로"
+    },
+    {
+      "n": 3,
+      "id": "bridge",
+      "name": "브리지 ★신규",
+      "sec": 7,
+      "frame": {
+        "kind": "split",
+        "left": "gen/gen-01.png",
+        "right": "shots/demo/tablet/V3-step1-filled-x25.png",
+        "y": 520
+      },
+      "badge": "신규 제작 · 의도 합성(종이 → 태블릿)",
+      "screen": "종이 표가 태블릿 표로 모핑(같은 열·같은 행)",
+      "narr": "이폼사인으로 바꾸면, 종이 방명록 그대로 한 장에 여러 분이 씁니다.",
+      "cap": "종이 그대로, / 한 장에 여러 명"
+    },
+    {
+      "n": 4,
+      "id": "fill",
+      "name": "작성",
+      "sec": 10,
+      "frame": {
+        "kind": "tablet",
+        "src": "shots/demo/tablet/V3-step1-filled-x25.png",
+        "y": 520
+      },
+      "screen": "열린 한 줄 입력 → 서명·전송(컷 2)",
+      "narr": "방문하신 분은 열려 있는 한 줄에 이름과 연락처, 방문 목적만 적고 서명해 전송합니다.",
+      "cap": "열린 한 줄만 적고, / 서명하고 전송"
+    },
+    {
+      "n": 5,
+      "id": "next",
+      "name": "다음 사람",
+      "sec": 8,
+      "frame": {
+        "kind": "tablet",
+        "src": "shots/demo/tablet/V3-step2-filled-x25.png",
+        "y": 520
+      },
+      "screen": "앞 행 가림, 새 행 열림(모션 매치)",
+      "narr": "다음 분에게는 앞사람 이름도 연락처도 보이지 않습니다. 같은 한 장인데도요.",
+      "cap": "앞사람 정보는 / 가려집니다"
+    },
+    {
+      "n": 6,
+      "id": "stack",
+      "name": "하루 한 장",
+      "sec": 8,
+      "frame": {
+        "kind": "tablet",
+        "src": "shots/demo/tablet/V3-step5-filled-x25.png",
+        "y": 780
+      },
+      "badge": "대체 스틸 · 행 차오름 타임랩스 신규 제작",
+      "screen": "행이 차오름 → 문서함에 1건",
+      "narr": "열 분이 써도 문서는 하루 한 장입니다. 이폼사인 문서함에 그대로 쌓입니다.",
+      "cap": "열 명이 써도 / 문서는 하루 한 장"
+    },
+    {
+      "n": 7,
+      "id": "manage",
+      "name": "관리",
+      "sec": 9,
+      "frame": {
+        "kind": "cover",
+        "src": "shots/D/D02-search.png"
+      },
+      "badge": "⚠ 구 1인 1문서 캡처 · 1장 N명 문서함 재캡처 필요",
+      "screen": "검색 → PDF 열기(컷 2)",
+      "narr": "찾고, 열고, 내려받기까지 문서함에서 끝납니다. 옮겨 적는 일이 사라집니다.",
+      "cap": "찾고 · 열고 · 내려받기, / 옮겨 적는 일은 없습니다"
+    },
+    {
+      "n": 8,
+      "id": "branch",
+      "name": "확장",
+      "sec": 8,
+      "frame": {
+        "kind": "cover",
+        "file": "docs/storyboard-v5-s8.png"
+      },
+      "badge": "신규 제작 · 개념도",
+      "badgePos": "bottom",
+      "screen": "서식 종류 3갈래 → 이폼사인 문서함",
+      "narr": "방명록은 시작일 뿐입니다. 계약도, 동의도, 접수도 같은 이폼사인입니다.",
+      "cap": "방명록은 시작일 뿐 / 계약 · 동의 · 접수, 전부 이폼사인"
+    },
+    {
+      "n": 9,
+      "id": "cta",
+      "name": "CTA",
+      "sec": 6,
+      "frame": {
+        "kind": "logo",
+        "src": "brand/eformsign-logo-original.png"
+      },
+      "screen": "로고 PNG",
+      "narr": "지금 이폼사인을 체험해 보세요.",
+      "cap": "이폼사인 / 지금 체험해 보세요 / eformsign.com"
+    }
+  ]
+}

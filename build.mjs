@@ -4,7 +4,7 @@
  * 왜 필요한가: Vercel 「Deploy」 버튼으로 설치하면 고객이 저장소 파일(config.js)을 직접 고칠 수
  * 없다. 그래서 프로젝트 설정 > Environment Variables 에 넣은 값으로 config.js 를 만들어 준다.
  *
- *   node build.mjs              → public/ 에 index.html · setup.html · config.js · assets/ 를 만든다
+ *   node build.mjs              → public/ 에 index.html · setup.html · report.html · config.js · assets/ 를 만든다
  *   KIOSK_CONFIG=<설정 마법사가 만든 한 줄> node build.mjs
  *
  * 우선순위 (위가 이긴다):
@@ -46,6 +46,8 @@ const ENV_MAP = [
   ['KIOSK_SHOW_HEADER',       'showHeader',         'boolean'],
   ['KIOSK_HIDE_REQUEST_POPUP','hideRequestPopup',   'boolean'],
   ['KIOSK_DEBUG',             'debug',              'boolean'],
+  // 'single' = 한 사람 한 장(기본) / 'multirow' = 한 장에 여러 명(서버 포함 옵션, docs/multirow-option.md)
+  ['KIOSK_DOC_MODE',          'docMode',            'docmode'],
 ];
 
 const DEFAULTS = {
@@ -62,6 +64,7 @@ const DEFAULTS = {
   // 서식 로드 감시 시간(초). 이 시간 안에 작성 화면이 안 뜨면 담당자 확인 안내를 띄운다.
   loadWatchSeconds: 25,
   showHeader: true, hideRequestPopup: true, debug: false,
+  docMode: 'single',
 };
 
 function coerce(kind, raw) {
@@ -71,6 +74,11 @@ function coerce(kind, raw) {
     return n;
   }
   if (kind === 'boolean') return /^(1|true|yes|on)$/i.test(String(raw).trim());
+  if (kind === 'docmode') {
+    const v = String(raw).trim();
+    if (v !== 'single' && v !== 'multirow') throw new Error(`docMode 는 single 또는 multirow 여야 합니다: "${raw}"`);
+    return v;
+  }
   if (kind === 'mode') {
     const v = String(raw).trim();
     if (v !== 'immediate' && v !== 'thanks') throw new Error(`mode 는 immediate 또는 thanks 여야 합니다: "${raw}"`);
@@ -111,8 +119,11 @@ export function decodeKioskConfig(raw) {
     throw new Error('안에 든 내용이 설정값 형식이 아닙니다. 설정 마법사에서 값을 다시 복사해 주세요.');
   }
   const missing = [];
-  if (!obj.companyId) missing.push('회사 ID(companyId)');
-  if (!obj.templateId) missing.push('서식 ID(templateId)');
+  // 누적형은 회사·서식 ID 를 서버(/api/multirow)가 환경변수로 쥐고 있으므로 화면 설정에는 없어도 된다.
+  if (obj.docMode !== 'multirow') {
+    if (!obj.companyId) missing.push('회사 ID(companyId)');
+    if (!obj.templateId) missing.push('서식 ID(templateId)');
+  }
   if (missing.length) {
     throw new Error(missing.join(' · ') + ' 이(가) 없습니다. 설정 마법사 1단계에서 서식 주소를 다시 읽어 주세요.');
   }
@@ -172,7 +183,7 @@ function main() {
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
 
-  for (const f of ['index.html', 'setup.html']) {
+  for (const f of ['index.html', 'setup.html', 'report.html']) {
     if (!copyFile(f)) throw new Error(`필수 파일이 없습니다: ${f}`);
   }
   const assets = copyDir('assets');
@@ -185,6 +196,11 @@ function main() {
     console.error('설정값(KIOSK_CONFIG)이 잘못되었습니다:\n  - ' + e.message);
     process.exit(1);
   }
+  // 누적형 옵션을 서버 쪽에서 켜면(KIOSK_MULTIROW_ENABLED=true) 화면도 저절로 누적형으로 연다 —
+  // 고객이 설정값(KIOSK_CONFIG)을 다시 만들 필요가 없다. 끄려면 KIOSK_DOC_MODE=single.
+  const forceMulti = /^(1|true|yes|on)$/i.test(String(process.env.KIOSK_MULTIROW_ENABLED || '').trim())
+    && String(process.env.KIOSK_DOC_MODE || '').trim() !== 'single';
+  if (bundled && forceMulti) bundled.docMode = 'multirow';
   if (bundled) {
     fs.writeFileSync(path.join(OUT, 'config.js'), renderConfigJs(bundled), 'utf8');
     console.log('config.js: KIOSK_CONFIG 한 줄에서 생성 — 항목 ' + Object.keys(bundled).length + '개');
@@ -193,6 +209,7 @@ function main() {
   }
 
   const { found, problems } = readEnvConfig();
+  if (forceMulti) found.docMode = 'multirow';
   if (problems.length) {
     console.error('환경변수 값이 잘못되었습니다:\n  - ' + problems.join('\n  - '));
     process.exit(1);
@@ -204,7 +221,7 @@ function main() {
   } else {
     fs.writeFileSync(path.join(OUT, 'config.js'), renderConfigJs(found), 'utf8');
     console.log('config.js: 환경변수로 생성 — ' + Object.keys(found).join(', '));
-    if (!found.companyId || !found.templateId) {
+    if (found.docMode !== 'multirow' && (!found.companyId || !found.templateId)) {
       console.warn('⚠ KIOSK_COMPANY_ID / KIOSK_FORM_ID 가 비어 있으면 작성 화면이 열리지 않습니다.');
     }
   }

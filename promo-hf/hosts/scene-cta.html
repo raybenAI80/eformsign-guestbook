@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ko" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <title>CTA</title>
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #0a5a99;
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      #root > div[data-composition-src] {
+        position: absolute;
+        inset: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="cta-host"
+      data-start="0"
+      data-duration="4.5"
+      data-fps="30"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- standalone host for the CTA scene (render: node tools/render-scene.mjs cta). Scene body = compositions/cta.html, shared with index.html -->
+      <div
+        id="el-cta"
+        data-composition-id="cta"
+        data-composition-src="compositions/cta.html"
+        data-start="0"
+        data-duration="4.5"
+        data-track-index="1"
+        data-width="1920"
+        data-height="1080"
+      ></div>
+      <!-- narration (promo Narration id="cta") -->
+      <audio
+        id="cta-voice"
+        src="assets/voice/cta.mp3"
+        data-start="0"
+        data-duration="3.597"
+        data-track-index="10"
+        data-volume="1"
+      ></audio>
+      <!-- cta-reveal peak (18f) lands on the frame the tilt stops (23f) -> starts at 5f -->
+      <audio
+        id="cta-sfx-reveal"
+        src="assets/sfx/cta-reveal.wav"
+        data-start="0.16667"
+        data-duration="1.6"
+        data-track-index="11"
+        data-volume="1"
+      ></audio>
+      <!-- BGM: Main60 track at offset 55.5s; ducked -12 dB while narrating, 0.6 s release to -6 dB -->
+      <audio
+        id="cta-bgm"
+        src="assets/bgm/track.mp3"
+        data-start="0"
+        data-duration="4.5"
+        data-media-start="55.5"
+        data-track-index="12"
+        data-volume="1"
+        data-automation='{"version":1,"lanes":[{"target":"volume","points":[{"t":0,"v":0.251189},{"t":3.59775,"v":0.251189},{"t":4.19775,"v":0.501187},{"t":4.5,"v":0.501187}]}]}'
+      ></audio>
+    </div>
+    <script>
+      window.__timelines["cta-host"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,86 @@
+{
+  "_note": "Animatic51 v5.1 실측(2026-10-13). 전환 = Animatic51.tsx FADE 15f=0.5s 크로스페이드(첫 장면 제외). 컷 = 스틸 교체 시점(src/animatic-v51-cues.json, 장면 시작 기준 초). 🔴 bridge 는 브리프상 컷 1이지만 컴포지션 STILLS.bridge 가 2스틸(장면 중간 교체)이라 사실대로 2컷. narrationEndSec = leadSec + 나레이션 실측(클로바 봄달, tools/voice-import.mjs).",
+  "scenes": [
+    {
+      "id": "hook",
+      "cuts": [
+        0
+      ],
+      "transitionIn": "hard",
+      "transitionSec": 0,
+      "textBlocks": 1,
+      "captionLines": 2,
+      "narrationEndSec": 4.163
+    },
+    {
+      "id": "promise",
+      "cuts": [
+        0,
+        7.433
+      ],
+      "transitionIn": "crossfade",
+      "transitionSec": 0.5,
+      "textBlocks": 1,
+      "captionLines": 2,
+      "narrationEndSec": 11.751
+    },
+    {
+      "id": "bridge",
+      "cuts": [
+        0,
+        3.5
+      ],
+      "transitionIn": "crossfade",
+      "transitionSec": 0.5,
+      "textBlocks": 1,
+      "captionLines": 2,
+      "narrationEndSec": 3.973
+    },
+    {
+      "id": "visitor",
+      "cuts": [
+        0,
+        8
+      ],
+      "transitionIn": "crossfade",
+      "transitionSec": 0.5,
+      "textBlocks": 1,
+      "captionLines": 2,
+      "narrationEndSec": 11.267
+    },
+    {
+      "id": "staff",
+      "cuts": [
+        0,
+        7.5
+      ],
+      "transitionIn": "crossfade",
+      "transitionSec": 0.5,
+      "textBlocks": 1,
+      "captionLines": 2,
+      "narrationEndSec": 13.657
+    },
+    {
+      "id": "expand",
+      "cuts": [
+        0
+      ],
+      "transitionIn": "crossfade",
+      "transitionSec": 0.5,
+      "textBlocks": 1,
+      "captionLines": 2,
+      "narrationEndSec": 7.528
+    },
+    {
+      "id": "cta",
+      "cuts": [
+        0
+      ],
+      "transitionIn": "crossfade",
+      "transitionSec": 0.5,
+      "textBlocks": 1,
+      "captionLines": 2,
+      "narrationEndSec": 2.636
+    }
+  ]
+}

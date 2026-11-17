@@ -144,7 +144,7 @@ python -m http.server 8099 --bind 127.0.0.1
   훑어 금칙어를 검출합니다(괄호 안 원어와 `data-term-ok` 요소는 제외). HTML(`setup.html` 등) 뿐 아니라
   고객용 안내 문서(md)도 검사 대상입니다 — `--md <파일...>` 로 지정한 md 파일을, 또는
   `--docs` 로 `docs/README.md · docs/vercel-signup-guide.md · docs/report-option.md ·
-  docs/after-form-change.md` 4종을 한꺼번에 검사합니다.
+  docs/after-form-change.md · docs/multirow-option.md` 5종을 한꺼번에 검사합니다.
 - 한 화면 = 할 일 하나 = 강조 버튼 하나. 나머지 버튼은 작고 회색.
 - 각 단계에 실제 화면 그림 + 눌러야 할 자리 빨간 박스. 로그인 뒤 화면은
   `docs/img/post-login-captures.json` 이 들어오면 자동으로 붙고, 없으면 「화면 그림 준비 중」 자리표시자와
@@ -251,6 +251,7 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 | `KIOSK_ABANDON_SECONDS` | `abandonResetSeconds` |
 | `KIOSK_COUNTDOWN_SECONDS` | `countdownSeconds` |
 | `KIOSK_SHOW_HEADER` / `KIOSK_HIDE_REQUEST_POPUP` / `KIOSK_DEBUG` | 각 동명 설정 |
+| `KIOSK_DOC_MODE` | `docMode` (`single` / `multirow`). `KIOSK_MULTIROW_ENABLED=true` 면 따로 안 넣어도 `multirow` |
 
 값이 형식에 맞지 않으면 빌드가 **실패**하고 어떤 변수가 잘못됐는지 알려 줍니다
 (예: `KIOSK_MODE` 에 `immediate`/`thanks` 가 아닌 값).
@@ -272,7 +273,7 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 |---|---|
 | `KIOSK_REPORT_ENABLED` | `true` 여야 동작합니다. 없으면 `404` 로 답하고 끝 |
 | `EFORMSIGN_API_KEY` / `EFORMSIGN_PRIVATE_KEY` | 이폼사인 API 자격 |
-| `EFORMSIGN_MEMBER_ID` | (선택) 멤버 토큰으로 조회할 때 |
+| `EFORMSIGN_MEMBER_ID` | 🔴 **사실상 필수**(멤버 계정 아이디). 없으면 문서 목록 조회가 `401 {"code":"4010001","ErrorMessage":"The access_token claim is invalid."}` 로 막힙니다 — 회사 토큰으로는 문서 관리함(`type:04`)을 읽지 못합니다(2026-09-18 실측) |
 | `KIOSK_REPORT_DAYS` | (선택) 조회 기간(일). 기본 `30` |
 | `REPORT_SECRET` | 수동 호출용 열쇠. `/api/report?secret=<값>` |
 | `KIOSK_REPORT_FIELD_VALUES` | (선택) `on` 이면 서식 항목 **값**까지 싣습니다. 기본은 끔 |
@@ -282,10 +283,64 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 3. 하루 한 번 자동 실행하려면 `vercel.report.json` 의 `crons` 블록을 `vercel.json` 최상위에
    붙여 넣고 다시 배포합니다. 🔴 **Vercel 무료 플랜의 크론은 하루 1회까지만** 허용됩니다.
 
+### 리포트 화면 (`report.html`)
+
+메일·웹훅 말고 **화면으로 바로 보는 길**도 같이 들어 있습니다. 배포 주소 뒤에 `/report.html` 을
+붙여 열고 `REPORT_SECRET` 값을 입력하면, 같은 `/api/report` 응답을 그대로 표로 그립니다 —
+합계 카드(완료 건수·기록이 있는 날·평균 처리시간·열 개수)와 날짜별 막대, 문서별 표,
+그리고 **CSV 내려받기** 버튼입니다. 표시만 하는 정적 파일이라 서버 코드는 손대지 않습니다.
+
+입력한 값은 그 탭의 `sessionStorage` 에만 두고 창을 닫으면 지워집니다. 옵션이 꺼져 있거나
+(`404`) 값이 틀리거나(`401`) 자격 증명이 비었을 때(`500`) 각각 무엇을 고치면 되는지
+화면에서 안내합니다. 이 화면은 검색엔진 색인에서 제외됩니다(`X-Robots-Tag: noindex`).
+
 리포트 표의 열은 **서식 항목에서 그때그때 만듭니다** — 어떤 서식을 붙여도 항목이 열로 따라옵니다.
 🔴 다만 **개인정보가 담긴 항목 값은 기본으로 싣지 않습니다.** 기본 리포트에 담기는 것은
 문서명·서식명·완료일·처리시간(분)과 **어떤 항목이 있었는지**까지입니다.
 값까지 필요하면 `KIOSK_REPORT_FIELD_VALUES=on` 을 넣어 켭니다.
+
+---
+
+## 한 장에 여러 명 받기 (누적형, 서버 포함 옵션)
+
+종이 방명록처럼 **문서 한 장에 방문자 N명이 차례로 한 줄씩** 적고, 앞 줄은 다음 사람에게 가리는 선택 기능입니다.
+다음 방문자가 같은 문서의 다음 단계를 열려면 외부 처리 토큰이 필요해 **이폼사인 API 키를 쥔 서버 함수**
+(`api/multirow.mjs`)를 씁니다 — 리포트 옵션과 같은 방식(고객 Vercel + 환경변수)이고 **기본은 꺼져 있습니다**
+(`KIOSK_MULTIROW_ENABLED=true` 가 아니면 `404`, API 호출 0).
+고객용 설명·서식 체크리스트·「안 돼요」 = [`docs/multirow-option.md`](docs/multirow-option.md).
+
+- **상태 저장소가 없습니다.** 부를 때마다 서식 ID 로 진행 중 문서를 이폼사인 문서 목록에서 찾고, 없거나 끝났으면
+  새 장을 만듭니다. 새 장의 수신자는 서식의 방문자(참여자) 단계 수만큼 **자리표시 외부 수신자**
+  (`KIOSK_MULTIROW_EMAIL` 를 `+v<k>` 로 갈라 쓴 주소, 알림 끔)로 채웁니다.
+- 화면(`index.html`, `docMode:'multirow'`)은 `/api/multirow` 가 준 `token_id` 로 임베딩
+  `mode.type "02"` + `user.type "02"` + `external_token` 을 엽니다. 전송 콜백 → 직전 `document_id` 를
+  `?last=` 로 넘겨 다시 부르면 다음 단계(또는 완료 시 새 장)가 옵니다. 유휴 리셋도 같은 호출입니다.
+- 응답에는 `token_id`(그 단계 1회용)와 회사·서식·문서 ID 만 싣고 API 키·개인키·액세스 토큰은 싣지 않습니다.
+  CORS 헤더를 주지 않고, 다른 사이트에서 온 요청(`Origin`·`Sec-Fetch-Site`)은 `403` 입니다.
+- 🔴 누적형에서는 `hide_request_popup` 을 항상 `false` 로 엽니다 — `true` 면 외부 수신자 문서의
+  「문서 전송」 확인창이 숨겨진 채 전송이 멈춥니다(오류·콜백 없음, 2026-09-28 실측).
+
+| 환경변수 | 뜻 |
+|---|---|
+| `KIOSK_MULTIROW_ENABLED` | `true` 여야 동작. 빌드도 이 값을 보고 화면을 `multirow` 로 바꿉니다 |
+| `EFORMSIGN_API_KEY` / `EFORMSIGN_PRIVATE_KEY` / `EFORMSIGN_MEMBER_ID` | 리포트 옵션과 같은 자격 |
+| `KIOSK_MULTIROW_FORM_ID` | 누적형 서식 ID (없으면 `KIOSK_FORM_ID`) |
+| `KIOSK_MULTIROW_EMAIL` | 자리표시 수신자용 고객 이메일 하나 |
+| `KIOSK_MULTIROW_ROWS` | (선택) 서식을 못 읽을 때만 쓰는 예비 칸 수. 기본 20 |
+| `KIOSK_MULTIROW_VALID_DAYS` | (선택) 방문자 단계 기한(일, 1~50). 기본 50 — 안 주면 이폼사인 기본은 7일 |
+| `KIOSK_MULTIROW_DOC_NAME` / `KIOSK_TIMEZONE` | (선택) 문서 이름 앞부분(기본 `방명록`) / 이름에 붙는 시각 기준(기본 `Asia/Seoul`) |
+| `KIOSK_MULTIROW_ORG_NAME` / `KIOSK_MULTIROW_DEPT` | (선택) 기본 서식(D안) 머리 칸 「기관명」·「부서」 값. 새 장을 만들 때 문서 생성 요청 `document.fields` 로 채운다. 비우면 안 보냄 |
+| `KIOSK_MULTIROW_DATE` / `KIOSK_MULTIROW_SHEET_NO` | (선택) `auto` 면 「방문일」= 새 장을 연 날(`KIOSK_TIMEZONE`), 「장번호」= 그날 몇 번째 장인지(문서 목록 기준 `N장`). 그 밖의 값이면 안 보냄 |
+| `KIOSK_MULTIROW_NEW_SHEET` | (선택) `never`(기본·현행) / `daily` = 진행 중 장이 오늘(`KIOSK_TIMEZONE`)·같은 운영 구간(운영 전/중/후)에 만든 장이 아니면 그대로 둔 채 새 장 |
+| `KIOSK_MULTIROW_OPEN_AT` / `KIOSK_MULTIROW_CLOSE_AT` | (선택) 운영 시각 `HH:MM`. 시작 정각 = 운영 중, 종료 정각 = 마감. 형식 오류·종료≤시작이면 `400 bad_env` + `invalid:[이름]` |
+| `KIOSK_MULTIROW_AFTER_CLOSE` | (선택) 운영 시간 밖 요청: `new`(기본) = 새 장 / `closed` = `200 {ok:false, code:'CLOSED', openAt, closeAt}` (이폼사인 호출 0), 화면은 방문자용 「받지 않습니다」 + 60초마다 재확인 |
+
+로컬 검증: `node --env-file=.local/report.env tools/multirow-option/probe.mjs --template-name "<서식 이름>" plan|call|doc|serve`,
+판정 로직 단위 검사 `node tools/multirow-option/test-lib.mjs`.
+응답 `sheet = {dayKey, inWindow, reason}` — `reason` 은 `reuse`·`new_day`·`after_close`·`before_open`·`first`(이어 쓸 장 없음: 첫 장·앞 장이 다 참).
+🔴 이폼사인 API 에는 문서 강제 완료가 없다(취소·반려·삭제뿐) — 종료 시각은 **장 마감 + 다음 방문자 새 장**이고, 마감된 장은 취소하지 않고 진행 중으로 남긴다. 크론 없이 요청 시점에 판정한다.
+
+서버 함수는 `vercel.json` 의 `regions: ["icn1"]` 로 서울에서 실행한다(Vercel 기본은 미국 동부 `iad1`). 한국 고객 기준 판단이다: 이폼사인 API 주소가 `kr-api.eformsign.com` 이고 한국에서 이 주소로의 연결이 0.03~0.07초라 서버도 한국에 두는 쪽이 왕복이 짧다. 이폼사인 서버의 실제 위치는 확인하지 못했고(가속 서비스 뒤에 있음), 배포 뒤 측정으로 효과를 확인한다. Hobby 플랜은 지역을 하나만 고를 수 있어 서울 하나면 된다. 해외에서 쓰는 고객은 이 값을 가까운 지역으로 바꾼다.
 
 ---
 
@@ -361,17 +416,21 @@ env=KIOSK_CONFIG&envDescription=설정 마법사에서 복사한 값을 붙여 �
 ```
 index.html          키오스크 화면 (설정 한 장으로 동작)
 setup.html          설정 마법사 (정적, 서버 없음)
+report.html         완료 문서 리포트 화면 (정적, /api/report 를 표로 그린다)
 config.js           설정 파일
 build.mjs           환경변수(KIOSK_CONFIG 우선) → public/config.js 생성 (의존성 0)
-tools/check-plain-language.mjs  화면 문안 금칙어 게이트 (--md, --docs 로 고객용 md 4종도 검사)
+tools/check-plain-language.mjs  화면 문안 금칙어 게이트 (--md, --docs 로 고객용 md 5종도 검사)
 tools/verify-origin.mjs         고객 자체 도메인(비-vercel·비-localhost) 에서도 임베딩이 열리는지 실증
 tools/serve-https.mjs           verify-origin 용 로컬 HTTPS 정적 서버 (nip.io 등 와일드카드 루프백 호스트)
-tools/check-a11y.mjs            접근성 게이트 (axe-core, 펼침 모드 + setup.html 카드 16장 전수)
-tools/walkthrough-setup.mjs     setup.html 카드 마법사 16장 워크스루 재생성 (텍스트+axe+375/768 스크린샷)
+tools/report-preview.mjs        report.html 로컬 미리보기 (--state ok|empty|disabled|unauthorized|error, 키 불필요)
+tools/check-a11y.mjs            접근성 게이트 (axe-core, 펼침 모드 + setup.html 카드 17장 전수)
+tools/walkthrough-setup.mjs     setup.html 카드 마법사 17장 워크스루 재생성 (텍스트+axe+375/768 스크린샷)
 vercel.json         빌드·캐시·보안 헤더
 vercel.report.json  리포트 옵션용 crons 조각 (기본 미적용)
 api/report.mjs      완료 문서 리포트 (유료 옵션, 기본 꺼짐)
-api/lib/            리포트용 최소 이폼사인 클라이언트 (사내 SDK 에서 옮겨 옴)
+api/multirow.mjs    한 장에 여러 명(누적형) — 지금 열 문서·단계 토큰 (서버 포함 옵션, 기본 꺼짐)
+api/lib/            리포트·누적형용 최소 이폼사인 클라이언트 (사내 SDK 에서 옮겨 옴)
+tools/multirow-option/  누적형 로컬 검증(probe.mjs: plan·call·doc·create·serve) · 판정 단위 검사(test-lib.mjs)
 assets/             로고 등
 tools/              래퍼 검증 도구
 docs/               가입·도메인 안내
