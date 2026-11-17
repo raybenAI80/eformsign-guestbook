@@ -34,7 +34,7 @@
     "coverLabel": true,
     "highlightOwnRow": true,
     "stepDebug": false,
-    "requiredCols": ["성명", "서명"],
+    "requiredCols": ["성명", "연락처", "서명"],
     "ozrRequired": "static",
     "stepNamePrefix": "방문자 "
   },

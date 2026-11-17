@@ -23,6 +23,12 @@ import { measureChrome, consentState, oopifOffset } from './measure-row.mjs';
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf(k); return i > -1 ? argv[i + 1] : d; };
 const DRY = argv.includes('--dry');
+// 2026-11-17: 필수 항목 수는 화면 「필수 입력 항목(0/N)」 에서 읽는다(성명·서명 = 2, 연락처 필수 서식 = 3).
+//   --phone <번호>: 연락처 칸이 포커스를 받으면 입력한다(없으면 연락처를 비운 채 서명한다).
+//   --expect-blocked: 「확인」 뒤 「전송」 버튼이 없고 진행도가 N/N 이 아니면 PASS(필수 차단 성립), 전송은 누르지 않는다.
+const PHONE = arg('--phone');
+const RESUME = argv.includes('--resume');   // 손글씨 창이 이미 열려 있는 탭에서 이어서(입력 시작·성명·다음 단계 생략). --req-n <N> 으로 필수 수를 준다.
+const EXPECT_BLOCKED = argv.includes('--expect-blocked');
 const NAME = arg('--name');
 const SHAPE = ((Number(arg('--shape', '0')) % 10) + 10) % 10;   // any integer; reduced mod 10 (NaN stays NaN -> bad arguments)
 const OUT = arg('--out', '.local/evidence-multirow/visitor-fill');
@@ -65,25 +71,42 @@ if (DRY) {
     : 'screen not readable (viewer frame not attached)', readable ? 0 : 1);
 }
 if (state.consentGate && state.consentChecked === false) done('FAIL', '동의 화면이 아직 떠 있다 — 동의 체크와 「계속」은 호출자가 먼저 누른다 (nothing clicked)', 2);
-if (!state.startBtn || !/\(0\/2\)/.test(state.prog || '')) done('FAIL', `start state: 입력 시작=${!!state.startBtn} 진행도=${state.prog}`, 2);
+const REQ_N = RESUME ? Number(arg('--req-n', '0')) : Number(((state.prog || '').match(/\(0\/(\d+)\)/) || [])[1] || 0);
+if (!RESUME && (!state.startBtn || !REQ_N)) done('FAIL', `start state: 입력 시작=${!!state.startBtn} 진행도=${state.prog}`, 2);
 
 // ── 2. 입력 시작 → 성명 ──
+if (!RESUME) {
 await clickAt(state.startBtn, '입력 시작'); await sleep(1200);
 await c.type(NAME); await sleep(600); note(`typed 성명 ${NAME}`);
 await shot('2-name');
+}
 
-// ── 3. 다음 → 손글씨 창 ──
-let nx = (await buttons('다음'))[0];
-if (!nx) { const ch2 = await measureChrome(c); nx = ch2?.start?.[0] && { center: ch2.start[0].center }; }
-if (!nx) done('FAIL', '「다음」 button not found after typing (nothing sent)', 1);
-await clickAt(nx.center, '다음'); await sleep(1500);
+// ── 3. 다음 → (연락처 칸이 먼저 오면 거기서 입력/건너뜀) → 손글씨 창 ──
+const padCanvas = async () => {
+  const [ox, oy] = await oopifOffset(c);
+  const cv = await c.evalView(`(()=>{const OX=${ox},OY=${oy};return [...document.querySelectorAll('canvas')].map(e=>{const q=e.getBoundingClientRect();return [Math.round(OX+q.left),Math.round(OY+q.top),Math.round(q.width),Math.round(q.height)]}).filter(r=>r[2]>=250&&r[2]<=480&&r[3]>=180&&r[3]<=320&&r[1]>=560)})()`);
+  return Array.isArray(cv) && cv.length ? cv[0] : null;
+};
+const activeMode = () => c.evalView(`(()=>{const a=(function f(d){const x=d.activeElement;return x&&x.contentDocument?f(x.contentDocument):x})(document);return a&&a.tagName==='INPUT'?a.getAttribute('inputmode')||a.type:null})()`).catch(() => null);
+let phoneTyped = false;
+for (let hop = RESUME ? 4 : 0; hop < 4; hop++) {
+  // 서명 창이 이미 열려 있으면(캔버스가 DOM 에 안 잡혀도 아래쪽 「확인」 버튼이 보이면) 더 누르지 않고 빠져나간다.
+  if (hop > 0 && (await buttons('확인')).some((b) => b.center[1] > 400)) { note('손글씨 창 감지(확인 버튼) — 다음 클릭 생략'); break; }
+  let nx = (await buttons('다음'))[0];
+  if (!nx) { const ch2 = await measureChrome(c); nx = ch2?.start?.[0] && { center: ch2.start[0].center }; }
+  // 「다음」 이 없고 이미 한 번 눌렀다면 손글씨 창이 열린 것으로 보고(캔버스가 DOM 에 안 잡히는 경우) 고정 좌표 폴백으로 이어간다.
+  if (!nx && hop > 0) { note('「다음」 없음 — 손글씨 창으로 보고 진행'); break; }
+  if (!nx) done('FAIL', '「다음」 button not found after typing (nothing sent)', 1);
+  await clickAt(nx.center, '다음'); await sleep(1500);
+  if (await padCanvas()) break;
+  const mode = await activeMode(); note('after 다음 #' + (hop + 1) + ': active input mode=' + mode);
+  if (mode === 'tel' && PHONE && !phoneTyped) { await c.type(PHONE); phoneTyped = true; await sleep(500); note('typed 연락처'); await shot('2b-phone'); }
+}
 await shot('3-pad');
 
 // ── 4. stroke ──
-let pad = null;
-const [ox, oy] = await oopifOffset(c);
-const cv = await c.evalView(`(()=>{const OX=${ox},OY=${oy};return [...document.querySelectorAll('canvas')].map(e=>{const q=e.getBoundingClientRect();return [Math.round(OX+q.left),Math.round(OY+q.top),Math.round(q.width),Math.round(q.height)]}).filter(r=>r[2]>=250&&r[2]<=480&&r[3]>=180&&r[3]<=320&&r[1]>=560)})()`);
-if (Array.isArray(cv) && cv.length) pad = cv[0]; else { pad = [185, 600, 361, 249]; note('pad canvas not found in DOM — fixed fallback 185,600,361,249'); }
+let pad = await padCanvas();
+if (!pad) { pad = [185, 600, 361, 249]; note('pad canvas not found in DOM — fixed fallback 185,600,361,249'); }
 const pts = strokePoints(pad[0], pad[1], pad[2], pad[3], SHAPE);
 const m = (type, x, y, b) => c.send('Input.dispatchMouseEvent', { type, x, y, button: type === 'mouseMoved' && !b ? 'none' : 'left', buttons: b, clickCount: 1 });
 await c.shot(`${OUT}-_reset.png`, 1);
@@ -99,8 +122,13 @@ let okXY = ok?.center; if (!okXY) { okXY = [665, 555]; note('확인 button not f
 await clickAt(okXY, '확인'); await sleep(1500);
 const ch3 = await measureChrome(c);
 await shot('5-confirmed');
-if (!/\(2\/2\)/.test(ch3?.prog || '') || !ch3?.send?.length) done('FAIL', `after 확인: 진행도=${ch3?.prog} 전송=${!!ch3?.send?.length} — 전송하지 않았다`, 1);
-note('필수 2/2 + 전송 버튼 확인');
+const fullRe = new RegExp(String.raw`\(${REQ_N}/${REQ_N}\)`);
+if (EXPECT_BLOCKED) {
+  const blocked = !fullRe.test(ch3?.prog || '') && !ch3?.send?.length;
+  done(blocked ? 'PASS' : 'FAIL', `expect-blocked: 진행도=${ch3?.prog} 전송=${!!ch3?.send?.length} — 전송은 누르지 않았다`, blocked ? 0 : 1);
+}
+if (!fullRe.test(ch3?.prog || '') || !ch3?.send?.length) done('FAIL', `after 확인: 진행도=${ch3?.prog} 전송=${!!ch3?.send?.length} — 전송하지 않았다`, 1);
+note(`필수 ${REQ_N}/${REQ_N} + 전송 버튼 확인`);
 
 // ── 6. 전송 (once) ──
 await clickAt(ch3.send[0].center, '전송');

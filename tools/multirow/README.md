@@ -15,7 +15,7 @@ EFORMSIGN_CORE_DIR=<eformsign-core> node tools/multirow/build.mjs --layout tools
 ## 필수 표시는 자기 행만 (D v7, 2026-09-29 — `ozrRequired: "own-row"`)
 
 - variant D 는 `ozrRequired: "own-row"` 다. 성명·서명에 정적 `REQUIRED="true"` 20건을 그대로 두고(빈 전송 차단은 이 정적 속성 + 참여자 단계 필수가 함께 있어야 성립 — v4 플랫폼 필수 단독은 실패), 모든 입력칸 OnBind 에 `This.SetRequired(_cur === _row)` 를 넣어 **단계 k 에서는 k행만** 필수(분홍·뱃지)로 보이게 한다. 단계를 모르는 화면(편집기 미리보기·PDF, `_cur 0`)에서는 전 행이 필수 해제로 그려진다.
-- 확인: 빌드 xml 에서 `REQUIRED="true"` 20 · `SetRequired(_cur === _row)` 20. 열람 화면 트래커 「필수 입력 항목(0/2)」, 입력 없이 「입력 시작 → 다음」을 눌러도 「전송」 버튼이 생기지 않고 문서 단계가 그대로면 차단 성립.
+- 확인: 빌드 xml 에서 `REQUIRED="true"` 30 · `SetRequired(_cur === _row)` 30. 열람 화면 트래커 「필수 입력 항목(0/3)」, 입력 없이 「입력 시작 → 다음」을 눌러도 「전송」 버튼이 생기지 않고 문서 단계가 그대로면 차단 성립.
 - `"static"`(v6 까지)은 정적 속성만이라 편집기·뷰어에서 10행 성명·서명이 전부 분홍으로 보인다.
 
 ## 자기 행 「서명 후 오른쪽 아래 [전송]」 안내 (D v8, 2026-09-29 — `signHint`)
